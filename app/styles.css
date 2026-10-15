@@ -290,7 +290,8 @@ kbd {
   font-size: 0.9rem;
 }
 
-.field input[type="number"] {
+.field input[type="number"],
+.field input[type="text"] {
   padding: 0.6rem 0.7rem;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -298,6 +299,19 @@ kbd {
   color: var(--text);
   font: inherit;
   min-height: 44px;
+}
+
+.session-label {
+  width: 100%;
+  max-width: 22rem;
+  margin-top: 1.25rem;
+  text-align: left;
+}
+
+.field__hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
 }
 
 .field--checkbox {
@@ -345,16 +359,103 @@ kbd {
   color: var(--text-muted);
 }
 
+.stats__labels {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.stats__labels[hidden],
+.stats__recent[hidden],
+.stats__days[hidden] {
+  display: none;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 32px;
+  padding: 0.3rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-muted);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.15s ease-in-out, border-color 0.15s ease-in-out;
+}
+
+.chip:hover {
+  border-color: var(--accent);
+}
+
+.chip[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.chip__count {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+.stats__recent {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.recent-session {
+  display: grid;
+  grid-template-columns: 3.5rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-muted);
+  font-size: 0.9rem;
+}
+
+.recent-session__date {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.recent-session__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.recent-session__label--muted {
+  color: var(--text-muted);
+  font-weight: 400;
+  font-style: italic;
+}
+
+.recent-session__minutes {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .stats__days {
   list-style: none;
   margin: 0.75rem 0 0;
   padding: 0;
   display: grid;
   gap: 0.45rem;
-}
-
-.stats__days[hidden] {
-  display: none;
 }
 
 .stats-day {

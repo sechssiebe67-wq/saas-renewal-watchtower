@@ -125,12 +125,37 @@ class AppAssetTests(unittest.TestCase):
             self.assertIn(fragment, html, "missing %s (%s)" % (label, fragment))
         self.assertIn("No sessions yet", html)
 
+    def test_html_has_session_label_and_stats_tagging(self):
+        html = read_app_file("index.html")
+        expectations = {
+            "session label input": 'id="session-label"',
+            "stats label chips": 'id="stats-labels"',
+            "stats recent list": 'id="stats-recent"',
+        }
+        for label, fragment in expectations.items():
+            self.assertIn(fragment, html, "missing %s (%s)" % (label, fragment))
+        self.assertIn('maxlength="40"', html)
+        self.assertIn("on this device", html)
+
     def test_main_js_references_history_module(self):
         js = read_app_file("main.js")
         self.assertIn("./history.js", js)
         self.assertIn('"focus-flow:history"', js)
-        for symbol in ("recordSession", "pruneHistory", "summarise"):
+        for symbol in (
+            "recordSession",
+            "pruneHistory",
+            "summarise",
+            "labelSummary",
+            "recentSessions",
+        ):
             self.assertIn(symbol, js, "main.js does not use %s" % symbol)
+
+    def test_main_js_clears_label_only_on_completed_work(self):
+        js = read_app_file("main.js")
+        self.assertIn("session-label", js)
+        self.assertIn("labelSummary", js)
+        self.assertIn("recentSessions", js)
+        self.assertIn("skipped === false", js)
 
     def test_timer_engine_implements_state_machine(self):
         js = read_app_file("timer.js")

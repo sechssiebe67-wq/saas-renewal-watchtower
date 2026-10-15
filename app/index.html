@@ -73,6 +73,19 @@
           <button id="skip" class="control" type="button">Skip</button>
         </div>
 
+        <div class="field session-label">
+          <label for="session-label">Session label (optional)</label>
+          <input
+            id="session-label"
+            name="sessionLabel"
+            type="text"
+            maxlength="40"
+            autocomplete="off"
+            placeholder="e.g. Thesis chapter 3"
+          />
+          <p class="field__hint">Stored only on this device.</p>
+        </div>
+
         <p class="shortcuts">
           Shortcuts: <kbd>Space</kbd> start/pause · <kbd>R</kbd> reset ·
           <kbd>S</kbd> skip
@@ -176,9 +189,21 @@
               No sessions yet — start your first focus block.
             </p>
             <ul
+              id="stats-labels"
+              class="stats__labels"
+              aria-label="Filter the last 7 days by session label"
+              hidden
+            ></ul>
+            <ul
               id="stats-days"
               class="stats__days"
               aria-label="Completed work sessions in the last 7 days"
+              hidden
+            ></ul>
+            <ul
+              id="stats-recent"
+              class="stats__recent"
+              aria-label="Recent focus sessions"
               hidden
             ></ul>
           </div>
