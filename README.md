@@ -60,7 +60,11 @@ calls, no telemetry, and no secrets.
   message catalog (`app/i18n.js`), and a **Language** switcher in Settings lets
   you pick between **English**, **Deutsch**, and **Español**. Changing it
   applies immediately — no save step — and the choice is stored only on the
-  device in `localStorage["focus-flow:locale"]`.
+  device in `localStorage["focus-flow:locale"]`. The *derived* values are
+  localised too: the catalogue also carries weekday and month names, plural
+  forms, and number grouping, so the Stats per-day bars, the **Recent sessions**
+  timestamps, the streak text, and the weekly-review label stats render in the
+  selected language (for example `1.234,5` and `Montag` in German).
 - Settings, session count, history, the weekly goal, the ambient-sound choice,
   and the language persist across reloads.
 - Accessible, responsive layout for mobile, tablet, and desktop.
@@ -109,6 +113,15 @@ runtime download. Unknown or malformed stored values fall back to English, and a
 message missing from a locale falls back to English and then to its own key, so
 the page never breaks. Message keys are shared across locales (verified by the
 test suite), and the rendered labels are localised from the same catalog.
+
+The same file also carries a frozen `LOCALE_DATA` map and the pure helpers
+`formatNumber`, `formatWeekday`, `formatMonth`, `formatDuration`, and
+`pluralise`. Weekday and month names, decimal/group separators, and plural forms
+are read from those bundled tables rather than from `Intl` or any network
+service, so dates, numbers, and durations localise with the rest of the UI.
+This adds **no new `localStorage` key** — only the optional
+`focus-flow:locale` preference described below is persisted — and no new
+dependency or request.
 
 Your language choice is saved **only on the device** under
 `localStorage["focus-flow:locale"]`. A default install stores nothing, and the

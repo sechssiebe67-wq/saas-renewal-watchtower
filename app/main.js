@@ -28,6 +28,11 @@ import {
   DEFAULT_LOCALE,
   normalizeLocale,
   createTranslator,
+  formatNumber,
+  formatWeekday,
+  formatMonth,
+  formatDuration,
+  pluralise,
 } from "./i18n.js";
 
 import {
@@ -522,7 +527,7 @@ export function init() {
   let announcedStreak = null;
 
   function labelDisplay(label) {
-    return label === UNLABELLED ? t("label.noLabel") : label;
+    return label === UNLABELLED ? t("label.unlabelled") : label;
   }
 
   function renderLabelChips(summary) {
@@ -552,7 +557,7 @@ export function init() {
 
       const count = document.createElement("span");
       count.className = "chip__count";
-      count.textContent = String(summary.totals[label].sessions);
+      count.textContent = formatNumber(summary.totals[label].sessions, locale);
 
       button.append(name, count);
       button.addEventListener("click", () => {
@@ -584,9 +589,10 @@ export function init() {
 
       const date = document.createElement("span");
       date.className = "recent-session__date";
-      date.textContent = new Date(session.endedAt).toLocaleDateString(locale, {
-        month: "short",
-        day: "numeric",
+      const endedAt = new Date(session.endedAt);
+      date.textContent = t("stats.recentTimestamp", {
+        month: formatMonth(endedAt, locale),
+        day: formatNumber(endedAt.getDate(), locale),
       });
 
       const label = document.createElement("span");
@@ -600,9 +606,10 @@ export function init() {
 
       const minutes = document.createElement("span");
       minutes.className = "recent-session__minutes";
-      minutes.textContent = t("recent.minutes", {
-        count: Math.round(session.durationSeconds / 60),
-      });
+      minutes.textContent = formatDuration(
+        Math.round(session.durationSeconds / 60),
+        locale,
+      );
 
       item.append(date, label, minutes);
       return item;
@@ -611,18 +618,12 @@ export function init() {
   }
 
   function streakLabel(days) {
-    return t(days === 1 ? "streak.daysOne" : "streak.daysMany", {
-      count: days,
-    });
-  }
-
-  function formatWeekday(dayKey) {
-    const parts = String(dayKey).split("-").map(Number);
-    if (parts.length !== 3 || parts.some((part) => !Number.isFinite(part))) {
-      return dayKey;
-    }
-    const date = new Date(parts[0], parts[1] - 1, parts[2]);
-    return date.toLocaleDateString(locale, { weekday: "short" });
+    const template = pluralise(
+      days,
+      { one: t("streak.daysOne"), other: t("streak.daysMany") },
+      locale,
+    );
+    return template.replace("{count}", formatNumber(days, locale));
   }
 
   function renderStreak() {
@@ -640,7 +641,10 @@ export function init() {
     if (el.statsStreakToday) {
       el.statsStreakToday.textContent = t(
         info.todayCount === 1 ? "stats.todayOne" : "stats.todayMany",
-        { count: info.todayCount, minutes: info.todayMinutes },
+        {
+          count: formatNumber(info.todayCount, locale),
+          minutes: formatNumber(info.todayMinutes, locale),
+        },
       );
     }
     if (el.statsReminder) {
@@ -663,10 +667,13 @@ export function init() {
     });
 
     if (el.statsTotalSessions) {
-      el.statsTotalSessions.textContent = String(summary.totalSessions);
+      el.statsTotalSessions.textContent = formatNumber(
+        summary.totalSessions,
+        locale,
+      );
     }
     if (el.statsTotalMinutes) {
-      el.statsTotalMinutes.textContent = String(summary.totalMinutes);
+      el.statsTotalMinutes.textContent = formatNumber(summary.totalMinutes, locale);
     }
     if (el.statsEmpty) {
       el.statsEmpty.hidden = summary.totalSessions > 0;
@@ -681,10 +688,17 @@ export function init() {
         const item = document.createElement("li");
         item.className = "stats-day";
         item.dataset.count = String(day.count);
+        item.setAttribute(
+          "aria-label",
+          t("stats.dayLabel", {
+            weekday: formatWeekday(day.date, locale),
+            count: formatNumber(day.count, locale),
+          }),
+        );
 
         const label = document.createElement("span");
         label.className = "stats-day__label";
-        label.textContent = formatWeekday(day.date);
+        label.textContent = formatWeekday(day.date, locale);
 
         const track = document.createElement("span");
         track.className = "stats-day__track";
@@ -695,7 +709,7 @@ export function init() {
 
         const count = document.createElement("span");
         count.className = "stats-day__count";
-        count.textContent = String(day.count);
+        count.textContent = formatNumber(day.count, locale);
 
         item.append(label, track, count);
         return item;
@@ -747,13 +761,13 @@ export function init() {
     }
 
     if (el.statsGoalTarget) {
-      el.statsGoalTarget.textContent = String(progress.targetMinutes);
+      el.statsGoalTarget.textContent = formatNumber(progress.targetMinutes, locale);
     }
     if (el.statsGoalFocused) {
-      el.statsGoalFocused.textContent = String(progress.focusedMinutes);
+      el.statsGoalFocused.textContent = formatNumber(progress.focusedMinutes, locale);
     }
     if (el.statsGoalPercent) {
-      el.statsGoalPercent.textContent = String(progress.percent);
+      el.statsGoalPercent.textContent = formatNumber(progress.percent, locale);
     }
     if (el.statsGoalBar) {
       el.statsGoalBar.setAttribute("aria-valuenow", String(progress.percent));
@@ -792,16 +806,19 @@ export function init() {
       el.weeklyReviewSummary.hidden = !hasSessions;
     }
     if (el.weeklyReviewFocused) {
-      el.weeklyReviewFocused.textContent = String(review.focusedMinutes);
+      el.weeklyReviewFocused.textContent = formatNumber(
+        review.focusedMinutes,
+        locale,
+      );
     }
     if (el.weeklyReviewGoalPart) {
       el.weeklyReviewGoalPart.hidden = !hasGoal;
     }
     if (el.weeklyReviewTarget) {
-      el.weeklyReviewTarget.textContent = String(review.targetMinutes);
+      el.weeklyReviewTarget.textContent = formatNumber(review.targetMinutes, locale);
     }
     if (el.weeklyReviewPercent) {
-      el.weeklyReviewPercent.textContent = String(review.percent);
+      el.weeklyReviewPercent.textContent = formatNumber(review.percent, locale);
     }
     if (el.weeklyReviewBar) {
       el.weeklyReviewBar.hidden = !hasGoal;
@@ -841,9 +858,9 @@ export function init() {
         stats.textContent = t(
           hasGoal ? "review.labelStatsWithGoal" : "review.labelStats",
           {
-            sessions: row.sessions,
-            minutes: row.minutes,
-            percent: row.percentOfTarget,
+            sessions: formatNumber(row.sessions, locale),
+            minutes: formatNumber(row.minutes, locale),
+            percent: formatNumber(row.percentOfTarget, locale),
           },
         );
 

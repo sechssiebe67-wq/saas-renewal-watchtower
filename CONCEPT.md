@@ -112,6 +112,19 @@ after the first load.
   values fall back to `DEFAULT_LOCALE` (`en`), a message missing from a locale
   falls back to English and then to its own key, and missing `{name}`
   placeholders are left in place instead of throwing.
+- **Localised dates, numbers, and durations:** the same bundled catalog also
+  carries the locale data for *derived* values, so weekday and month names,
+  plural forms, and number grouping are localised rather than hard-coded in
+  English. `app/i18n.js` exports a frozen `LOCALE_DATA` map (short and long
+  weekday and month names, decimal and group separators, and a pure plural
+  selector) plus the pure helpers `formatNumber`, `formatWeekday`,
+  `formatMonth`, `formatDuration`, and `pluralise`. The DOM layer routes the
+  per-day Stats bars, the **Recent sessions** timestamps, the streak text, and
+  the weekly-review label stats through these helpers, so a user on `de` or `es`
+  sees their own weekday and month names, decimal commas, thousands separators,
+  and plural forms. This adds **no `Intl` dependency, no new `localStorage` key,
+  no network request, and no third-party library** — the data ships in the same
+  file as the message catalog.
 - **Audible and visual notifications** when a phase ends.
 - **Local persistence** of settings, the current session count, and the session
   history via `localStorage`.
@@ -150,11 +163,14 @@ after the first load.
     lastActiveDay }`).
   - `i18n.js` — the pure, bundled message catalog (`SUPPORTED_LOCALES`,
     `LOCALE_LABELS`, `DEFAULT_LOCALE`, `MESSAGES`, `normalizeLocale`,
-    `translate`, `createTranslator`, `LOCALE_STORAGE_SHAPE_VERSION`) with no DOM
-    access and no third-party import. `normalizeLocale` coerces arbitrary
+    `translate`, `createTranslator`, `LOCALE_STORAGE_SHAPE_VERSION`) plus the
+    frozen `LOCALE_DATA` map (weekday and month names, decimal/group separators,
+    and a pure plural selector) and the pure helpers `formatNumber`,
+    `formatWeekday`, `formatMonth`, `formatDuration`, and `pluralise`, all with
+    no DOM access and no third-party import. `normalizeLocale` coerces arbitrary
     stored input into a supported locale id, `translate` falls back to the
-    default locale and then to the key, and every catalog string ships in the
-    file so the app stays offline.
+    default locale and then to the key, and every catalog string and every piece
+    of locale data ships in the file so the app stays offline.
   - `main.js` — the DOM layer, the `registerServiceWorker()` helper, and the
     only place that applies translations to the shell and the dynamic strings.
   - `manifest.webmanifest` — the PWA manifest (name, icons, colours, scope).
@@ -195,8 +211,11 @@ and today's totals, the reminder compares `todayCount` against the presence of a
 
 The **internationalisation** catalog is bundled, not fetched: every string lives
 in `app/i18n.js`, the service worker precaches `./i18n.js`, and the app makes no
-network request at runtime. Only the optional `focus-flow:locale` preference is
-persisted, and it is removed when the default locale is selected.
+network request at runtime. The same file also bundles the `LOCALE_DATA` used to
+localise derived weekday and month names, plural forms, and number grouping, so
+those values need no extra storage and no extra request either. Only the optional
+`focus-flow:locale` preference is persisted, and it is removed when the default
+locale is selected.
 
 ## Next direction
 
@@ -206,9 +225,13 @@ persisted, and it is removed when the default locale is selected.
   the Web Audio API, generated entirely in the browser with no audio files.
 - [x] **Internationalisation (i18n)** with a small bundled message catalog and a
   locale switcher.
-- [ ] **Localised date and number formatting** by extending the catalog's locale
+- [x] **Localised date and number formatting** by extending the catalog's locale
   data to every derived label (weekday and month names, plural rules), building
   on the shipped i18n module.
+- [ ] **User-selectable first day of week**, letting the weekly goal and the
+  weekly review start their week on Sunday or Monday, with the choice rendered
+  through the same bundled catalog and stored only on the device as the next
+  follow-up to localised formatting.
 
 ## How the repository meets its own criteria
 
@@ -244,13 +267,13 @@ persisted, and it is removed when the default locale is selected.
 | Market Differentiation | Privacy-first, offline, no-account, and packaged as a Kubernetes-native OSS app. |
 | Growth Potential | Serving more users costs effectively nothing. |
 | User Retention | Daily use pattern; persistent settings, session counts, and a 7-day focus-history panel that shows progress; optional per-session labels, a label filter, and a weekly review that ranks each label against the weekly goal let users see where their focus went; a derived current/longest focus streak and a gentle daily reminder hint encourage users to come back and keep the streak alive, plus one-tap install to the home screen or desktop. |
-| Discoverability | Clear name, description, and docs; shareable as a URL. Ships English, German, and Spanish from a bundled catalog with an accessible language switcher. |
+| Discoverability | Clear name, description, and docs; shareable as a URL. Ships English, German, and Spanish from a bundled catalog with an accessible language switcher, and the derived weekday/month names, plural forms, and number grouping come from that same bundled catalog. |
 | Mobile Friendly | Responsive layout, touch-friendly controls, and an installable PWA that launches standalone. |
-| Accessibility | Semantic landmarks, ARIA live region, keyboard shortcuts, focus states, contrast. The locale switcher is a labelled `<select>` with an accessible name, every string (including live-region announcements) is routed through the catalog, and `<html lang>` follows the active locale. |
-| Minimal Dependencies | Zero runtime JS/CSS dependencies; the i18n catalog is a dependency-free local module with no network request and no third-party library. |
+| Accessibility | Semantic landmarks, ARIA live region, keyboard shortcuts, focus states, contrast. The locale switcher is a labelled `<select>` with an accessible name, every string (including live-region announcements) is routed through the catalog, derived weekday/month names and numbers are localised from the same bundled catalog, and `<html lang>` follows the active locale. |
+| Minimal Dependencies | Zero runtime JS/CSS dependencies; the i18n catalog and its `LOCALE_DATA` (weekday/month names, separators, plural rules) are a dependency-free local module with no network request, no `Intl` dependency, and no third-party library. |
 | Measurable Success | `/healthz` for reliability; the local session history, 7-day stats, optional label breakdown, the weekly focus goal, and the weekly review give users a visible, measurable view of their focus habit, including what each block of time was spent on and how close each label came to their weekly target; the derived current/longest focus streak and today's totals make consistency itself measurable. |
 | Reusability | Reuses the standard static-container + Helm deployment template. |
-| Innovation Potential | The shipped ambient sound layer shows the in-browser synthesis approach can be extended to more generated soundscapes, and the shipped bundled message catalog shows how the product can add locales without a build step, a backend, or a third-party dependency; localised date/number formatting is the next natural step. |
+| Innovation Potential | The shipped ambient sound layer shows the in-browser synthesis approach can be extended to more generated soundscapes, and the shipped bundled catalog with bundled locale data shows how the product can add locales, weekday/month names, and plural rules without a build step, a backend, or a third-party dependency; a user-selectable first day of week is the next natural step. |
 
 ## Repository criteria (canonical definitions)
 

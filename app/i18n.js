@@ -51,6 +51,7 @@ const EN_MESSAGES = {
   "label.placeholder": "e.g. Thesis chapter 3",
   "label.hint": "Stored only on this device.",
   "label.noLabel": "No label",
+  "label.unlabelled": "(unlabelled)",
   "shortcuts.title": "Shortcuts:",
   "shortcuts.startPause": "start/pause",
   "shortcuts.reset": "reset",
@@ -94,7 +95,9 @@ const EN_MESSAGES = {
   "stats.goalBarLabel": "Weekly focus goal progress",
   "stats.labelsLabel": "Filter the last 7 days by session label",
   "stats.daysLabel": "Completed work sessions in the last 7 days",
+  "stats.dayLabel": "{weekday}: {count} sessions",
   "stats.recentLabel": "Recent focus sessions",
+  "stats.recentTimestamp": "{month} {day}",
   "recent.minutes": "{count} min",
   "streak.daysOne": "{count} day",
   "streak.daysMany": "{count} days",
@@ -149,6 +152,7 @@ const DE_MESSAGES = {
   "label.placeholder": "z. B. Dissertation Kapitel 3",
   "label.hint": "Nur auf diesem Gerät gespeichert.",
   "label.noLabel": "Keine Bezeichnung",
+  "label.unlabelled": "(ohne Bezeichnung)",
   "shortcuts.title": "Tastenkürzel:",
   "shortcuts.startPause": "starten/pausieren",
   "shortcuts.reset": "zurücksetzen",
@@ -192,7 +196,9 @@ const DE_MESSAGES = {
   "stats.goalBarLabel": "Fortschritt des wöchentlichen Fokusziels",
   "stats.labelsLabel": "Die letzten 7 Tage nach Sitzungsbezeichnung filtern",
   "stats.daysLabel": "Abgeschlossene Arbeitsphasen der letzten 7 Tage",
+  "stats.dayLabel": "{weekday}: {count} Sitzungen",
   "stats.recentLabel": "Letzte Fokussitzungen",
+  "stats.recentTimestamp": "{day}. {month}",
   "recent.minutes": "{count} Min.",
   "streak.daysOne": "{count} Tag",
   "streak.daysMany": "{count} Tage",
@@ -249,6 +255,7 @@ const ES_MESSAGES = {
   "label.placeholder": "p. ej., Tesis capítulo 3",
   "label.hint": "Guardado solo en este dispositivo.",
   "label.noLabel": "Sin etiqueta",
+  "label.unlabelled": "(sin etiqueta)",
   "shortcuts.title": "Atajos:",
   "shortcuts.startPause": "iniciar/pausar",
   "shortcuts.reset": "reiniciar",
@@ -292,7 +299,9 @@ const ES_MESSAGES = {
   "stats.goalBarLabel": "Progreso del objetivo de concentración semanal",
   "stats.labelsLabel": "Filtrar los últimos 7 días por etiqueta de sesión",
   "stats.daysLabel": "Sesiones de trabajo completadas en los últimos 7 días",
+  "stats.dayLabel": "{weekday}: {count} sesiones",
   "stats.recentLabel": "Sesiones de concentración recientes",
+  "stats.recentTimestamp": "{day} {month}",
   "recent.minutes": "{count} min",
   "streak.daysOne": "{count} día",
   "streak.daysMany": "{count} días",
@@ -337,6 +346,212 @@ export const MESSAGES = Object.freeze({
   de: Object.freeze(DE_MESSAGES),
   es: Object.freeze(ES_MESSAGES),
 });
+
+/**
+ * Pure `pluralCategory` selector shared by `en`, `de`, and `es`.
+ *
+ * The three shipped locales all use the two-form "one / other" distinction
+ * (`1` is singular, everything else — including `0` — is plural). The selector
+ * is a plain function so a future locale can plug in a different rule without
+ * changing any caller; `pluralise` reads it through `LOCALE_DATA`.
+ */
+function oneOtherPlural(count) {
+  const value = Math.abs(Number(count));
+  if (!Number.isFinite(value)) {
+    return "other";
+  }
+  return value === 1 ? "one" : "other";
+}
+
+/**
+ * Bundled locale data for the derived, non-label strings.
+ *
+ * Each entry is plain, frozen data (plus the pure `plural` selector) so every
+ * weekday name, month name, decimal/group separator, and plural rule ships in
+ * this file. Nothing here is fetched and nothing depends on `Intl`, so the
+ * module stays offline and dependency-free.
+ *
+ * - `weekdaysShort` / `weekdaysLong` are indexed by `Date#getDay()` (Sunday = 0).
+ * - `monthsShort` / `monthsLong` are indexed by `Date#getMonth()` (January = 0).
+ * - `plural` is a `(count) => "one" | "other"` category selector.
+ */
+export const LOCALE_DATA = Object.freeze({
+  en: Object.freeze({
+    weekdaysShort: Object.freeze(["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]),
+    weekdaysLong: Object.freeze([
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+    ]),
+    monthsShort: Object.freeze([
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ]),
+    monthsLong: Object.freeze([
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+    ]),
+    decimalSeparator: ".",
+    groupSeparator: ",",
+    plural: oneOtherPlural,
+  }),
+  de: Object.freeze({
+    weekdaysShort: Object.freeze(["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"]),
+    weekdaysLong: Object.freeze([
+      "Sonntag",
+      "Montag",
+      "Dienstag",
+      "Mittwoch",
+      "Donnerstag",
+      "Freitag",
+      "Samstag",
+    ]),
+    monthsShort: Object.freeze([
+      "Jan",
+      "Feb",
+      "Mär",
+      "Apr",
+      "Mai",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Okt",
+      "Nov",
+      "Dez",
+    ]),
+    monthsLong: Object.freeze([
+      "Januar",
+      "Februar",
+      "März",
+      "April",
+      "Mai",
+      "Juni",
+      "Juli",
+      "August",
+      "September",
+      "Oktober",
+      "November",
+      "Dezember",
+    ]),
+    decimalSeparator: ",",
+    groupSeparator: ".",
+    plural: oneOtherPlural,
+  }),
+  es: Object.freeze({
+    weekdaysShort: Object.freeze(["dom", "lun", "mar", "mié", "jue", "vie", "sáb"]),
+    weekdaysLong: Object.freeze([
+      "domingo",
+      "lunes",
+      "martes",
+      "miércoles",
+      "jueves",
+      "viernes",
+      "sábado",
+    ]),
+    monthsShort: Object.freeze([
+      "ene",
+      "feb",
+      "mar",
+      "abr",
+      "may",
+      "jun",
+      "jul",
+      "ago",
+      "sep",
+      "oct",
+      "nov",
+      "dic",
+    ]),
+    monthsLong: Object.freeze([
+      "enero",
+      "febrero",
+      "marzo",
+      "abril",
+      "mayo",
+      "junio",
+      "julio",
+      "agosto",
+      "septiembre",
+      "octubre",
+      "noviembre",
+      "diciembre",
+    ]),
+    decimalSeparator: ",",
+    groupSeparator: ".",
+    plural: oneOtherPlural,
+  }),
+});
+
+/** Return the locale data for a locale, falling back to `DEFAULT_LOCALE`. */
+function localeData(locale) {
+  const resolved = normalizeLocale(locale);
+  return LOCALE_DATA[resolved] || LOCALE_DATA[DEFAULT_LOCALE];
+}
+
+/** Coerce a value to an integer count, defaulting to `0` for malformed input. */
+function normaliseCount(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return 0;
+  }
+  return Math.trunc(parsed);
+}
+
+/** Resolve a Date-like input into a valid `Date`, or `null` when it cannot be
+ * understood. Accepts `Date` instances, numeric timestamps, and `YYYY-MM-DD`
+ * calendar keys (which are treated as local midnights). */
+function toDate(value) {
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) {
+      return null;
+    }
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
+    if (match) {
+      const date = new Date(
+        Number(match[1]),
+        Number(match[2]) - 1,
+        Number(match[3]),
+      );
+      return Number.isNaN(date.getTime()) ? null : date;
+    }
+    const parsed = Date.parse(trimmed);
+    return Number.isFinite(parsed) ? new Date(parsed) : null;
+  }
+  return null;
+}
 
 /**
  * Coerce arbitrary stored input into a supported locale id.
@@ -412,4 +627,143 @@ export function createTranslator(locale) {
   return function t(key, params) {
     return translate(resolved, key, params);
   };
+}
+
+/**
+ * Select the plural category for `count` in `locale`.
+ *
+ * Uses the locale's pure `plural` selector from `LOCALE_DATA` and falls back to
+ * the default locale for unknown input. Never throws; a malformed `count` is
+ * treated as `"other"`.
+ */
+export function pluralCategory(count, locale) {
+  const data = localeData(locale);
+  if (data && typeof data.plural === "function") {
+    return data.plural(count);
+  }
+  return oneOtherPlural(count);
+}
+
+/**
+ * Pick the form matching `count`'s plural category from `forms`.
+ *
+ * `forms` is a plain map of category to template (for the shipped locales a
+ * `{ one, other }` pair). The matching form is returned; when it is missing the
+ * `other` form is used, then any available form, and finally an empty string.
+ * This function only selects — it does not interpolate — so callers stay in
+ * control of how `{count}` is filled.
+ */
+export function pluralise(count, forms, locale) {
+  if (!forms || typeof forms !== "object") {
+    return "";
+  }
+  const category = pluralCategory(count, locale);
+  if (typeof forms[category] === "string") {
+    return forms[category];
+  }
+  if (typeof forms.other === "string") {
+    return forms.other;
+  }
+  for (const key of Object.keys(forms)) {
+    if (typeof forms[key] === "string") {
+      return forms[key];
+    }
+  }
+  return "";
+}
+
+/**
+ * Group the integer part of `value` with the locale's separators.
+ *
+ * `en` uses `1,234.5`, while `de` and `es` use `1.234,5`. Malformed or
+ * non-finite input renders as `"0"` rather than throwing, and the sign is
+ * preserved. No `Intl` and no locale database are used.
+ */
+export function formatNumber(value, locale) {
+  const data = localeData(locale);
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return "0";
+  }
+  const negative = numeric < 0;
+  const absolute = Math.abs(numeric);
+  const raw = absolute.toString();
+
+  let integerPart;
+  let fractionPart;
+  if (raw.includes("e") || raw.includes("E")) {
+    integerPart = absolute.toFixed(0);
+    fractionPart = "";
+    if (integerPart.includes("e") || integerPart.includes("E")) {
+      integerPart = "0";
+    }
+  } else {
+    const parts = raw.split(".");
+    integerPart = parts[0];
+    fractionPart = parts[1] || "";
+  }
+
+  let grouped = "";
+  for (let index = 0; index < integerPart.length; index += 1) {
+    if (index > 0 && (integerPart.length - index) % 3 === 0) {
+      grouped += data.groupSeparator;
+    }
+    grouped += integerPart[index];
+  }
+
+  let result = grouped;
+  if (fractionPart.length > 0) {
+    result += data.decimalSeparator + fractionPart;
+  }
+  return negative ? `-${result}` : result;
+}
+
+/**
+ * Return the localised weekday name for a date.
+ *
+ * `date` may be a `Date`, a numeric timestamp, or a `YYYY-MM-DD` calendar key.
+ * The short name is returned by default; pass `{ long: true }` for the full
+ * name. Unknown locales fall back to `en` and unparseable input returns `""`.
+ */
+export function formatWeekday(date, locale, { long = false } = {}) {
+  const resolved = toDate(date);
+  if (!resolved) {
+    return "";
+  }
+  const data = localeData(locale);
+  const names = long ? data.weekdaysLong : data.weekdaysShort;
+  const name = names ? names[resolved.getDay()] : undefined;
+  return typeof name === "string" ? name : "";
+}
+
+/**
+ * Return the localised month name for a date.
+ *
+ * `date` may be a `Date`, a numeric timestamp, or a `YYYY-MM-DD` calendar key.
+ * The short name is returned by default; pass `{ long: true }` for the full
+ * name. Unknown locales fall back to `en` and unparseable input returns `""`.
+ */
+export function formatMonth(date, locale, { long = false } = {}) {
+  const resolved = toDate(date);
+  if (!resolved) {
+    return "";
+  }
+  const data = localeData(locale);
+  const names = long ? data.monthsLong : data.monthsShort;
+  const name = names ? names[resolved.getMonth()] : undefined;
+  return typeof name === "string" ? name : "";
+}
+
+/**
+ * Format a whole number of minutes as a localised duration label.
+ *
+ * The count is grouped with `formatNumber` and the unit label is drawn from the
+ * bundled catalog (`recent.minutes`) through the locale's plural selector, so
+ * no number or unit is hard-coded in English. Malformed input becomes `0 min`.
+ */
+export function formatDuration(minutes, locale) {
+  const count = normaliseCount(minutes);
+  const unit = translate(locale, "recent.minutes");
+  const template = pluralise(count, { one: unit, other: unit }, locale) || unit;
+  return interpolate(template, { count: formatNumber(count, locale) });
 }

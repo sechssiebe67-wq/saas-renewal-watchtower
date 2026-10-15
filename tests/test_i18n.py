@@ -37,9 +37,16 @@ HARNESS = textwrap.dedent(
       LOCALE_LABELS,
       DEFAULT_LOCALE,
       MESSAGES,
+      LOCALE_DATA,
       normalizeLocale,
       translate,
       createTranslator,
+      formatNumber,
+      formatWeekday,
+      formatMonth,
+      formatDuration,
+      pluralise,
+      pluralCategory,
       LOCALE_STORAGE_SHAPE_VERSION,
     } from "./i18n.mjs";
 
@@ -152,6 +159,110 @@ HARNESS = textwrap.dedent(
       createTranslator("zz")("controls.start") === MESSAGES.en["controls.start"],
     );
 
+    check("LOCALE_DATA is an object", LOCALE_DATA && typeof LOCALE_DATA === "object");
+    check("LOCALE_DATA is frozen", Object.isFrozen(LOCALE_DATA));
+    for (const id of SUPPORTED_LOCALES) {
+      const data = LOCALE_DATA[id];
+      check("LOCALE_DATA has " + id, data && typeof data === "object");
+      check("LOCALE_DATA." + id + " is frozen", Object.isFrozen(data));
+      check(
+        "LOCALE_DATA." + id + " has 7 short weekdays",
+        Array.isArray(data.weekdaysShort) && data.weekdaysShort.length === 7,
+      );
+      check(
+        "LOCALE_DATA." + id + " has 7 long weekdays",
+        Array.isArray(data.weekdaysLong) && data.weekdaysLong.length === 7,
+      );
+      check(
+        "LOCALE_DATA." + id + " has 12 short months",
+        Array.isArray(data.monthsShort) && data.monthsShort.length === 12,
+      );
+      check(
+        "LOCALE_DATA." + id + " has 12 long months",
+        Array.isArray(data.monthsLong) && data.monthsLong.length === 12,
+      );
+      check(
+        "LOCALE_DATA." + id + " has separators",
+        typeof data.decimalSeparator === "string" &&
+          data.decimalSeparator.length > 0 &&
+          typeof data.groupSeparator === "string" &&
+          data.groupSeparator.length > 0,
+      );
+      check(
+        "LOCALE_DATA." + id + " has a plural selector",
+        typeof data.plural === "function",
+      );
+    }
+
+    check("formatNumber groups en thousands", formatNumber(1234567, "en") === "1,234,567");
+    check("formatNumber groups de thousands", formatNumber(1234567, "de") === "1.234.567");
+    check("formatNumber uses the es decimal comma", formatNumber(1234.5, "es") === "1.234,5");
+    check("formatNumber keeps the sign", formatNumber(-1234, "de") === "-1.234");
+    check("formatNumber falls back to en", formatNumber(1234, "fr") === "1,234");
+    check("formatNumber tolerates malformed input", formatNumber("abc", "en") === "0");
+    check("formatNumber tolerates NaN", formatNumber(NaN, "en") === "0");
+
+    check("formatWeekday localises en", formatWeekday("2026-06-15", "en") === "Mon");
+    check("formatWeekday localises de", formatWeekday("2026-06-15", "de") === "Mo");
+    check(
+      "formatWeekday localises a long de name",
+      formatWeekday("2026-06-15", "de", { long: true }) === "Montag",
+    );
+    check("formatWeekday localises es", formatWeekday("2026-06-15", "es") === "lun");
+    check(
+      "formatWeekday indexes by getDay (Sunday)",
+      formatWeekday("2026-06-14", "en") === "Sun",
+    );
+    check(
+      "formatWeekday falls back to en for unknown locales",
+      formatWeekday("2026-06-15", "fr") === "Mon",
+    );
+    check(
+      "formatWeekday tolerates a Date",
+      formatWeekday(new Date(2026, 5, 15), "en") === "Mon",
+    );
+    check("formatWeekday returns empty for malformed input", formatWeekday("nope", "en") === "");
+
+    check("formatMonth localises en", formatMonth("2026-01-15", "en") === "Jan");
+    check("formatMonth localises de", formatMonth("2026-12-15", "de") === "Dez");
+    check(
+      "formatMonth localises a long es name",
+      formatMonth("2026-03-15", "es", { long: true }) === "marzo",
+    );
+    check(
+      "formatMonth falls back to en for unknown locales",
+      formatMonth("2026-01-15", "fr") === "Jan",
+    );
+    check("formatMonth returns empty for malformed input", formatMonth(null, "en") === "");
+
+    check("formatDuration formats en", formatDuration(25, "en") === "25 min");
+    check("formatDuration formats de", formatDuration(25, "de") === "25 Min.");
+    check("formatDuration groups es thousands", formatDuration(1234, "es") === "1.234 min");
+    check("formatDuration localises the singular", formatDuration(1, "de") === "1 Min.");
+    check("formatDuration falls back for unknown locales", formatDuration(5, "fr") === "5 min");
+    check("formatDuration tolerates malformed input", formatDuration(null, "en") === "0 min");
+
+    check("pluralCategory selects one for 1", pluralCategory(1, "en") === "one");
+    check("pluralCategory selects other for 0", pluralCategory(0, "en") === "other");
+    check("pluralCategory selects other for 2", pluralCategory(2, "de") === "other");
+    check(
+      "pluralCategory falls back to en for unknown locales",
+      pluralCategory(1, "fr") === "one",
+    );
+    check(
+      "pluralise selects the one form",
+      pluralise(1, { one: "a", other: "b" }, "en") === "a",
+    );
+    check(
+      "pluralise selects the other form",
+      pluralise(3, { one: "a", other: "b" }, "en") === "b",
+    );
+    check(
+      "pluralise falls back to other for a missing category",
+      pluralise(1, { other: "b" }, "en") === "b",
+    );
+    check("pluralise tolerates malformed forms", pluralise(2, null, "en") === "");
+
     process.stdout.write(JSON.stringify({ failures }));
     """
 )
@@ -169,6 +280,7 @@ class I18nStaticTests(unittest.TestCase):
             "LOCALE_LABELS",
             "DEFAULT_LOCALE",
             "MESSAGES",
+            "LOCALE_DATA",
             "LOCALE_STORAGE_SHAPE_VERSION",
         ):
             self.assertRegex(
@@ -176,7 +288,16 @@ class I18nStaticTests(unittest.TestCase):
                 r"export\s+const\s+%s\b" % constant,
                 "i18n.js does not export %s" % constant,
             )
-        for function in ("normalizeLocale", "translate", "createTranslator"):
+        for function in (
+            "normalizeLocale",
+            "translate",
+            "createTranslator",
+            "formatNumber",
+            "formatWeekday",
+            "formatMonth",
+            "formatDuration",
+            "pluralise",
+        ):
             self.assertRegex(
                 source,
                 r"export\s+function\s+%s\b" % function,

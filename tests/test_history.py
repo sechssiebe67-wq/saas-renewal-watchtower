@@ -149,6 +149,27 @@ HARNESS = textwrap.dedent(
       single.perDay.filter((day) => day.count === 1).length === 1,
     );
 
+    const englishWeekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const dateKeyPattern = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/;
+    check(
+      "summarise perDay exposes a YYYY-MM-DD date key",
+      single.perDay.every((day) => dateKeyPattern.test(day.date)),
+    );
+    check(
+      "summarise perDay no longer emits an English weekday name",
+      single.perDay.every((day) => !englishWeekdays.includes(day.label)),
+    );
+    check(
+      "summarise perDay label mirrors the calendar date key",
+      single.perDay.every((day) => day.label === day.date),
+    );
+    check(
+      "summarise perDay keeps the count shape",
+      single.perDay.every(
+        (day) => typeof day.count === "number" && typeof day.minutes === "number",
+      ),
+    );
+
     const multi = summarise(
       [
         { endedAt: new Date(NOW).toISOString(), phase: "work", durationSeconds: 1500 },
