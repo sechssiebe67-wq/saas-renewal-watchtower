@@ -63,6 +63,21 @@ after the first load.
   and per-day bars to that label (and the `(unlabelled)` chip to entries without
   one), and a **Recent sessions** list shows the newest five entries. Labels
   are stored only in `localStorage` and are never uploaded.
+- **Session-label autocomplete:** focusing the optional session-label field
+  offers the labels already used in earlier sessions (e.g. "Thesis chapter 3")
+  as a keyboard-accessible suggestion list, so a returning user can pick one
+  instead of retyping it. Suggestions come only from the existing
+  `focus-flow:history` log, derived by the pure `recentLabels` helper in
+  `app/history.js` (trimmed, non-empty, case-insensitively de-duplicated,
+  newest first by `endedAt`, capped at 8). The DOM layer renders a
+  `<ul role="listbox">` of `role="option"` items under the input and supports
+  `ArrowDown`/`ArrowUp` to move, `Enter`/`Tab` to accept, `Escape` to dismiss,
+  and click/tap to choose; the accessible name comes from the bundled catalog.
+  Free text is untouched when no suggestion is chosen, accepting a suggestion
+  fills the input and announces the label once through the existing ARIA live
+  region, and a fresh install with no history shows no list at all. The feature
+  adds **no new `localStorage` key, no network request, and no third-party
+  dependency**, keeping the privacy-by-construction invariant.
 - **Weekly focus goal:** a user can set a target number of focused minutes for
   the current week (e.g. `300`), optionally scoped to a single session label so
   the target can read "5 hours on Thesis chapter 3". The Stats panel renders a
@@ -229,13 +244,18 @@ after the first load.
     phase.
   - `history.js` — the pure session-history helpers (`recordSession`,
     `pruneHistory`, `summarise`, `labelSummary`, `recentSessions`,
-    `normalizeGoal`, `weekWindow`, `goalProgress`, `normalizeDailyGoal`,
-    `dailyGoalProgress`, `weeklyReview`, `streaks`, `normalizeWeekStart`,
+    `recentLabels`, `normalizeGoal`, `weekWindow`, `goalProgress`,
+    `normalizeDailyGoal`, `dailyGoalProgress`, `weeklyReview`, `streaks`,
+    `normalizeWeekStart`,
     `weeklyReviewCsv`, `exportBackup`, `backupToJson`, `parseBackup`,
     `backupFileName`, `HISTORY_VERSION`, `GOAL_STORAGE_SHAPE_VERSION`,
     `DAILY_GOAL_STORAGE_SHAPE_VERSION`, `WEEK_START_OPTIONS`,
     `WEEK_START_STORAGE_SHAPE_VERSION`, `BACKUP_FORMAT_VERSION`,
     `BACKUP_KEYS`) with no DOM access.
+    `recentLabels` returns the newest distinct labels from the log (trimmed,
+    non-empty, case-insensitively de-duplicated, newest first by `endedAt`,
+    capped at a requested `limit`) for the session-label autocomplete, without
+    touching the DOM, storage, or the network.
     `dailyGoalProgress` measures the current local calendar day against the
     optional daily goal and returns `{ targetMinutes, focusedMinutes,
     remainingMinutes, percent, reached, dayStart }`, and `normalizeDailyGoal`
@@ -328,6 +348,13 @@ pure `streaks` helper turns `focus-flow:history` into a current/longest streak
 and today's totals, the reminder compares `todayCount` against the presence of a
 `focus-flow:goal`, and nothing new is persisted or transmitted.
 
+The **session-label autocomplete** is derived the same way: the pure
+`recentLabels` helper reads only the existing `focus-flow:history` log to list
+the newest distinct labels, and the DOM layer renders them as a listbox under
+the session-label input. It adds **no new `localStorage` key, no network
+request, and no third-party dependency**, so it, too, keeps every label on the
+device.
+
 The **internationalisation** catalog is bundled, not fetched: every string lives
 in `app/i18n.js`, the service worker precaches `./i18n.js`, and the app makes no
 network request at runtime. The same file also bundles the `LOCALE_DATA` used to
@@ -412,6 +439,17 @@ key**, makes **no network request**, and adds **no third-party dependency**.
   a rejected file is announced and leaves the existing data untouched. The
   feature adds no new `localStorage` key, makes no network request, and adds no
   third-party dependency.
+- [x] **Session-label autocomplete**, the typing-reduction follow-up to
+  per-session labels: the pure `recentLabels` helper in `app/history.js`
+  returns the newest distinct labels from the existing `focus-flow:history` log
+  (trimmed, non-empty, case-insensitively de-duplicated, newest first by
+  `endedAt`, capped at 8), and the DOM layer renders them as an accessible
+  `<ul role="listbox">` under the session-label input. It supports
+  `ArrowDown`/`ArrowUp` to move, `Enter`/`Tab` to accept, `Escape` to dismiss,
+  and click/tap to choose, announces the accepted label once through the
+  existing ARIA live region, keeps free text intact when no suggestion is
+  chosen, and shows nothing on a fresh install. It adds **no new
+  `localStorage` key, no network request, and no third-party dependency**.
 
 ## How the repository meets its own criteria
 
@@ -428,7 +466,7 @@ key**, makes **no network request**, and adds **no third-party dependency**.
 | Autonomous Operation | No backend; nothing to administer after deployment, and the service worker keeps the app usable offline. |
 | Kubernetes Compatible | `Dockerfile` + `helm/` chart with `Deployment`, `Service`, `Ingress`, probes, and resource limits. |
 | Resource Efficient | Tiny nginx:alpine image, static files only, small CPU/RAM requests and limits in `helm/values.yaml`. |
-| Security | No secrets, no runtime external calls, no telemetry, no user input leaves the browser; the service worker ignores cross-origin and non-GET requests; container runs as non-root. The ambient sound layer is synthesised in-browser with the Web Audio API, so it adds **no network request and no third-party asset**. The i18n catalog is bundled in `app/i18n.js`, so localisation adds **no network request and no third-party library**, and the only new storage is the optional locale preference. The user-selectable first day of week is rendered from that same bundled catalog, so it too adds **no network request and no third-party dependency** — the only new storage is the optional `focus-flow:week-start` preference. The daily focus goal is measured from the existing history by a pure helper and stored only under the optional `focus-flow:daily-goal` key, so it adds **no network request, no third-party dependency, and no upload**. The local backup/restore writes and reads a JSON file entirely on the device through pure helpers, so it adds **no new `localStorage` key, no network request, no third-party dependency, and no upload**. |
+| Security | No secrets, no runtime external calls, no telemetry, no user input leaves the browser; the service worker ignores cross-origin and non-GET requests; container runs as non-root. The ambient sound layer is synthesised in-browser with the Web Audio API, so it adds **no network request and no third-party asset**. The i18n catalog is bundled in `app/i18n.js`, so localisation adds **no network request and no third-party library**, and the only new storage is the optional locale preference. The user-selectable first day of week is rendered from that same bundled catalog, so it too adds **no network request and no third-party dependency** — the only new storage is the optional `focus-flow:week-start` preference. The daily focus goal is measured from the existing history by a pure helper and stored only under the optional `focus-flow:daily-goal` key, so it adds **no network request, no third-party dependency, and no upload**. The local backup/restore writes and reads a JSON file entirely on the device through pure helpers, so it adds **no new `localStorage` key, no network request, no third-party dependency, and no upload**. The session-label autocomplete is derived from the existing history key by the pure `recentLabels` helper, so it adds **no new `localStorage` key, no network request, no third-party dependency, and no upload**. |
 | Testable | `tests/` verifies assets, structure, the PWA manifest and service worker, and Helm rendering via `unittest`. |
 | Maintainable | Plain HTML/CSS/JS with no build step and clear project structure. |
 | Legal Compliance | Original code, no third-party assets, no personal data collected. |
@@ -449,7 +487,7 @@ key**, makes **no network request**, and adds **no third-party dependency**.
 | User Retention | Daily use pattern; persistent settings, session counts, and a 7-day focus-history panel that shows progress; optional per-session labels, a label filter, and a weekly review that ranks each label against the weekly goal let users see where their focus went, and the Stats **Weekly goal** row now carries an inline per-label breakdown so each label's contribution is visible at a glance; a daily focus goal gives the same "have I done enough today" feedback at day scale, and a derived current/longest focus streak and a gentle daily reminder hint encourage users to come back and keep the streak alive, plus one-tap install to the home screen or desktop. |
 | Discoverability | Clear name, description, and docs; shareable as a URL. Ships English, German, and Spanish from a bundled catalog with an accessible language switcher, and the derived weekday/month names, plural forms, and number grouping come from that same bundled catalog. |
 | Mobile Friendly | Responsive layout, touch-friendly controls, and an installable PWA that launches standalone. |
-| Accessibility | Semantic landmarks, ARIA live region, keyboard shortcuts, focus states, contrast. The locale switcher and the **Week starts on** control are labelled `<select>`s with accessible names, every string (including live-region announcements) is routed through the catalog, derived weekday/month names and numbers are localised from the same bundled catalog, and `<html lang>` follows the active locale. |
+| Accessibility | Semantic landmarks, ARIA live region, keyboard shortcuts, focus states, contrast. The locale switcher and the **Week starts on** control are labelled `<select>`s with accessible names, every string (including live-region announcements) is routed through the catalog, derived weekday/month names and numbers are localised from the same bundled catalog, and `<html lang>` follows the active locale. The session-label autocomplete is a real `role="listbox"`/`role="option"` combobox that is fully operable by keyboard (`ArrowDown`/`ArrowUp` to move, `Enter`/`Tab` to accept, `Escape` to dismiss) with a visible active-option state. |
 | Minimal Dependencies | Zero runtime JS/CSS dependencies; the i18n catalog and its `LOCALE_DATA` (weekday/month names, separators, plural rules) are a dependency-free local module with no network request, no `Intl` dependency, and no third-party library. |
 | Measurable Success | `/healthz` for reliability; the local session history, 7-day stats, optional label breakdown, the weekly focus goal, and the weekly review give users a visible, measurable view of their focus habit, including what each block of time was spent on and how close each label came to their weekly target; the Stats **Weekly goal** row shows that per-label goal share inline; the **Daily goal** row makes daily output directly measurable against a per-day target; the derived current/longest focus streak and today's totals make consistency itself measurable. |
 | Reusability | Reuses the standard static-container + Helm deployment template. |
