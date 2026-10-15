@@ -41,6 +41,20 @@
  * own, make no network request, and never touch the DOM; the only sibling
  * modules they lean on (`normalizeAmbient`, `normalizeLocale`) are themselves
  * pure and dependency-free.
+ *
+ * It also owns the pure maths for the optional, device-only **session tag
+ * aliases**: a `{ [canonicalLabel]: aliasLabel }` map that renames labels in
+ * every derived view without rewriting history. `normalizeSessionTags` coerces
+ * arbitrary stored input (an object, an array of `{ from, to }` pairs, or
+ * anything else) into the canonical map (trimmed, non-empty, length-capped,
+ * case-insensitively de-duplicated, entry-capped) and never throws;
+ * `applyAliases` returns the alias for a label when one is present and the
+ * original label otherwise. The `tags` option is threaded through `summarise`,
+ * `labelSummary`, `recentSessions`, `recentLabels`, `goalProgress`,
+ * `weeklyReview`, `dailyGoalProgress`, and `streaks` so callers can get aliased
+ * labels back, while omitting it keeps the previous behaviour byte-for-byte.
+ * The map lives only in device storage under `focus-flow:session-tags`; this
+ * module never touches the storage layer, the DOM, or the network.
  */
 
 import { normalizeAmbient } from "./ambient.js";
@@ -89,6 +103,19 @@ export const WEEK_START_OPTIONS = Object.freeze([
   Object.freeze({ value: 0, labelKey: "settings.weekStartSunday" }),
 ]);
 
+/** Shape version for the `focus-flow:session-tags` storage entry. Version 1 is
+ * the initial `{ [canonicalLabel]: aliasLabel }` map; older or malformed values
+ * are coerced by `normalizeSessionTags`. */
+export const SESSION_TAGS_STORAGE_SHAPE_VERSION = 1;
+
+/** The most alias entries kept in one map. Extra entries are dropped so the
+ * map can never grow unbounded. */
+export const SESSION_TAGS_MAX_ENTRIES = 50;
+
+/** The longest accepted alias (the display label). A longer value is truncated
+ * so one alias can never bloat device storage. */
+export const SESSION_TAGS_MAX_ALIAS_LENGTH = MAX_LABEL_LENGTH;
+
 /** Format version for the local backup JSON produced by `exportBackup`. Starts
  * at `1`; `parseBackup` refuses any version greater than this so a file written
  * by a future Focus Flow is never silently misinterpreted. */
@@ -107,6 +134,7 @@ export const BACKUP_KEYS = Object.freeze([
   "ambient",
   "locale",
   "weekStart",
+  "sessionTags",
 ]);
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -150,6 +178,117 @@ function normalizeLabel(value) {
     return "";
   }
   return value.trim().slice(0, MAX_LABEL_LENGTH);
+}
+
+/** Trim a session-tag value to a non-empty, length-capped string (`max`
+ * characters). Non-string or blank input becomes an empty string. */
+function normalizeTagValue(value, max) {
+  if (typeof value !== "string") {
+    return "";
+  }
+  return value.trim().slice(0, max);
+}
+
+/**
+ * Coerce arbitrary stored input into a canonical session-tag alias map.
+ *
+ * Accepts a `{ [canonicalLabel]: aliasLabel }` object, an array of
+ * `{ from, to }` pairs, or anything else. Every label (the canonical key) is
+ * trimmed and capped to `MAX_LABEL_LENGTH`, every alias (the display value) to
+ * `SESSION_TAGS_MAX_ALIAS_LENGTH`; blank labels, blank aliases, and no-op
+ * aliases (where the alias equals the label) are dropped, keys are
+ * de-duplicated case-insensitively (the newest alias wins), and the map is
+ * capped at `SESSION_TAGS_MAX_ENTRIES`. Never throws and never mutates its
+ * input.
+ */
+export function normalizeSessionTags(raw) {
+  const result = {};
+  const seen = new Map();
+  let count = 0;
+
+  const assign = (rawLabel, rawAlias) => {
+    const label = normalizeTagValue(rawLabel, MAX_LABEL_LENGTH);
+    const alias = normalizeTagValue(rawAlias, SESSION_TAGS_MAX_ALIAS_LENGTH);
+    if (label.length === 0 || alias.length === 0 || label === alias) {
+      return;
+    }
+    const key = label.toLowerCase();
+    const existing = seen.get(key);
+    if (existing !== undefined) {
+      result[existing] = alias;
+      return;
+    }
+    if (count >= SESSION_TAGS_MAX_ENTRIES) {
+      return;
+    }
+    seen.set(key, label);
+    result[label] = alias;
+    count += 1;
+  };
+
+  if (Array.isArray(raw)) {
+    for (const item of raw) {
+      if (item && typeof item === "object") {
+        assign(item.from, item.to);
+      }
+    }
+  } else if (raw && typeof raw === "object") {
+    for (const label of Object.keys(raw)) {
+      assign(label, raw[label]);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Return the alias for `label` when `tags` (a map produced by
+ * `normalizeSessionTags`) has one, and `label` itself otherwise. The lookup is
+ * case-insensitive, so a stored label matches regardless of the casing used in
+ * the map, and malformed input is returned unchanged. Both `(label, tags)` and
+ * `(tags, label)` call orders are tolerated, and this function never throws.
+ */
+export function applyAliases(label, tags) {
+  if ((!tags || typeof tags !== "object") && label && typeof label === "object") {
+    const swapped = label;
+    label = tags;
+    tags = swapped;
+  }
+  if (typeof label !== "string" || label.length === 0) {
+    return label;
+  }
+  if (!tags || typeof tags !== "object") {
+    return label;
+  }
+  let alias;
+  if (Object.prototype.hasOwnProperty.call(tags, label)) {
+    alias = tags[label];
+  } else {
+    const lower = label.toLowerCase();
+    for (const key of Object.keys(tags)) {
+      if (key.toLowerCase() === lower) {
+        alias = tags[key];
+        break;
+      }
+    }
+  }
+  return typeof alias === "string" && alias.length > 0 ? alias : label;
+}
+
+/** De-duplicate a list of labels case-insensitively, keeping the first (newest)
+ * occurrence of each. Shared by `recentLabels` so aliased suggestions collapse. */
+function uniqueLabels(labels) {
+  const seen = new Set();
+  const result = [];
+  for (const label of labels) {
+    const key = label.toLowerCase();
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    result.push(label);
+  }
+  return result;
 }
 
 /** Coerce an arbitrary value into a canonical work entry, or null if it is
@@ -253,9 +392,15 @@ export function pruneHistory(
  * `label` mirrors it; the buckets no longer carry a language-specific weekday
  * name, so the DOM layer localises the weekday from `date` through the catalog.
  * When `label` is provided, only entries matching it are counted; pass
- * `UNLABELLED` to count entries without a label. Purely data in, data out.
+ * `UNLABELLED` to count entries without a label. When `tags` is provided (a
+ * `normalizeSessionTags` map) each entry's label is matched through
+ * `applyAliases`, so a filter expressed as a display alias still finds its
+ * sessions. Purely data in, data out.
  */
-export function summarise(history, { now = Date.now(), days = 7, label } = {}) {
+export function summarise(
+  history,
+  { now = Date.now(), days = 7, label, tags } = {},
+) {
   const { spanDays, rangeStart, entries } = collectWindow(history, { now, days });
   const filter = label === undefined || label === null ? null : String(label);
 
@@ -274,7 +419,8 @@ export function summarise(history, { now = Date.now(), days = 7, label } = {}) {
   let totalSessions = 0;
   let totalSeconds = 0;
   for (const entry of entries) {
-    if (filter !== null && (entry.label || UNLABELLED) !== filter) {
+    const entryLabel = applyAliases(entry.label, tags);
+    if (filter !== null && (entryLabel || UNLABELLED) !== filter) {
       continue;
     }
     const bucket = buckets.get(dateKey(new Date(entry.timestamp)));
@@ -306,10 +452,12 @@ export function summarise(history, { now = Date.now(), days = 7, label } = {}) {
  *
  * The optional `labels` argument acts as an allow-list, so callers can ask for
  * a single label's totals. Without it every label in the range is returned.
+ * When `tags` is provided the group keys are the aliased display labels, so
+ * several stored labels that share an alias are merged into one bucket.
  */
 export function labelSummary(
   history,
-  { now = Date.now(), days = 7, labels } = {},
+  { now = Date.now(), days = 7, labels, tags } = {},
 ) {
   const { entries } = collectWindow(history, { now, days });
   const allow =
@@ -320,13 +468,14 @@ export function labelSummary(
 
   for (const entry of entries) {
     if (entry.label) {
-      if (allow && !allow.has(entry.label)) {
+      const display = applyAliases(entry.label, tags);
+      if (allow && !allow.has(display)) {
         continue;
       }
-      const bucket = totals.get(entry.label) || { sessions: 0, minutes: 0 };
+      const bucket = totals.get(display) || { sessions: 0, minutes: 0 };
       bucket.sessions += 1;
       bucket.minutes += Math.round(entry.durationSeconds / 60);
-      totals.set(entry.label, bucket);
+      totals.set(display, bucket);
     } else {
       if (allow && !allow.has(UNLABELLED)) {
         continue;
@@ -349,9 +498,10 @@ export function labelSummary(
 /**
  * Return the newest `limit` normalised entries, newest first, each shaped as
  * `{ endedAt, label, durationSeconds }`. `label` is absent for unlabelled
- * entries so the caller can render its own placeholder.
+ * entries so the caller can render its own placeholder. When `tags` is provided
+ * each returned label is run through `applyAliases`.
  */
-export function recentSessions(history, { limit = 5 } = {}) {
+export function recentSessions(history, { limit = 5, tags } = {}) {
   const log = Array.isArray(history) ? history : [];
   const entries = [];
   for (const entry of log) {
@@ -367,7 +517,7 @@ export function recentSessions(history, { limit = 5 } = {}) {
     .slice(0, max)
     .map(({ endedAt, label, durationSeconds }) => ({
       endedAt,
-      label,
+      label: applyAliases(label, tags),
       durationSeconds,
     }));
 }
@@ -390,10 +540,17 @@ export function recentSessions(history, { limit = 5 } = {}) {
  *   so a skewed clock cannot surface a session that has not ended yet.
  * - `limit` is coerced to a non-negative integer; malformed input becomes `0`.
  *
+ * When `tags` is provided the returned labels are run through `applyAliases`
+ * and de-duplicated again, so two stored labels that share a display alias
+ * appear once.
+ *
  * Pure: it never touches the DOM, storage, or the network, never mutates the
  * input log, and never throws on malformed input.
  */
-export function recentLabels(history, { limit = 8, now = Date.now() } = {}) {
+export function recentLabels(
+  history,
+  { limit = 8, now = Date.now(), tags } = {},
+) {
   const log = Array.isArray(history) ? history : [];
   const requested = Number(limit);
   const max = Number.isFinite(requested) ? Math.max(0, Math.floor(requested)) : 0;
@@ -420,10 +577,11 @@ export function recentLabels(history, { limit = 8, now = Date.now() } = {}) {
     }
   }
 
-  return Array.from(latest.values())
-    .sort((a, b) => b.timestamp - a.timestamp)
-    .slice(0, max)
-    .map((item) => item.label);
+  return uniqueLabels(
+    Array.from(latest.values())
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .map((item) => applyAliases(item.label, tags)),
+  ).slice(0, max);
 }
 
 /** Clamp an arbitrary value to `0..max`, rounding to whole minutes. Malformed
@@ -553,11 +711,20 @@ export function weekWindow({
  *   definition rather than through division by zero.
  * - `reached` is only `true` when the target is positive and met.
  *
- * Pure: the input log is never mutated, and malformed entries are ignored.
+ * When `tags` is provided each entry's label is matched through
+ * `applyAliases`, so a label-scoped goal expressed as a display alias still
+ * finds its sessions. Pure: the input log is never mutated, and malformed
+ * entries are ignored.
  */
 export function goalProgress(
   history,
-  { now = Date.now(), minutes = 0, label, weekStartsOn = DEFAULT_WEEK_START } = {},
+  {
+    now = Date.now(),
+    minutes = 0,
+    label,
+    weekStartsOn = DEFAULT_WEEK_START,
+    tags,
+  } = {},
 ) {
   const { start, end } = weekWindow({ now, weekStartsOn });
   const targetMinutes = clampGoalMinutes(minutes);
@@ -574,7 +741,10 @@ export function goalProgress(
     if (timestamp === null || timestamp < start || timestamp >= end) {
       continue;
     }
-    if (filter !== null && (normalized.label || UNLABELLED) !== filter) {
+    if (
+      filter !== null &&
+      (applyAliases(normalized.label, tags) || UNLABELLED) !== filter
+    ) {
       continue;
     }
     focusedMinutes += Math.round(normalized.durationSeconds / 60);
@@ -614,13 +784,15 @@ export function goalProgress(
  * - `dayStart` is the inclusive start of today (local midnight).
  *
  * The day span is computed with local calendar arithmetic, so a 23h/25h
- * daylight-saving transition never drops or duplicates entries. Pure: the input
- * log is never mutated, malformed entries and non-work phases are ignored, and
- * there is no DOM, storage, or network access.
+ * daylight-saving transition never drops or duplicates entries. When `tags` is
+ * provided each entry's label is matched through `applyAliases`, so a
+ * label-scoped goal expressed as a display alias still finds its sessions.
+ * Pure: the input log is never mutated, malformed entries and non-work phases
+ * are ignored, and there is no DOM, storage, or network access.
  */
 export function dailyGoalProgress(
   history,
-  { now = Date.now(), minutes = 0, label } = {},
+  { now = Date.now(), minutes = 0, label, tags } = {},
 ) {
   const resolved = toTimestamp(now);
   const base = resolved === null ? Date.now() : resolved;
@@ -653,7 +825,10 @@ export function dailyGoalProgress(
     ) {
       continue;
     }
-    if (filter !== null && (normalized.label || UNLABELLED) !== filter) {
+    if (
+      filter !== null &&
+      (applyAliases(normalized.label, tags) || UNLABELLED) !== filter
+    ) {
       continue;
     }
     focusedMinutes += Math.round(normalized.durationSeconds / 60);
@@ -701,11 +876,20 @@ export function dailyGoalProgress(
  * - `scoped` is `true` when a `label` filter was supplied, so the DOM layer can
  *   label the breakdown as a single-label view without inspecting `perLabel`.
  *
- * Pure: the input log is never mutated, and malformed entries are ignored.
+ * When `tags` is provided each entry's label is run through `applyAliases`, so
+ * the breakdown groups by display alias and a label filter expressed as an
+ * alias still matches. Pure: the input log is never mutated, and malformed
+ * entries are ignored.
  */
 export function weeklyReview(
   history,
-  { now = Date.now(), minutes = 0, label, weekStartsOn = DEFAULT_WEEK_START } = {},
+  {
+    now = Date.now(),
+    minutes = 0,
+    label,
+    weekStartsOn = DEFAULT_WEEK_START,
+    tags,
+  } = {},
 ) {
   const { start, end } = weekWindow({ now, weekStartsOn });
   const targetMinutes = clampGoalMinutes(minutes);
@@ -724,7 +908,7 @@ export function weeklyReview(
     if (timestamp === null || timestamp < start || timestamp >= end) {
       continue;
     }
-    const key = normalized.label || UNLABELLED;
+    const key = applyAliases(normalized.label, tags) || UNLABELLED;
     if (filter !== null && key !== filter) {
       continue;
     }
@@ -895,11 +1079,11 @@ export function backupToJson(state, options) {
  * positive integer, or is greater than `BACKUP_FORMAT_VERSION`, is rejected as
  * a forward-compatibility guard. Every field is run through the existing pure
  * normalisers (`pruneHistory`, `normalizeGoal`, `normalizeDailyGoal`,
- * `normalizeAmbient`, `normalizeLocale`, `normalizeWeekStart`), so the result is
- * canonical; `settings` is carried through untouched for the DOM layer to
- * normalise. Total: bad JSON, wrong types, missing fields, and `null` all
- * return `null` instead of throwing. `now` and `retentionDays` are injectable
- * for tests.
+ * `normalizeAmbient`, `normalizeLocale`, `normalizeWeekStart`,
+ * `normalizeSessionTags`), so the result is canonical; `settings` is carried
+ * through untouched for the DOM layer to normalise. Total: bad JSON, wrong
+ * types, missing fields, and `null` all return `null` instead of throwing.
+ * `now` and `retentionDays` are injectable for tests.
  */
 export function parseBackup(
   text,
@@ -951,6 +1135,7 @@ export function parseBackup(
     ambient: normalizeAmbient(data.ambient),
     locale: normalizeLocale(data.locale),
     weekStart: normalizeWeekStart(data.weekStart),
+    sessionTags: normalizeSessionTags(data.sessionTags),
   };
 }
 
@@ -982,13 +1167,16 @@ export function backupFileName(now = Date.now()) {
  * Malformed entries and non-work phases are ignored exactly as in `summarise`.
  * `weekStartsOn` is accepted for signature consistency with the other weekly
  * helpers and normalised the same way as `weekWindow`; streaks are day-based,
- * so the value does not otherwise change the result.
+ * so the value does not otherwise change the result. `tags` is likewise
+ * accepted for signature consistency with the other derived views; a streak
+ * aggregates whole days rather than labels, so it does not change the result.
  */
 export function streaks(
   history,
-  { now = Date.now(), weekStartsOn = DEFAULT_WEEK_START } = {},
+  { now = Date.now(), weekStartsOn = DEFAULT_WEEK_START, tags } = {},
 ) {
   void weekStartsOn;
+  void tags;
   const resolved = toTimestamp(now);
   const todayStart = startOfDay(resolved === null ? Date.now() : resolved);
   const todayDate = new Date(todayStart);

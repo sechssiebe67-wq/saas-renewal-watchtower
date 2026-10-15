@@ -39,6 +39,19 @@ calls, no telemetry, and no secrets.
   existing history key** and adds **no new `localStorage` key, no network
   request, and no third-party dependency**. A fresh install with no history
   shows no list, and free-text labels keep working exactly as before.
+- **Label aliases (session tags):** a **Label aliases** group in Settings lets
+  you rename how a session label is shown — for example show `Thesis` as `PhD` —
+  in every view without changing the sessions you already saved. The Stats
+  filter chips and totals, the **Recent sessions** list, the autocomplete
+  suggestions, the weekly and daily goal scoping, the per-label goal breakdown,
+  and the Weekly review all show the alias, and stored labels that share an
+  alias are merged into one row. Each change is announced once through the
+  screen-reader live region, an empty alias list shows a localised empty-state
+  message, and the rows re-render in the chosen language. The map is stored only
+  in `localStorage["focus-flow:session-tags"]` (removed when empty) and included
+  in backups. It is read by the pure `normalizeSessionTags` / `applyAliases`
+  helpers in `app/history.js`, so it adds **no network request and no
+  third-party dependency**; the stored history is never rewritten.
 - **Weekly focus goal:** set a target number of focused minutes per week in
   Settings (optionally scoped to the currently selected label, e.g. "5 hours on
   Thesis chapter 3"). The Stats panel shows the target, minutes focused so far
@@ -117,8 +130,9 @@ calls, no telemetry, and no secrets.
 - **Backup & restore:** a **Backup & restore** group in Settings can export all of
   your local Focus Flow data to a single
   `focus-flow-backup-<YYYY-MM-DD>.json` file — your settings, session history
-  (with labels), weekly goal, daily goal, ambient-sound choice, language, and
-  week-start preference — and restore it on the same or another device. The
+  (with labels), weekly goal, daily goal, ambient-sound choice, language,
+  week-start preference, and label aliases — and restore it on the same or
+  another device. The
   **Restore backup** control reads a file you pick, **validates and normalises**
   it before writing, and leaves your existing data untouched if the file is not a
   usable backup (showing an inline error and announcing it). The JSON is built by
@@ -134,7 +148,8 @@ calls, no telemetry, and no secrets.
 
 Focus Flow is **privacy-first by construction**: the focus history, any session
 labels you type, your weekly focus goal, your daily focus goal, your
-ambient-sound choice, your language preference, and your week-start preference
+ambient-sound choice, your language preference, your week-start preference, and
+your label aliases
 live only on your device. They are never uploaded, synced, or sent anywhere. The
 **Daily goal** row in the Stats panel is derived from today's slice of the
 existing session history, so it adds no history key and no upload of its own. The
@@ -143,7 +158,10 @@ in the Stats panel**, the focus streaks, the daily reminder hint, and the
 **session-label autocomplete** are all **derived** from that existing local data
 only — they add no new storage key, no network request, and no third-party
 dependency. The autocomplete in particular reads only the labels already in
-`focus-flow:history` and never uploads, adds, or reorders anything. The CSV
+`focus-flow:history` and never uploads, adds, or reorders anything. The label
+aliases are read by pure helpers and stored only under the optional
+`focus-flow:session-tags` key, so they add no network request, no third-party
+dependency, and no upload, and they never rewrite the stored history. The CSV
 is written by a pure helper and handed to the browser as a local `Blob` URL, so
 it is created and saved entirely on your device and never leaves it. The
 **backup & restore** JSON is likewise built by a pure helper and handed over as a
@@ -175,6 +193,9 @@ All state lives in the browser's `localStorage`:
 - `focus-flow:week-start` — the optional first-day-of-week preference (`0` =
   Sunday, `1` = Monday), rendered through the bundled catalog; removed when the
   default Monday is selected.
+- `focus-flow:session-tags` — the optional `{ label: alias }` display map for
+  **label aliases**, coerced by the pure `normalizeSessionTags` helper; removed
+  when the map is empty, and included in backups.
 
 The Stats **Weekly goal** per-label breakdown, the Weekly review panel, the CSV
 export, the focus streaks, and the daily reminder hint are all **derived** from
@@ -195,7 +216,7 @@ adds no third-party dependency, so the labels stay on the device.
 
 **Backup & restore** adds **no new `localStorage` key** and makes no network
 request: the exported JSON mirrors the existing keys listed above (settings,
-history, goal, daily goal, ambient, locale, and week start) and a restored file
+history, goal, daily goal, ambient, locale, week start, and label aliases) and a restored file
 is normalised with the same pure helpers before those keys are rewritten. The
 file is created and read entirely on the device.
 

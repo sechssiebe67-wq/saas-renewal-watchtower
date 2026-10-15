@@ -36,7 +36,7 @@ EXPECTED_PRECACHE = [
     "./icons/icon-512.png",
     "./icons/icon-maskable-512.png",
 ]
-EXPECTED_CACHE_NAME = "focus-flow-v13"
+EXPECTED_CACHE_NAME = "focus-flow-v14"
 
 
 def read_text(path):
@@ -183,6 +183,17 @@ class ServiceWorkerTests(unittest.TestCase):
                 self._version_number(EXPECTED_CACHE_NAME),
                 "bump CACHE_NAME when PRECACHE_URLS changes",
             )
+
+    def test_cache_version_covers_rewritten_precached_assets(self):
+        # The session-tags feature rewrote precached assets (index.html,
+        # main.js, i18n.js, history.js) without changing PRECACHE_URLS, so the
+        # cache version must move past the pre-feature v13 for returning
+        # clients to install the new offline shell.
+        self.assertGreaterEqual(
+            self._version_number(self._cache_name()),
+            14,
+            "bump CACHE_NAME when precached asset contents change",
+        )
 
     def test_precache_urls_exist_on_disk(self):
         for asset in self._precache_urls():

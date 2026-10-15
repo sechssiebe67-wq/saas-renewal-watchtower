@@ -53,6 +53,8 @@ import {
   weeklyReview,
   weeklyReviewCsv,
   streaks,
+  normalizeSessionTags,
+  applyAliases,
   backupFileName,
   backupToJson,
   parseBackup,
@@ -69,6 +71,7 @@ const STORAGE_KEYS = Object.freeze({
   ambient: "focus-flow:ambient",
   locale: "focus-flow:locale",
   weekStart: "focus-flow:week-start",
+  sessionTags: "focus-flow:session-tags",
 });
 
 const STATS_WINDOW_DAYS = 7;
@@ -187,6 +190,11 @@ function getElements() {
     backupStatus: document.getElementById("backup-status"),
     clearGoal: document.getElementById("clear-goal"),
     clearDailyGoal: document.getElementById("clear-daily-goal"),
+    sessionTagFrom: document.getElementById("session-tag-from"),
+    sessionTagTo: document.getElementById("session-tag-to"),
+    sessionTagAdd: document.getElementById("session-tag-add"),
+    sessionTagsList: document.getElementById("session-tags-list"),
+    sessionTagsEmpty: document.getElementById("session-tags-empty"),
     locale: document.getElementById("locale"),
     themeToggle: document.getElementById("theme-toggle"),
     themeToggleLabel: document.getElementById("theme-toggle-label"),
@@ -267,6 +275,10 @@ export function init() {
 
   let weekStartsOn = normalizeWeekStart(
     readStorage(STORAGE_KEYS.weekStart, DEFAULT_WEEK_START),
+  );
+
+  let sessionTags = normalizeSessionTags(
+    readStorage(STORAGE_KEYS.sessionTags, null),
   );
 
   let ambient = normalizeAmbient(
@@ -465,6 +477,7 @@ export function init() {
     }
     applyStaticTranslations();
     updateThemeButton(currentTheme());
+    renderSessionTags();
     render(engine.snapshot(), { reason: "locale" });
     renderStats();
     if (announceChange) {
@@ -511,6 +524,110 @@ export function init() {
         t("announce.weekStart", {
           day: t(weekStartLabelKey(weekStartsOn)),
         }),
+      );
+    }
+  }
+
+  /** The alias map as a list of `{ from, to }` pairs, for the normaliser. */
+  function sessionTagEntries() {
+    return Object.entries(sessionTags).map(([from, to]) => ({ from, to }));
+  }
+
+  /** Persist under `focus-flow:session-tags`; an empty map removes the key so a
+   * default install leaves no trace, matching the other optional preferences. */
+  function persistSessionTags() {
+    if (Object.keys(sessionTags).length === 0) {
+      try {
+        window.localStorage.removeItem(STORAGE_KEYS.sessionTags);
+      } catch (error) {
+        /* Storage may be unavailable; the in-memory map still applies. */
+      }
+      return;
+    }
+    writeStorage(STORAGE_KEYS.sessionTags, sessionTags);
+  }
+
+  /** Render the current alias map as a list with a remove button per row. */
+  function renderSessionTags() {
+    if (!el.sessionTagsList) {
+      return;
+    }
+    const entries = sessionTagEntries();
+    el.sessionTagsList.hidden = entries.length === 0;
+    if (el.sessionTagsEmpty) {
+      el.sessionTagsEmpty.hidden = entries.length !== 0;
+    }
+    const items = entries.map(({ from, to }) => {
+      const item = document.createElement("li");
+      item.className = "session-tag";
+
+      const text = document.createElement("span");
+      text.className = "session-tag__text";
+      text.textContent = t("settings.sessionTagsEntry", {
+        label: from,
+        alias: to,
+      });
+
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "control session-tag__remove";
+      remove.textContent = t("settings.sessionTagsRemove");
+      remove.setAttribute(
+        "aria-label",
+        t("settings.sessionTagsRemoveLabel", { label: from }),
+      );
+      remove.addEventListener("click", () => removeSessionTag(from));
+
+      item.append(text, remove);
+      return item;
+    });
+    el.sessionTagsList.replaceChildren(...items);
+  }
+
+  /** Replace the alias map, persist it, and re-render every affected view. */
+  function applySessionTags(raw) {
+    sessionTags = normalizeSessionTags(raw);
+    persistSessionTags();
+    renderSessionTags();
+    if (el.sessionLabelSuggestions && !el.sessionLabelSuggestions.hidden) {
+      renderLabelSuggestions();
+    }
+    renderStats();
+  }
+
+  /** Add the alias currently typed into the two Settings fields. */
+  function addSessionTag(announceChange = true) {
+    if (!el.sessionTagFrom || !el.sessionTagTo) {
+      return;
+    }
+    const label = String(el.sessionTagFrom.value || "").trim();
+    const alias = String(el.sessionTagTo.value || "").trim();
+    if (label.length === 0 || alias.length === 0) {
+      announce(t("announce.sessionTagsInvalid"));
+      return;
+    }
+    const entries = sessionTagEntries();
+    entries.push({ from: label, to: alias });
+    applySessionTags(entries);
+    if (el.sessionTagFrom) {
+      el.sessionTagFrom.value = "";
+    }
+    if (el.sessionTagTo) {
+      el.sessionTagTo.value = "";
+    }
+    if (announceChange) {
+      announce(t("announce.sessionTagsSaved", { label, alias }));
+    }
+  }
+
+  /** Drop the alias whose canonical label is `from`. */
+  function removeSessionTag(from, announceChange = true) {
+    applySessionTags(sessionTagEntries().filter((entry) => entry.from !== from));
+    if (announceChange) {
+      announce(
+        Object.keys(sessionTags).length === 0
+          ? t("announce.sessionTagsCleared", { label: from })
+          : t("announce.sessionTagsRemoved", { label: from }),
       );
     }
   }
@@ -665,7 +782,10 @@ export function init() {
       return;
     }
     const query = String(el.sessionLabel.value || "").trim().toLowerCase();
-    const labels = recentLabels(history, { limit: LABEL_SUGGESTION_LIMIT });
+    const labels = recentLabels(history, {
+      limit: LABEL_SUGGESTION_LIMIT,
+      tags: sessionTags,
+    });
     const suggestions = query
       ? labels.filter(
           (label) =>
@@ -814,7 +934,7 @@ export function init() {
     if (!el.statsRecent) {
       return;
     }
-    const sessions = recentSessions(history, { limit: 5 });
+    const sessions = recentSessions(history, { limit: 5, tags: sessionTags });
     el.statsRecent.hidden = sessions.length === 0;
 
     const items = sessions.map((session) => {
@@ -864,6 +984,7 @@ export function init() {
     const info = streaks(history, {
       now: Date.now(),
       weekStartsOn,
+      tags: sessionTags,
     });
 
     if (el.statsStreakCurrent) {
@@ -898,6 +1019,7 @@ export function init() {
       now: Date.now(),
       days: STATS_WINDOW_DAYS,
       label: activeLabel === null ? undefined : activeLabel,
+      tags: sessionTags,
     });
 
     if (el.statsTotalSessions) {
@@ -952,7 +1074,11 @@ export function init() {
     }
 
     renderLabelChips(
-      labelSummary(history, { now: Date.now(), days: STATS_WINDOW_DAYS }),
+      labelSummary(history, {
+        now: Date.now(),
+        days: STATS_WINDOW_DAYS,
+        tags: sessionTags,
+      }),
     );
     renderRecentSessions();
     renderStreak();
@@ -965,8 +1091,12 @@ export function init() {
     return goalProgress(history, {
       now: Date.now(),
       minutes: goal.minutes,
-      label: activeLabel === null ? goal.label : activeLabel,
+      label:
+        activeLabel === null
+          ? applyAliases(goal.label, sessionTags)
+          : activeLabel,
       weekStartsOn,
+      tags: sessionTags,
     });
   }
 
@@ -1029,7 +1159,11 @@ export function init() {
     return dailyGoalProgress(history, {
       now: Date.now(),
       minutes: dailyGoal.minutes,
-      label: activeLabel === null ? dailyGoal.label : activeLabel,
+      label:
+        activeLabel === null
+          ? applyAliases(dailyGoal.label, sessionTags)
+          : activeLabel,
+      tags: sessionTags,
     });
   }
 
@@ -1202,8 +1336,12 @@ export function init() {
     return weeklyReview(history, {
       now: Date.now(),
       minutes: goal.minutes,
-      label: activeLabel === null ? goal.label : activeLabel,
+      label:
+        activeLabel === null
+          ? applyAliases(goal.label, sessionTags)
+          : activeLabel,
       weekStartsOn,
+      tags: sessionTags,
     });
   }
 
@@ -1256,6 +1394,7 @@ export function init() {
       ambient,
       locale,
       weekStart: weekStartsOn,
+      sessionTags,
     };
   }
 
@@ -1345,6 +1484,9 @@ export function init() {
     weekStartsOn = normalizeWeekStart(parsed.weekStart);
     persistWeekStart();
 
+    sessionTags = normalizeSessionTags(parsed.sessionTags);
+    persistSessionTags();
+
     goalReached = null;
     dailyGoalReached = null;
     activeLabel = null;
@@ -1356,6 +1498,7 @@ export function init() {
     syncForm(engine.settings);
     syncAmbientControls();
     syncWeekStartControl();
+    renderSessionTags();
     render(engine.snapshot());
     renderStats();
   }
@@ -1632,6 +1775,7 @@ export function init() {
   syncForm(engine.settings);
   syncAmbientControls();
   syncWeekStartControl();
+  renderSessionTags();
   wireLabelSuggestions();
   renderStats();
 
@@ -1657,6 +1801,20 @@ export function init() {
     el.clearDailyGoal.addEventListener("click", () => {
       applyDailyGoal(0, { announceChange: true });
     });
+  }
+
+  if (el.sessionTagAdd) {
+    el.sessionTagAdd.addEventListener("click", () => addSessionTag());
+  }
+  for (const input of [el.sessionTagFrom, el.sessionTagTo]) {
+    if (input) {
+      input.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          addSessionTag();
+        }
+      });
+    }
   }
 
   el.form.addEventListener("submit", (event) => {

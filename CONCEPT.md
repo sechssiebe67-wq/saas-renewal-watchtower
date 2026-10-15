@@ -78,6 +78,26 @@ after the first load.
   region, and a fresh install with no history shows no list at all. The feature
   adds **no new `localStorage` key, no network request, and no third-party
   dependency**, keeping the privacy-by-construction invariant.
+- **Label aliases (session tags):** a device-only **Label aliases** group in
+  Settings lets a user rename how a session label is *displayed* without
+  rewriting the stored `focus-flow:history` log. Each alias maps an original
+  label to a display label (e.g. `Thesis` → `PhD`); every derived view — the
+  Stats filter chips and per-label totals, the **Recent sessions** list, the
+  session-label autocomplete, the weekly and daily goal scoping, the per-label
+  goal breakdown, and the **Weekly review** — shows the alias, and several
+  stored labels that share one alias are merged into a single row. The map is
+  coerced by the pure `normalizeSessionTags` helper in `app/history.js`
+  (trimmed, non-empty, length-capped, case-insensitively de-duplicated,
+  entry-capped) and read by the pure `applyAliases` helper; the DOM layer
+  threads it into the derived views through a `tags` option that defaults to
+  `undefined`, so omitting it keeps the previous behaviour byte-for-byte.
+  Adding or removing an alias is announced once through the existing ARIA live
+  region, an empty list shows a localised empty-state message, every row is
+  re-rendered when the language changes, and a default install stores nothing.
+  The map lives only in `localStorage` under
+  `focus-flow:session-tags` (the key is removed when the map is empty) and is
+  included in the local backup; the pure module stays DOM-, storage-, and
+  network-free.
 - **Weekly focus goal:** a user can set a target number of focused minutes for
   the current week (e.g. `300`), optionally scoped to a single session label so
   the target can read "5 hours on Thesis chapter 3". The Stats panel renders a
@@ -204,7 +224,8 @@ after the first load.
   **Export backup** button writes a single JSON file
   (`focus-flow-backup-<YYYY-MM-DD>.json`) containing the settings, the session
   history (with labels), the weekly goal, the daily goal, the ambient choice,
-  the locale, and the week-start preference; a **Restore backup** button reads a
+  the locale, the week-start preference, and the label aliases; a **Restore
+  backup** button reads a
   file the user picks, validates and normalises it through the existing pure
   helpers, and writes it back to `localStorage`. The file is produced by the
   pure `exportBackup` / `backupToJson` helpers in `app/history.js` and handed to
@@ -246,16 +267,21 @@ after the first load.
     `pruneHistory`, `summarise`, `labelSummary`, `recentSessions`,
     `recentLabels`, `normalizeGoal`, `weekWindow`, `goalProgress`,
     `normalizeDailyGoal`, `dailyGoalProgress`, `weeklyReview`, `streaks`,
-    `normalizeWeekStart`,
+    `normalizeWeekStart`, `normalizeSessionTags`, `applyAliases`,
     `weeklyReviewCsv`, `exportBackup`, `backupToJson`, `parseBackup`,
     `backupFileName`, `HISTORY_VERSION`, `GOAL_STORAGE_SHAPE_VERSION`,
     `DAILY_GOAL_STORAGE_SHAPE_VERSION`, `WEEK_START_OPTIONS`,
-    `WEEK_START_STORAGE_SHAPE_VERSION`, `BACKUP_FORMAT_VERSION`,
-    `BACKUP_KEYS`) with no DOM access.
+    `WEEK_START_STORAGE_SHAPE_VERSION`, `SESSION_TAGS_MAX_ENTRIES`,
+    `SESSION_TAGS_MAX_ALIAS_LENGTH`, `SESSION_TAGS_STORAGE_SHAPE_VERSION`,
+    `BACKUP_FORMAT_VERSION`, `BACKUP_KEYS`) with no DOM access.
     `recentLabels` returns the newest distinct labels from the log (trimmed,
     non-empty, case-insensitively de-duplicated, newest first by `endedAt`,
     capped at a requested `limit`) for the session-label autocomplete, without
     touching the DOM, storage, or the network.
+    `normalizeSessionTags` coerces arbitrary stored input into the canonical
+    `{ label: alias }` display map and `applyAliases` resolves a stored label
+    through it; the derived views accept an optional `tags` map so they can
+    return aliased labels and match aliased filters without rewriting history.
     `dailyGoalProgress` measures the current local calendar day against the
     optional daily goal and returns `{ targetMinutes, focusedMinutes,
     remainingMinutes, percent, reached, dayStart }`, and `normalizeDailyGoal`
@@ -317,6 +343,7 @@ leaves the device. There is no backend, no account, and no sync.
 | `focus-flow:ambient` | `{ type, volume }` | Optional **ambient sound** setting. `type` is one of `"off"`, `"brown"`, `"pink"`, or `"rain"`, and `volume` is a number clamped to `0..1`. The key is **removed** when `type` is `"off"`; `normalizeAmbient` in `app/ambient.js` coerces arbitrary stored input and never throws. Nothing is uploaded and no audio file is stored — the sound is synthesised in the browser. |
 | `focus-flow:locale` | locale id string (`"en"` \| `"de"` \| `"es"`) | Optional **language** preference. The stored value is the canonical id from `SUPPORTED_LOCALES`; `normalizeLocale` in `app/i18n.js` coerces arbitrary stored input (a string, a `{ locale }` object, or anything else) into a supported id, falling back to `DEFAULT_LOCALE` (`"en"`) and never throwing. The key is **removed** when the locale is the default so a default install leaves no trace, matching the ambient-sound behaviour. `LOCALE_STORAGE_SHAPE_VERSION` documents the shape version. Together with `focus-flow:week-start` this is one of the only added storage keys, and both are removed when they hold a default value. |
 | `focus-flow:week-start` | `0` \| `1` | Optional **first day of the week** preference: `0` = Sunday, `1` = Monday (default `1`). Stored as a bare integer; `normalizeWeekStart` in `app/history.js` coerces arbitrary stored input (a number, a numeric string, a `{ weekStartsOn }` object, `null`, or anything else) into `0` or `1`, falling back to `DEFAULT_WEEK_START` and never throwing. The key is **removed** when the default Monday is selected so a default install leaves no trace, matching the ambient-sound and locale behaviour. `WEEK_START_STORAGE_SHAPE_VERSION` documents the shape version. |
+| `focus-flow:session-tags` | `{ [canonicalLabel]: aliasLabel }` | Optional **label aliases**. Each key is a stored session label and each value the label to *display* in its place; both are trimmed, keys are capped to 40 characters and aliases to `SESSION_TAGS_MAX_ALIAS_LENGTH`, keys that differ only by case are merged, and the map is capped at `SESSION_TAGS_MAX_ENTRIES`. `normalizeSessionTags` in `app/history.js` coerces an object, an array of `{ from, to }` pairs, `null`, or anything else into the canonical map without throwing; `applyAliases` resolves a stored label through it. The key is **removed** when the map is empty so a default install leaves no trace, and the map is included in the local backup. `SESSION_TAGS_STORAGE_SHAPE_VERSION` documents the shape version. |
 
 The **Weekly review** panel is derived, not stored: it reads only the existing
 `focus-flow:history` and `focus-flow:goal` keys through the pure `weeklyReview`
@@ -355,6 +382,15 @@ the session-label input. It adds **no new `localStorage` key, no network
 request, and no third-party dependency**, so it, too, keeps every label on the
 device.
 
+The **label aliases** are read-time only: the DOM layer applies the
+`focus-flow:session-tags` map through the pure `applyAliases` helper when it
+renders the Stats chips and totals, the Recent sessions list, the autocomplete,
+the goal scoping, the per-label goal breakdown, and the Weekly review, so the
+stored `focus-flow:history` log is never rewritten. Several stored labels that
+share one alias collapse into a single display row. The map is added to the
+local backup alongside the other keys, is removed when empty, and is never
+uploaded; reading it adds no network request and no third-party dependency.
+
 The **internationalisation** catalog is bundled, not fetched: every string lives
 in `app/i18n.js`, the service worker precaches `./i18n.js`, and the app makes no
 network request at runtime. The same file also bundles the `LOCALE_DATA` used to
@@ -368,7 +404,8 @@ locale is selected.
 Focus Flow can save and reload its local state as a single JSON file, which is
 **created and read entirely on the device**. The backup contains the settings,
 the session history (with labels), the weekly goal, the daily goal, the ambient
-choice, the locale, and the week-start preference; it contains **no secrets**
+choice, the locale, the week-start preference, and the label aliases; it
+contains **no secrets**
 and is handed to the browser as a `Blob` object URL, so it is never uploaded and
 no network request is made. `exportBackup` / `backupToJson` in `app/history.js`
 build the deterministic `{ version, exportedAt, data }` envelope, and
@@ -450,6 +487,17 @@ key**, makes **no network request**, and adds **no third-party dependency**.
   existing ARIA live region, keeps free text intact when no suggestion is
   chosen, and shows nothing on a fresh install. It adds **no new
   `localStorage` key, no network request, and no third-party dependency**.
+- [x] **Label aliases (session tags)**, the display-cleanup follow-up to
+  per-session labels: a device-only `{ label: alias }` map lets a user rename
+  how a label is shown everywhere without rewriting the stored history. The pure
+  `normalizeSessionTags` / `applyAliases` helpers in `app/history.js` coerce and
+  read the map, the derived views accept an optional `tags` option to return
+  aliased labels and match aliased filters, and the Settings card gains a
+  **Label aliases** group that adds and removes rows and announces each change
+  once through the existing ARIA live region. The map is stored only under
+  `focus-flow:session-tags` (removed when empty), is included in the local
+  backup, adds no network request and no third-party dependency, and shows
+  nothing on a default install.
 
 ## How the repository meets its own criteria
 
@@ -466,7 +514,7 @@ key**, makes **no network request**, and adds **no third-party dependency**.
 | Autonomous Operation | No backend; nothing to administer after deployment, and the service worker keeps the app usable offline. |
 | Kubernetes Compatible | `Dockerfile` + `helm/` chart with `Deployment`, `Service`, `Ingress`, probes, and resource limits. |
 | Resource Efficient | Tiny nginx:alpine image, static files only, small CPU/RAM requests and limits in `helm/values.yaml`. |
-| Security | No secrets, no runtime external calls, no telemetry, no user input leaves the browser; the service worker ignores cross-origin and non-GET requests; container runs as non-root. The ambient sound layer is synthesised in-browser with the Web Audio API, so it adds **no network request and no third-party asset**. The i18n catalog is bundled in `app/i18n.js`, so localisation adds **no network request and no third-party library**, and the only new storage is the optional locale preference. The user-selectable first day of week is rendered from that same bundled catalog, so it too adds **no network request and no third-party dependency** — the only new storage is the optional `focus-flow:week-start` preference. The daily focus goal is measured from the existing history by a pure helper and stored only under the optional `focus-flow:daily-goal` key, so it adds **no network request, no third-party dependency, and no upload**. The local backup/restore writes and reads a JSON file entirely on the device through pure helpers, so it adds **no new `localStorage` key, no network request, no third-party dependency, and no upload**. The session-label autocomplete is derived from the existing history key by the pure `recentLabels` helper, so it adds **no new `localStorage` key, no network request, no third-party dependency, and no upload**. |
+| Security | No secrets, no runtime external calls, no telemetry, no user input leaves the browser; the service worker ignores cross-origin and non-GET requests; container runs as non-root. The ambient sound layer is synthesised in-browser with the Web Audio API, so it adds **no network request and no third-party asset**. The i18n catalog is bundled in `app/i18n.js`, so localisation adds **no network request and no third-party library**, and the only new storage is the optional locale preference. The user-selectable first day of week is rendered from that same bundled catalog, so it too adds **no network request and no third-party dependency** — the only new storage is the optional `focus-flow:week-start` preference. The daily focus goal is measured from the existing history by a pure helper and stored only under the optional `focus-flow:daily-goal` key, so it adds **no network request, no third-party dependency, and no upload**. The local backup/restore writes and reads a JSON file entirely on the device through pure helpers, so it adds **no new `localStorage` key, no network request, no third-party dependency, and no upload**. The session-label autocomplete is derived from the existing history key by the pure `recentLabels` helper, so it adds **no new `localStorage` key, no network request, no third-party dependency, and no upload**. The label aliases are coerced and read by the pure `normalizeSessionTags` / `applyAliases` helpers and stored only under the optional `focus-flow:session-tags` key (removed when empty), so they add **no network request, no third-party dependency, and no upload**. |
 | Testable | `tests/` verifies assets, structure, the PWA manifest and service worker, and Helm rendering via `unittest`. |
 | Maintainable | Plain HTML/CSS/JS with no build step and clear project structure. |
 | Legal Compliance | Original code, no third-party assets, no personal data collected. |
