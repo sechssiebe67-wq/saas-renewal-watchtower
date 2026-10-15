@@ -47,6 +47,8 @@ import {
   recentSessions,
   normalizeGoal,
   goalProgress,
+  normalizeDailyGoal,
+  dailyGoalProgress,
   weeklyReview,
   weeklyReviewCsv,
   streaks,
@@ -59,6 +61,7 @@ const STORAGE_KEYS = Object.freeze({
   theme: "focus-flow:theme",
   history: "focus-flow:history",
   goal: "focus-flow:goal",
+  dailyGoal: "focus-flow:daily-goal",
   ambient: "focus-flow:ambient",
   locale: "focus-flow:locale",
   weekStart: "focus-flow:week-start",
@@ -153,6 +156,13 @@ function getElements() {
       "stats-goal-breakdown-title",
     ),
     statsGoalBreakdown: document.getElementById("stats-goal-breakdown"),
+    statsDailyGoal: document.getElementById("stats-daily-goal"),
+    statsDailyGoalTarget: document.getElementById("stats-daily-goal-target"),
+    statsDailyGoalFocused: document.getElementById("stats-daily-goal-focused"),
+    statsDailyGoalPercent: document.getElementById("stats-daily-goal-percent"),
+    statsDailyGoalBar: document.getElementById("stats-daily-goal-bar"),
+    statsDailyGoalFill: document.getElementById("stats-daily-goal-fill"),
+    statsDailyGoalReached: document.getElementById("stats-daily-goal-reached"),
     weeklyReviewEmpty: document.getElementById("weekly-review-empty"),
     weeklyReviewSummary: document.getElementById("weekly-review-summary"),
     weeklyReviewFocused: document.getElementById("weekly-review-focused"),
@@ -165,6 +175,7 @@ function getElements() {
     weeklyReviewLabels: document.getElementById("weekly-review-labels"),
     reviewExport: document.getElementById("review-export"),
     clearGoal: document.getElementById("clear-goal"),
+    clearDailyGoal: document.getElementById("clear-daily-goal"),
     locale: document.getElementById("locale"),
     themeToggle: document.getElementById("theme-toggle"),
     themeToggleLabel: document.getElementById("theme-toggle-label"),
@@ -177,6 +188,7 @@ function getElements() {
       sound: document.getElementById("sound-enabled"),
       autoStartBreaks: document.getElementById("auto-start-breaks"),
       goal: document.getElementById("weekly-goal"),
+      dailyGoal: document.getElementById("daily-goal"),
       ambientType: document.getElementById("ambient-type"),
       ambientVolume: document.getElementById("ambient-volume"),
       weekStart: document.getElementById("week-start"),
@@ -239,6 +251,8 @@ export function init() {
 
   let goal = normalizeGoal(readStorage(STORAGE_KEYS.goal, null));
   let goalReached = null;
+  let dailyGoal = normalizeDailyGoal(readStorage(STORAGE_KEYS.dailyGoal, null));
+  let dailyGoalReached = null;
 
   let weekStartsOn = normalizeWeekStart(
     readStorage(STORAGE_KEYS.weekStart, DEFAULT_WEEK_START),
@@ -503,6 +517,10 @@ export function init() {
     }
     if (el.inputs.goal) {
       el.inputs.goal.value = goal.minutes > 0 ? String(goal.minutes) : "";
+    }
+    if (el.inputs.dailyGoal) {
+      el.inputs.dailyGoal.value =
+        dailyGoal.minutes > 0 ? String(dailyGoal.minutes) : "";
     }
   }
 
@@ -781,6 +799,7 @@ export function init() {
     renderRecentSessions();
     renderStreak();
     renderGoal();
+    renderDailyGoal();
     renderWeeklyReview();
   }
 
@@ -846,6 +865,90 @@ export function init() {
 
     renderGoalBreakdown();
     noteGoalReached(progress.reached);
+  }
+
+  function currentDailyGoalProgress() {
+    return dailyGoalProgress(history, {
+      now: Date.now(),
+      minutes: dailyGoal.minutes,
+      label: activeLabel === null ? dailyGoal.label : activeLabel,
+    });
+  }
+
+  /** Announce the daily goal reached state exactly once per completion, the
+   * same way the weekly goal is tracked. */
+  function noteDailyGoalReached(reached) {
+    if (reached === null) {
+      dailyGoalReached = null;
+    } else if (dailyGoalReached === null) {
+      dailyGoalReached = reached;
+    } else if (reached && !dailyGoalReached) {
+      dailyGoalReached = true;
+      announce(t("announce.dailyGoalReached"));
+    } else if (!reached) {
+      dailyGoalReached = false;
+    }
+  }
+
+  /**
+   * Render the daily goal row from the pure `dailyGoalProgress` helper. The row
+   * is hidden when no daily goal is set; otherwise it shows the target, today's
+   * focused minutes, a percentage, and a `progressbar`, and switches to the
+   * reached state once the target is met.
+   */
+  function renderDailyGoal() {
+    const progress = currentDailyGoalProgress();
+    const active = progress.targetMinutes > 0;
+
+    if (el.statsDailyGoal) {
+      el.statsDailyGoal.hidden = !active;
+    }
+    if (!active) {
+      dailyGoalReached = null;
+      return;
+    }
+
+    if (el.statsDailyGoalTarget) {
+      el.statsDailyGoalTarget.textContent = formatNumber(
+        progress.targetMinutes,
+        locale,
+      );
+    }
+    if (el.statsDailyGoalFocused) {
+      el.statsDailyGoalFocused.textContent = formatNumber(
+        progress.focusedMinutes,
+        locale,
+      );
+    }
+    if (el.statsDailyGoalPercent) {
+      el.statsDailyGoalPercent.textContent = formatNumber(
+        progress.percent,
+        locale,
+      );
+    }
+    if (el.statsDailyGoalBar) {
+      el.statsDailyGoalBar.setAttribute("aria-valuenow", String(progress.percent));
+      el.statsDailyGoalBar.setAttribute("aria-valuemin", "0");
+      el.statsDailyGoalBar.setAttribute("aria-valuemax", "100");
+      el.statsDailyGoalBar.classList.toggle(
+        "stats__goal-bar--reached",
+        progress.reached,
+      );
+    }
+    if (el.statsDailyGoalFill) {
+      el.statsDailyGoalFill.style.width = `${progress.percent}%`;
+    }
+    if (el.statsDailyGoalReached) {
+      el.statsDailyGoalReached.hidden = !progress.reached;
+    }
+    if (el.statsDailyGoal) {
+      el.statsDailyGoal.classList.toggle(
+        "stats__goal--reached",
+        progress.reached,
+      );
+    }
+
+    noteDailyGoalReached(progress.reached);
   }
 
   /** Hide the per-label breakdown and let it announce again when it returns. */
@@ -1105,6 +1208,46 @@ export function init() {
     }
   }
 
+  /** Persist under `focus-flow:daily-goal`; a `0`/empty goal removes the key so
+   * a default install leaves no trace. */
+  function persistDailyGoal() {
+    if (dailyGoal.minutes > 0) {
+      writeStorage(STORAGE_KEYS.dailyGoal, dailyGoal);
+      return;
+    }
+    try {
+      window.localStorage.removeItem(STORAGE_KEYS.dailyGoal);
+    } catch (error) {
+      /* Storage may be unavailable; the in-memory goal still applies. */
+    }
+  }
+
+  function applyDailyGoal(rawMinutes, { announceChange = false } = {}) {
+    const parsed = Number.parseInt(rawMinutes, 10);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      dailyGoal = normalizeDailyGoal({ minutes: 0 });
+    } else {
+      dailyGoal = normalizeDailyGoal({
+        minutes: parsed,
+        label: activeLabel === null ? dailyGoal.label : activeLabel,
+      });
+    }
+    persistDailyGoal();
+    syncForm(engine.settings);
+    dailyGoalReached = null;
+    renderStats();
+    if (announceChange) {
+      const progress = currentDailyGoalProgress();
+      if (progress.targetMinutes > 0 && progress.reached) {
+        announce(t("announce.dailyGoalReached"));
+      } else if (progress.targetMinutes > 0) {
+        announce(t("announce.dailyGoalSaved"));
+      } else {
+        announce(t("announce.dailyGoalCleared"));
+      }
+    }
+  }
+
   function render(state, meta = {}) {
     const phaseName = t(`phase.${state.phase}`);
     el.display.textContent = formatTime(state.remainingSeconds);
@@ -1198,14 +1341,21 @@ export function init() {
     });
   }
 
+  if (el.clearDailyGoal) {
+    el.clearDailyGoal.addEventListener("click", () => {
+      applyDailyGoal(0, { announceChange: true });
+    });
+  }
+
   el.form.addEventListener("submit", (event) => {
     event.preventDefault();
     const settings = readForm();
     engine.setSettings(settings);
     writeStorage(STORAGE_KEYS.settings, settings);
-    applyGoal(el.inputs.goal ? el.inputs.goal.value : 0, {
-      announceChange: true,
-    });
+    const nextGoal = el.inputs.goal ? el.inputs.goal.value : 0;
+    const nextDailyGoal = el.inputs.dailyGoal ? el.inputs.dailyGoal.value : 0;
+    applyGoal(nextGoal, { announceChange: true });
+    applyDailyGoal(nextDailyGoal, { announceChange: true });
     syncForm(engine.settings);
     if (el.settingsStatus) {
       el.settingsStatus.textContent = t("settings.saved");
