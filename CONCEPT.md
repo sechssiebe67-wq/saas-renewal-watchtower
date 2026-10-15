@@ -139,6 +139,18 @@ after the first load.
   `1` = Monday), and the key is removed when the default Monday is selected so a
   default install leaves no trace. `normalizeWeekStart` in `app/history.js`
   coerces arbitrary stored input into `0` or `1` and never throws.
+- **Weekly review CSV export:** the Weekly review panel has an **Export CSV**
+  button that saves the current week's review as a
+  `focus-flow-week-<YYYY-MM-DD>.csv` file (the date is the week start). The file
+  contains a header row, one row per session label (label, sessions, minutes,
+  share of the target) plus a totals row, and it is produced entirely by the
+  pure `weeklyReviewCsv` helper in `app/history.js` and handed to the browser as
+  a `Blob` object URL. Fields containing `,`, `"`, or a newline are quoted and
+  internal quotes doubled per RFC 4180. The button is disabled until the week
+  has at least one label row. The export reads only the existing
+  `focus-flow:history` and `focus-flow:goal` keys through `weeklyReview`, adds
+  **no new `localStorage` key, no network request, and no new runtime
+  dependency**, so nothing leaves the device.
 - **Audible and visual notifications** when a phase ends.
 - **Local persistence** of settings, the current session count, and the session
   history via `localStorage`.
@@ -169,15 +181,18 @@ after the first load.
   - `history.js` — the pure session-history helpers (`recordSession`,
     `pruneHistory`, `summarise`, `labelSummary`, `recentSessions`,
     `normalizeGoal`, `weekWindow`, `goalProgress`, `weeklyReview`, `streaks`,
-    `normalizeWeekStart`, `HISTORY_VERSION`, `GOAL_STORAGE_SHAPE_VERSION`,
-    `WEEK_START_OPTIONS`, `WEEK_START_STORAGE_SHAPE_VERSION`) with no DOM
-    access. `normalizeWeekStart` coerces arbitrary stored input into the
+    `normalizeWeekStart`, `weeklyReviewCsv`, `HISTORY_VERSION`,
+    `GOAL_STORAGE_SHAPE_VERSION`, `WEEK_START_OPTIONS`,
+    `WEEK_START_STORAGE_SHAPE_VERSION`) with no DOM access.
+    `normalizeWeekStart` coerces arbitrary stored input into the
     supported first day of week (`0` = Sunday, `1` = Monday), and
     `WEEK_START_OPTIONS` pairs each value with its catalog label key.
     `weeklyReview` returns the current week's goal versus per-label breakdown
     (`{ weekStart, targetMinutes, focusedMinutes, remainingMinutes, percent,
-    reached, labels, perLabel }`), and `streaks` returns the derived
-    consistency view (`{ current, longest, todayCount, todayMinutes,
+    reached, labels, perLabel }`), `weeklyReviewCsv` serialises that result to a
+    deterministic RFC 4180 CSV string (header, one row per label, totals row)
+    without touching the DOM, storage, or the network, and `streaks` returns the
+    derived consistency view (`{ current, longest, todayCount, todayMinutes,
     lastActiveDay }`).
   - `i18n.js` — the pure, bundled message catalog (`SUPPORTED_LOCALES`,
     `LOCALE_LABELS`, `DEFAULT_LOCALE`, `MESSAGES`, `normalizeLocale`,
@@ -223,6 +238,12 @@ The **Weekly review** panel is derived, not stored: it reads only the existing
 `focus-flow:history` and `focus-flow:goal` keys through the pure `weeklyReview`
 helper and adds no new `localStorage` key and no network request.
 
+The **weekly review CSV export** is derived the same way and stays entirely on
+the device: the pure `weeklyReviewCsv` helper turns the `weeklyReview` result
+into a CSV string, and the DOM layer hands that string to the browser as a
+`Blob` object URL for download. It reads no storage of its own, writes no new
+key, and makes no network request.
+
 The **focus streaks** and the daily reminder hint are derived the same way: the
 pure `streaks` helper turns `focus-flow:history` into a current/longest streak
 and today's totals, the reminder compares `todayCount` against the presence of a
@@ -253,6 +274,12 @@ locale is selected.
   follow-up to localised formatting. Implemented: the **Week starts on**
   setting is announced once through the live region and stored under
   `focus-flow:week-start` (removed when the default Monday is selected).
+- [x] **Weekly review CSV export**, the next step after the week-start
+  preference: a pure `weeklyReviewCsv` helper in `app/history.js` serialises the
+  `weeklyReview` result to an RFC 4180 CSV string, and the Weekly review panel
+  downloads it as `focus-flow-week-<YYYY-MM-DD>.csv` through a `Blob` object
+  URL. The export is local-only — it makes no network request, adds no
+  `localStorage` key, and adds no new runtime dependency.
 
 ## How the repository meets its own criteria
 

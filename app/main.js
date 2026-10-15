@@ -48,6 +48,7 @@ import {
   normalizeGoal,
   goalProgress,
   weeklyReview,
+  weeklyReviewCsv,
   streaks,
   UNLABELLED,
 } from "./history.js";
@@ -158,6 +159,7 @@ function getElements() {
     weeklyReviewFill: document.getElementById("weekly-review-fill"),
     weeklyReviewReached: document.getElementById("weekly-review-reached"),
     weeklyReviewLabels: document.getElementById("weekly-review-labels"),
+    reviewExport: document.getElementById("review-export"),
     clearGoal: document.getElementById("clear-goal"),
     locale: document.getElementById("locale"),
     themeToggle: document.getElementById("theme-toggle"),
@@ -839,16 +841,62 @@ export function init() {
     noteGoalReached(progress.reached);
   }
 
-  function renderWeeklyReview() {
-    const review = weeklyReview(history, {
+  /** The current week's review for the active goal / label / week-start. */
+  function currentWeeklyReview() {
+    return weeklyReview(history, {
       now: Date.now(),
       minutes: goal.minutes,
       label: activeLabel === null ? goal.label : activeLabel,
       weekStartsOn,
     });
+  }
+
+  /** Format a timestamp as a local `YYYY-MM-DD` calendar key. */
+  function localDateKey(timestamp) {
+    const date = new Date(timestamp);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  /**
+   * Build the weekly review CSV with the pure helper and hand it to the browser
+   * as a `Blob` object URL. The download is entirely local: no request is made,
+   * no storage is written, and the object URL is revoked immediately after the
+   * download starts.
+   */
+  function exportWeeklyReview() {
+    const review = currentWeeklyReview();
+    if (review.perLabel.length === 0) {
+      return;
+    }
+    const csv = weeklyReviewCsv(review, {
+      locale,
+      unlabelled: t("label.unlabelled"),
+    });
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `focus-flow-week-${localDateKey(review.weekStart)}.csv`;
+    link.rel = "noopener";
+    document.body.append(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    announce(t("review.exported"));
+  }
+
+  function renderWeeklyReview() {
+    const review = currentWeeklyReview();
 
     const hasGoal = review.targetMinutes > 0;
     const hasSessions = review.perLabel.length > 0;
+
+    if (el.reviewExport) {
+      el.reviewExport.disabled = !hasSessions;
+    }
 
     if (el.weeklyReviewEmpty) {
       el.weeklyReviewEmpty.hidden = hasSessions;
@@ -1094,6 +1142,10 @@ export function init() {
     el.inputs.weekStart.addEventListener("change", () => {
       applyWeekStart(el.inputs.weekStart.value, { announceChange: true });
     });
+  }
+
+  if (el.reviewExport) {
+    el.reviewExport.addEventListener("click", exportWeeklyReview);
   }
 
   el.themeToggle.addEventListener("click", () => {
