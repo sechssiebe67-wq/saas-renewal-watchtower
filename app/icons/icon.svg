@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Focus Flow app icon — original artwork, released with the project licence.
+
+  This SVG is the human-readable source for the rasterised PNG icons
+  (icon-192.png, icon-512.png, icon-maskable-512.png). Regenerate the PNGs with
+  `python3 app/icons/generate_icons.py`.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Focus Flow">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1d4ed8" />
+      <stop offset="1" stop-color="#163fb3" />
+    </linearGradient>
+  </defs>
+
+  <rect x="0" y="0" width="512" height="512" rx="123" ry="123" fill="url(#bg)" />
+
+  <g fill="none" stroke-linecap="round">
+    <circle cx="256" cy="256" r="168.96" stroke="#ffffff" stroke-width="40.96" />
+    <circle
+      cx="256"
+      cy="256"
+      r="168.96"
+      stroke="#a9c2ff"
+      stroke-width="40.96"
+      stroke-dasharray="764.4 297.2"
+      transform="rotate(-90 256 256)"
+    />
+  </g>
+
+  <g stroke="#ffffff" stroke-linecap="round" fill="none">
+    <line x1="256" y1="256" x2="256" y2="153.6" stroke-width="30.72" />
+    <line x1="256" y1="256" x2="291.85" y2="193.9" stroke-width="34.82" />
+  </g>
+
+  <circle cx="256" cy="256" r="29.7" fill="#ffffff" />
+</svg>
