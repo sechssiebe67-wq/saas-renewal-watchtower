@@ -270,6 +270,49 @@
           <button id="clear-goal" class="control" type="button" data-i18n="settings.clearGoal">Clear goal</button>
           <button id="clear-daily-goal" class="control" type="button" data-i18n="settings.clearDailyGoal">Clear daily goal</button>
 
+          <fieldset class="field field--session-tags">
+            <legend class="field__legend" data-i18n="settings.sessionTags">Label aliases</legend>
+            <p class="field__hint" data-i18n="settings.sessionTagsHint">
+              Rename session labels in every view without changing the sessions
+              you already saved. Stored only on this device.
+            </p>
+            <div class="field">
+              <label for="session-tag-from" data-i18n="settings.sessionTagsFrom">Original label</label>
+              <input
+                id="session-tag-from"
+                name="sessionTagFrom"
+                type="text"
+                maxlength="40"
+                autocomplete="off"
+              />
+            </div>
+            <div class="field">
+              <label for="session-tag-to" data-i18n="settings.sessionTagsTo">Display as</label>
+              <input
+                id="session-tag-to"
+                name="sessionTagTo"
+                type="text"
+                maxlength="40"
+                autocomplete="off"
+              />
+            </div>
+            <button
+              id="session-tag-add"
+              class="control"
+              type="button"
+              data-i18n="settings.sessionTagsAdd"
+            >
+              Add alias
+            </button>
+            <ul
+              id="session-tags-list"
+              class="session-tags"
+              aria-label="Current label aliases"
+              data-i18n-attr="aria-label:settings.sessionTagsListLabel"
+              hidden
+            ></ul>
+          </fieldset>
+
           <div class="field">
             <label for="locale" data-i18n="settings.language">Language</label>
             <select id="locale" name="locale">

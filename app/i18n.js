@@ -80,6 +80,16 @@ const EN_MESSAGES = {
   "settings.dailyGoalHint":
     "Minutes for today, optionally scoped to the selected label. Stored only on this device. Set 0 to clear.",
   "settings.clearDailyGoal": "Clear daily goal",
+  "settings.sessionTags": "Label aliases",
+  "settings.sessionTagsHint":
+    "Rename session labels in every view without changing the sessions you already saved. Stored only on this device.",
+  "settings.sessionTagsFrom": "Original label",
+  "settings.sessionTagsTo": "Display as",
+  "settings.sessionTagsAdd": "Add alias",
+  "settings.sessionTagsEntry": "{label} → {alias}",
+  "settings.sessionTagsListLabel": "Current label aliases",
+  "settings.sessionTagsRemove": "Remove",
+  "settings.sessionTagsRemoveLabel": "Remove alias for {label}",
   "settings.save": "Save settings",
   "settings.saved": "Saved.",
   "settings.language": "Language",
@@ -164,6 +174,10 @@ const EN_MESSAGES = {
   "announce.dailyGoalReached": "Daily goal reached.",
   "announce.dailyGoalSaved": "Daily goal saved.",
   "announce.dailyGoalCleared": "Daily goal cleared.",
+  "announce.sessionTagsAdded": "Alias added: {label} is now shown as {alias}.",
+  "announce.sessionTagsRemoved": "Alias removed for {label}.",
+  "announce.sessionTagsInvalid":
+    "Enter both a label and a replacement to add an alias.",
   "announce.locale": "Language: {language}.",
   "announce.weekStart": "Week starts on {day}.",
   "announce.backupExported": "Backup exported.",
@@ -226,6 +240,16 @@ const DE_MESSAGES = {
   "settings.dailyGoalHint":
     "Minuten für heute, optional auf die ausgewählte Bezeichnung beschränkt. Nur auf diesem Gerät gespeichert. Auf 0 setzen zum Löschen.",
   "settings.clearDailyGoal": "Tagesziel löschen",
+  "settings.sessionTags": "Bezeichnungs-Aliase",
+  "settings.sessionTagsHint":
+    "Benenne Sitzungsbezeichnungen in jeder Ansicht um, ohne bereits gespeicherte Sitzungen zu ändern. Nur auf diesem Gerät gespeichert.",
+  "settings.sessionTagsFrom": "Ursprüngliche Bezeichnung",
+  "settings.sessionTagsTo": "Anzeigen als",
+  "settings.sessionTagsAdd": "Alias hinzufügen",
+  "settings.sessionTagsEntry": "{label} → {alias}",
+  "settings.sessionTagsListLabel": "Aktuelle Bezeichnungs-Aliase",
+  "settings.sessionTagsRemove": "Entfernen",
+  "settings.sessionTagsRemoveLabel": "Alias für {label} entfernen",
   "settings.save": "Einstellungen speichern",
   "settings.saved": "Gespeichert.",
   "settings.language": "Sprache",
@@ -312,6 +336,11 @@ const DE_MESSAGES = {
   "announce.dailyGoalReached": "Tagesziel erreicht.",
   "announce.dailyGoalSaved": "Tagesziel gespeichert.",
   "announce.dailyGoalCleared": "Tagesziel gelöscht.",
+  "announce.sessionTagsAdded":
+    "Alias hinzugefügt: {label} wird jetzt als {alias} angezeigt.",
+  "announce.sessionTagsRemoved": "Alias für {label} entfernt.",
+  "announce.sessionTagsInvalid":
+    "Gib sowohl eine Bezeichnung als auch eine Ersetzung ein, um einen Alias hinzuzufügen.",
   "announce.locale": "Sprache: {language}.",
   "announce.weekStart": "Woche beginnt am {day}.",
   "announce.backupExported": "Sicherung exportiert.",
@@ -374,6 +403,16 @@ const ES_MESSAGES = {
   "settings.dailyGoalHint":
     "Minutos para hoy, opcionalmente limitados a la etiqueta seleccionada. Guardado solo en este dispositivo. Pon 0 para borrarlo.",
   "settings.clearDailyGoal": "Borrar objetivo diario",
+  "settings.sessionTags": "Alias de etiquetas",
+  "settings.sessionTagsHint":
+    "Cambia el nombre de las etiquetas de sesión en todas las vistas sin modificar las sesiones que ya guardaste. Guardado solo en este dispositivo.",
+  "settings.sessionTagsFrom": "Etiqueta original",
+  "settings.sessionTagsTo": "Mostrar como",
+  "settings.sessionTagsAdd": "Añadir alias",
+  "settings.sessionTagsEntry": "{label} → {alias}",
+  "settings.sessionTagsListLabel": "Alias de etiquetas actuales",
+  "settings.sessionTagsRemove": "Quitar",
+  "settings.sessionTagsRemoveLabel": "Quitar el alias de {label}",
   "settings.save": "Guardar ajustes",
   "settings.saved": "Guardado.",
   "settings.language": "Idioma",
@@ -460,6 +499,11 @@ const ES_MESSAGES = {
   "announce.dailyGoalReached": "Objetivo diario alcanzado.",
   "announce.dailyGoalSaved": "Objetivo diario guardado.",
   "announce.dailyGoalCleared": "Objetivo diario borrado.",
+  "announce.sessionTagsAdded":
+    "Alias añadido: {label} ahora se muestra como {alias}.",
+  "announce.sessionTagsRemoved": "Alias de {label} eliminado.",
+  "announce.sessionTagsInvalid":
+    "Introduce una etiqueta y un reemplazo para añadir un alias.",
   "announce.locale": "Idioma: {language}.",
   "announce.weekStart": "La semana comienza el {day}.",
   "announce.backupExported": "Copia de seguridad exportada.",
