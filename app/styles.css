@@ -143,7 +143,8 @@ body {
 
 .timer-card,
 .settings-card,
-.stats-card {
+.stats-card,
+.weekly-review-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -151,7 +152,8 @@ body {
   padding: clamp(1.25rem, 4vw, 2.5rem);
 }
 
-.stats-card {
+.stats-card,
+.weekly-review-card {
   grid-column: 1 / -1;
 }
 
@@ -164,7 +166,8 @@ body {
 
 .timer-card__title,
 .settings-card__title,
-.stats-card__title {
+.stats-card__title,
+.weekly-review-card__title {
   margin: 0 0 0.5rem;
   font-size: 1rem;
   text-transform: uppercase;
@@ -549,6 +552,117 @@ kbd {
   text-align: right;
   font-variant-numeric: tabular-nums;
   font-weight: 600;
+}
+
+.weekly-review__empty {
+  margin: 0.5rem 0 0;
+  color: var(--text-muted);
+}
+
+.weekly-review__summary,
+.weekly-review__reached {
+  margin: 0.75rem 0 0;
+  color: var(--text-muted);
+}
+
+.weekly-review__summary {
+  font-variant-numeric: tabular-nums;
+}
+
+.weekly-review__reached {
+  color: var(--short-break);
+  font-weight: 600;
+}
+
+.weekly-review__bar {
+  display: block;
+  height: 0.85rem;
+  margin-top: 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-muted);
+  overflow: hidden;
+}
+
+.weekly-review__fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--work);
+  transition: width 0.3s ease-in-out;
+}
+
+.weekly-review__bar--reached .weekly-review__fill {
+  background: var(--short-break);
+}
+
+.weekly-review__empty[hidden],
+.weekly-review__summary[hidden],
+.weekly-review__bar[hidden],
+.weekly-review__reached[hidden],
+.weekly-review__goal-part[hidden],
+.weekly-review__labels[hidden] {
+  display: none;
+}
+
+.weekly-review__labels {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.weekly-review__label {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.35rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-muted);
+  font-size: 0.9rem;
+}
+
+.weekly-review__label-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.weekly-review__label-track {
+  display: block;
+  height: 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.weekly-review__label-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--long-break);
+  transition: width 0.3s ease-in-out;
+}
+
+.weekly-review__label-stats {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (min-width: 768px) {
+  .weekly-review__label {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .weekly-review__label-stats {
+    white-space: nowrap;
+  }
 }
 
 .app-footer {

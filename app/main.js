@@ -25,6 +25,7 @@ import {
   recentSessions,
   normalizeGoal,
   goalProgress,
+  weeklyReview,
   UNLABELLED,
 } from "./history.js";
 
@@ -121,6 +122,16 @@ function getElements() {
     statsGoalBar: document.getElementById("stats-goal-bar"),
     statsGoalFill: document.getElementById("stats-goal-fill"),
     statsGoalReached: document.getElementById("stats-goal-reached"),
+    weeklyReviewEmpty: document.getElementById("weekly-review-empty"),
+    weeklyReviewSummary: document.getElementById("weekly-review-summary"),
+    weeklyReviewFocused: document.getElementById("weekly-review-focused"),
+    weeklyReviewGoalPart: document.getElementById("weekly-review-goal-part"),
+    weeklyReviewTarget: document.getElementById("weekly-review-target"),
+    weeklyReviewPercent: document.getElementById("weekly-review-percent"),
+    weeklyReviewBar: document.getElementById("weekly-review-bar"),
+    weeklyReviewFill: document.getElementById("weekly-review-fill"),
+    weeklyReviewReached: document.getElementById("weekly-review-reached"),
+    weeklyReviewLabels: document.getElementById("weekly-review-labels"),
     clearGoal: document.getElementById("clear-goal"),
     themeToggle: document.getElementById("theme-toggle"),
     themeToggleLabel: document.getElementById("theme-toggle-label"),
@@ -392,6 +403,7 @@ export function init() {
     );
     renderRecentSessions();
     renderGoal();
+    renderWeeklyReview();
   }
 
   function currentGoalProgress() {
@@ -401,6 +413,19 @@ export function init() {
       label: activeLabel === null ? goal.label : activeLabel,
       weekStartsOn: DEFAULT_WEEK_START,
     });
+  }
+
+  function noteGoalReached(reached) {
+    if (reached === null) {
+      goalReached = null;
+    } else if (goalReached === null) {
+      goalReached = reached;
+    } else if (reached && !goalReached) {
+      goalReached = true;
+      announce("Weekly goal reached.");
+    } else if (!reached) {
+      goalReached = false;
+    }
   }
 
   function renderGoal() {
@@ -440,14 +465,84 @@ export function init() {
       el.statsGoal.classList.toggle("stats__goal--reached", progress.reached);
     }
 
-    if (goalReached === null) {
-      goalReached = progress.reached;
-    } else if (progress.reached && !goalReached) {
-      goalReached = true;
-      announce("Weekly goal reached.");
-    } else if (!progress.reached) {
-      goalReached = false;
+    noteGoalReached(progress.reached);
+  }
+
+  function renderWeeklyReview() {
+    const review = weeklyReview(history, {
+      now: Date.now(),
+      minutes: goal.minutes,
+      label: activeLabel === null ? goal.label : activeLabel,
+      weekStartsOn: DEFAULT_WEEK_START,
+    });
+
+    const hasGoal = review.targetMinutes > 0;
+    const hasSessions = review.perLabel.length > 0;
+
+    if (el.weeklyReviewEmpty) {
+      el.weeklyReviewEmpty.hidden = hasSessions;
     }
+    if (el.weeklyReviewSummary) {
+      el.weeklyReviewSummary.hidden = !hasSessions;
+    }
+    if (el.weeklyReviewFocused) {
+      el.weeklyReviewFocused.textContent = String(review.focusedMinutes);
+    }
+    if (el.weeklyReviewGoalPart) {
+      el.weeklyReviewGoalPart.hidden = !hasGoal;
+    }
+    if (el.weeklyReviewTarget) {
+      el.weeklyReviewTarget.textContent = String(review.targetMinutes);
+    }
+    if (el.weeklyReviewPercent) {
+      el.weeklyReviewPercent.textContent = String(review.percent);
+    }
+    if (el.weeklyReviewBar) {
+      el.weeklyReviewBar.hidden = !hasGoal;
+      el.weeklyReviewBar.setAttribute("aria-valuenow", String(review.percent));
+      el.weeklyReviewBar.setAttribute("aria-valuemin", "0");
+      el.weeklyReviewBar.setAttribute("aria-valuemax", "100");
+      el.weeklyReviewBar.classList.toggle(
+        "weekly-review__bar--reached",
+        review.reached,
+      );
+    }
+    if (el.weeklyReviewFill) {
+      el.weeklyReviewFill.style.width = `${review.percent}%`;
+    }
+    if (el.weeklyReviewReached) {
+      el.weeklyReviewReached.hidden = !review.reached;
+    }
+    if (el.weeklyReviewLabels) {
+      el.weeklyReviewLabels.hidden = !hasSessions;
+      const items = review.perLabel.map((row) => {
+        const item = document.createElement("li");
+        item.className = "weekly-review__label";
+
+        const name = document.createElement("span");
+        name.className = "weekly-review__label-name";
+        name.textContent = row.label === UNLABELLED ? "No label" : row.label;
+
+        const track = document.createElement("span");
+        track.className = "weekly-review__label-track";
+        const fill = document.createElement("span");
+        fill.className = "weekly-review__label-fill";
+        fill.style.width = `${hasGoal ? row.percentOfTarget : 0}%`;
+        track.append(fill);
+
+        const stats = document.createElement("span");
+        stats.className = "weekly-review__label-stats";
+        stats.textContent = hasGoal
+          ? `${row.sessions} · ${row.minutes} min · ${row.percentOfTarget}%`
+          : `${row.sessions} · ${row.minutes} min`;
+
+        item.append(name, track, stats);
+        return item;
+      });
+      el.weeklyReviewLabels.replaceChildren(...items);
+    }
+
+    noteGoalReached(hasGoal ? review.reached : null);
   }
 
   function persistGoal() {

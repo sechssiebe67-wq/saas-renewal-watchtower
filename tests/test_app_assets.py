@@ -174,6 +174,29 @@ class AppAssetTests(unittest.TestCase):
         self.assertIn("normalizeGoal", js)
         self.assertIn("Weekly goal reached.", js)
 
+    def test_html_has_weekly_review_section(self):
+        html = read_app_file("index.html")
+        expectations = {
+            "weekly review section": 'id="weekly-review"',
+            "weekly review heading": 'id="weekly-review-heading"',
+            "weekly review summary": 'id="weekly-review-summary"',
+            "weekly review progressbar": 'id="weekly-review-bar"',
+            "weekly review label list": 'id="weekly-review-labels"',
+            "weekly review empty state": 'id="weekly-review-empty"',
+        }
+        for label, fragment in expectations.items():
+            self.assertIn(fragment, html, "missing %s (%s)" % (label, fragment))
+        self.assertIn('role="progressbar"', html)
+        self.assertIn("aria-valuenow", html)
+        self.assertIn("aria-valuemin", html)
+        self.assertIn("aria-valuemax", html)
+        self.assertIn("No sessions yet this week", html)
+
+    def test_main_js_uses_weekly_review_helper(self):
+        js = read_app_file("main.js")
+        self.assertIn("weeklyReview", js)
+        self.assertIn("renderWeeklyReview", js)
+
     def test_main_js_clears_label_only_on_completed_work(self):
         js = read_app_file("main.js")
         self.assertIn("session-label", js)

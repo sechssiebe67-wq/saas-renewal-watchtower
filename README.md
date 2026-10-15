@@ -33,13 +33,20 @@ calls, no telemetry, and no secrets.
   this week, a percentage, and a progress bar, and switches to a "Goal reached"
   state once you hit the target. Set it to `0` or use **Clear goal** to remove
   it.
+- **Weekly review:** a dedicated panel compares the current week's focused
+  minutes against the goal and ranks every session label seen this week by
+  focused minutes, with its session count and its share of the target (including
+  an `(unlabelled)` row when needed). It updates live when a work phase
+  completes, the goal changes, or a label filter changes, and it shows a
+  "Goal reached" state once the target is met.
 - Settings, session count, history, and the weekly goal persist across reloads.
 - Accessible, responsive layout for mobile, tablet, and desktop.
 - Installable PWA with a web manifest and an offline-first service worker.
 
 Focus Flow is **privacy-first by construction**: the focus history, any session
 labels you type, and your weekly focus goal live only on your device. They are
-never uploaded, synced, or sent anywhere.
+never uploaded, synced, or sent anywhere. The weekly review reads that existing
+local data only, adding no new storage key and no network request.
 
 The full concept, audience, roadmap, and criteria mapping live in
 [`CONCEPT.md`](CONCEPT.md).

@@ -14,7 +14,8 @@
  *
  * The module also owns the pure maths for the optional **weekly focus goal**: a
  * locally stored `{ minutes, label? }` target. `weekWindow` finds the current
- * week, `goalProgress` measures the logged focus time against the target, and
+ * week, `goalProgress` measures the logged focus time against the target,
+ * `weeklyReview` adds a per-label breakdown of the same week, and
  * `normalizeGoal` coerces arbitrary stored input into the canonical shape. None
  * of these touch the DOM or the storage layer.
  */
@@ -406,5 +407,97 @@ export function goalProgress(
     percent,
     reached,
     weekStart: start,
+  };
+}
+
+/**
+ * Build a **weekly review** that lines the weekly focus goal up against the
+ * per-label breakdown for the current week. Returns
+ * `{ weekStart, targetMinutes, focusedMinutes, remainingMinutes, percent,
+ * reached, labels, perLabel }`:
+ *
+ * - `targetMinutes` is the goal clamped to `0..MAX_GOAL_MINUTES`.
+ * - `focusedMinutes` sums completed work entries in the current week, using the
+ *   same label-matching rule as `goalProgress` (`UNLABELLED` counts entries
+ *   without a label). Passing `label` scopes the whole review to it; without it
+ *   every label seen this week is covered.
+ * - `percent` is clamped to `0..100`; with no goal (`0`) it is `100`, matching
+ *   `goalProgress`.
+ * - `reached` is only `true` when the target is positive and met.
+ * - `perLabel` covers every label seen in the (scoped) week plus an
+ *   `UNLABELLED` bucket when applicable, each shaped as
+ *   `{ label, sessions, minutes, percentOfTarget }`, sorted by minutes
+ *   descending then label ascending. `percentOfTarget` is clamped to `0..100`
+ *   and is `0` when there is no target.
+ * - `labels` is the list of label names in `perLabel` order.
+ *
+ * Pure: the input log is never mutated, and malformed entries are ignored.
+ */
+export function weeklyReview(
+  history,
+  { now = Date.now(), minutes = 0, label, weekStartsOn = DEFAULT_WEEK_START } = {},
+) {
+  const { start, end } = weekWindow({ now, weekStartsOn });
+  const targetMinutes = clampGoalMinutes(minutes);
+  const filter = label === undefined || label === null ? null : String(label);
+  const log = Array.isArray(history) ? history : [];
+
+  const buckets = new Map();
+  let focusedMinutes = 0;
+
+  for (const entry of log) {
+    const normalized = normalizeEntry(entry);
+    if (!normalized) {
+      continue;
+    }
+    const timestamp = toTimestamp(normalized.endedAt);
+    if (timestamp === null || timestamp < start || timestamp >= end) {
+      continue;
+    }
+    const key = normalized.label || UNLABELLED;
+    if (filter !== null && key !== filter) {
+      continue;
+    }
+    const entryMinutes = Math.round(normalized.durationSeconds / 60);
+    focusedMinutes += entryMinutes;
+    const bucket = buckets.get(key) || { label: key, sessions: 0, minutes: 0 };
+    bucket.sessions += 1;
+    bucket.minutes += entryMinutes;
+    buckets.set(key, bucket);
+  }
+
+  const perLabel = Array.from(buckets.values())
+    .map((bucket) => ({
+      label: bucket.label,
+      sessions: bucket.sessions,
+      minutes: bucket.minutes,
+      percentOfTarget:
+        targetMinutes <= 0
+          ? 0
+          : Math.min(
+              100,
+              Math.max(0, Math.round((bucket.minutes / targetMinutes) * 100)),
+            ),
+    }))
+    .sort((a, b) => b.minutes - a.minutes || a.label.localeCompare(b.label));
+
+  const reached = targetMinutes > 0 && focusedMinutes >= targetMinutes;
+  const percent =
+    targetMinutes <= 0
+      ? 100
+      : Math.min(
+          100,
+          Math.max(0, Math.round((focusedMinutes / targetMinutes) * 100)),
+        );
+
+  return {
+    weekStart: start,
+    targetMinutes,
+    focusedMinutes,
+    remainingMinutes: Math.max(0, targetMinutes - focusedMinutes),
+    percent,
+    reached,
+    labels: perLabel.map((item) => item.label),
+    perLabel,
   };
 }
