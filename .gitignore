@@ -8,5 +8,7 @@ dist/
 venv/
 .pytest_cache/
 .coverage
+*.db
+data/
 
 .idea/

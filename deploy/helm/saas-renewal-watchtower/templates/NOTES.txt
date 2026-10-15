@@ -1,0 +1,12 @@
+SaaS Renewal Watchtower is deployed.
+
+Access it with:
+
+  kubectl port-forward svc/{{ include "saas-renewal-watchtower.fullname" . }} 8080:{{ .Values.service.port }}
+
+{{- if .Values.ingress.enabled }}
+Ingress host: {{ .Values.ingress.host }}
+{{- end }}
+
+Health check: GET /healthz
+Reminder recipient: {{ .Values.config.mailTo | default "(not configured – logging sender)" }}

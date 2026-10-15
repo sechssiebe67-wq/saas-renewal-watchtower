@@ -1,0 +1,95 @@
+# Default values for saas-renewal-watchtower.
+replicaCount: 1
+
+image:
+  # Rendered as repository@digest by the deployment template.
+  repository: ghcr.io/example/saas-renewal-watchtower
+  digest: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  capabilities:
+    drop:
+      - ALL
+
+service:
+  type: ClusterIP
+  port: 8080
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  host: watchtower.example.com
+  path: /
+  pathType: Prefix
+  tls: []
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 96Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+persistence:
+  enabled: true
+  accessMode: ReadWriteOnce
+  size: 1Gi
+  storageClass: ""
+  mountPath: /data
+
+# Non-secret runtime configuration (rendered into a ConfigMap).
+config:
+  schedulerEnabled: "1"
+  schedulerInterval: "3600"
+  reviewHorizonDays: "14"
+  mailFrom: "watchtower@localhost"
+  mailTo: ""
+  smtpHost: ""
+  smtpPort: "587"
+  smtpUser: ""
+
+# Secret runtime configuration (rendered into a Secret).
+secrets:
+  smtpPassword: ""
+
+livenessProbe:
+  enabled: true
+  path: /healthz
+  initialDelaySeconds: 5
+  periodSeconds: 30
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  enabled: true
+  path: /healthz
+  initialDelaySeconds: 3
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3

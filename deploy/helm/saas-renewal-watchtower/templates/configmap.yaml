@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "saas-renewal-watchtower.fullname" . }}
+  labels:
+    {{- include "saas-renewal-watchtower.labels" . | nindent 4 }}
+data:
+  WATCHTOWER_SCHEDULER_ENABLED: {{ .Values.config.schedulerEnabled | quote }}
+  WATCHTOWER_SCHEDULER_INTERVAL: {{ .Values.config.schedulerInterval | quote }}
+  WATCHTOWER_REVIEW_HORIZON_DAYS: {{ .Values.config.reviewHorizonDays | quote }}
+  WATCHTOWER_MAIL_FROM: {{ .Values.config.mailFrom | quote }}
+  WATCHTOWER_MAIL_TO: {{ .Values.config.mailTo | quote }}
+  WATCHTOWER_SMTP_HOST: {{ .Values.config.smtpHost | quote }}
+  WATCHTOWER_SMTP_PORT: {{ .Values.config.smtpPort | quote }}
+  WATCHTOWER_SMTP_USER: {{ .Values.config.smtpUser | quote }}

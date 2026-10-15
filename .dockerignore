@@ -1,0 +1,12 @@
+.git
+.gitignore
+.github
+deploy
+tests
+*.md
+__pycache__
+*.pyc
+.venv
+data
+Dockerfile
+.dockerignore
