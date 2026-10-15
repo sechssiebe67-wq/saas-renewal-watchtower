@@ -39,14 +39,26 @@ calls, no telemetry, and no secrets.
   an `(unlabelled)` row when needed). It updates live when a work phase
   completes, the goal changes, or a label filter changes, and it shows a
   "Goal reached" state once the target is met.
+- **Focus streaks & daily reminder hint:** the Stats panel derives a **current
+  streak** (consecutive local calendar days, ending today or yesterday, with at
+  least one completed work session) and a **longest streak** from your local
+  session log, and shows how many sessions and focused minutes you have logged
+  today. Days are compared with local calendar arithmetic, so daylight-saving
+  transitions never break a streak. When
+  today has no completed session *and* a weekly goal is set, a neutral **"No
+  focus session logged today yet."** hint appears. The streak increases the
+  moment a work phase completes and the new value is announced once through the
+  existing screen-reader live region.
 - Settings, session count, history, and the weekly goal persist across reloads.
 - Accessible, responsive layout for mobile, tablet, and desktop.
 - Installable PWA with a web manifest and an offline-first service worker.
 
 Focus Flow is **privacy-first by construction**: the focus history, any session
 labels you type, and your weekly focus goal live only on your device. They are
-never uploaded, synced, or sent anywhere. The weekly review reads that existing
-local data only, adding no new storage key and no network request.
+never uploaded, synced, or sent anywhere. The weekly review, the focus streaks,
+and the daily reminder hint are all **derived** from that existing local data
+only — they add no new storage key, no network request, and no third-party
+dependency. All data stays on the device.
 
 The full concept, audience, roadmap, and criteria mapping live in
 [`CONCEPT.md`](CONCEPT.md).
