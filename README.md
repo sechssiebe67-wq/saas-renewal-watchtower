@@ -20,12 +20,20 @@ calls, no telemetry, and no secrets.
   `localStorage["focus-flow:history"]` (capped at 500 entries / 90 days), and a
   **7-day stats panel** shows the total sessions, focused minutes, and a
   per-day count. Skipped phases are not recorded.
+- **Optional session labels:** type a short label (e.g. "Thesis chapter 3") on
+  the timer card and it is attached to the next completed work phase. The Stats
+  panel turns the labels from the last 7 days into **filter chips** — select one
+  to filter the totals and per-day bars to that label (or the `(unlabelled)`
+  chip for entries without one) — and a **Recent sessions** list shows the
+  newest five entries. Labels are capped at 40 characters and cleared after each
+  completed work phase.
 - Settings, session count, and history persist across reloads.
 - Accessible, responsive layout for mobile, tablet, and desktop.
 - Installable PWA with a web manifest and an offline-first service worker.
 
-Focus Flow is **privacy-first by construction**: the focus history lives only on
-your device. It is never uploaded, synced, or sent anywhere.
+Focus Flow is **privacy-first by construction**: the focus history and any
+session labels you type live only on your device. They are never uploaded,
+synced, or sent anywhere.
 
 The full concept, audience, roadmap, and criteria mapping live in
 [`CONCEPT.md`](CONCEPT.md).

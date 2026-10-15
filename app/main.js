@@ -20,6 +20,9 @@ import {
   recordSession,
   pruneHistory,
   summarise,
+  labelSummary,
+  recentSessions,
+  UNLABELLED,
 } from "./history.js";
 
 const STORAGE_KEYS = Object.freeze({
@@ -100,9 +103,12 @@ function getElements() {
     skip: document.getElementById("skip"),
     form: document.getElementById("settings-form"),
     settingsStatus: document.getElementById("settings-status"),
+    sessionLabel: document.getElementById("session-label"),
     statsTotalSessions: document.getElementById("stats-total-sessions"),
     statsTotalMinutes: document.getElementById("stats-total-minutes"),
+    statsLabels: document.getElementById("stats-labels"),
     statsDays: document.getElementById("stats-days"),
+    statsRecent: document.getElementById("stats-recent"),
     statsEmpty: document.getElementById("stats-empty"),
     themeToggle: document.getElementById("theme-toggle"),
     themeToggleLabel: document.getElementById("theme-toggle-label"),
@@ -225,10 +231,100 @@ export function init() {
     });
   }
 
+  let activeLabel = null;
+
+  function labelDisplay(label) {
+    return label === UNLABELLED ? "No label" : label;
+  }
+
+  function renderLabelChips(summary) {
+    if (!el.statsLabels) {
+      return;
+    }
+    const chips = summary.labels.filter(
+      (label) => summary.totals[label] && summary.totals[label].sessions > 0,
+    );
+    if (summary.totals[UNLABELLED] && summary.totals[UNLABELLED].sessions > 0) {
+      chips.push(UNLABELLED);
+    }
+    el.statsLabels.hidden = chips.length === 0;
+
+    const items = chips.map((label) => {
+      const item = document.createElement("li");
+
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "chip";
+      button.dataset.label = label;
+      button.setAttribute("aria-pressed", String(activeLabel === label));
+
+      const name = document.createElement("span");
+      name.className = "chip__label";
+      name.textContent = labelDisplay(label);
+
+      const count = document.createElement("span");
+      count.className = "chip__count";
+      count.textContent = String(summary.totals[label].sessions);
+
+      button.append(name, count);
+      button.addEventListener("click", () => {
+        activeLabel = activeLabel === label ? null : label;
+        renderStats();
+        announce(
+          activeLabel === null
+            ? "Label filter cleared."
+            : `Filtered to ${labelDisplay(activeLabel)}.`,
+        );
+      });
+
+      item.append(button);
+      return item;
+    });
+    el.statsLabels.replaceChildren(...items);
+  }
+
+  function renderRecentSessions() {
+    if (!el.statsRecent) {
+      return;
+    }
+    const sessions = recentSessions(history, { limit: 5 });
+    el.statsRecent.hidden = sessions.length === 0;
+
+    const items = sessions.map((session) => {
+      const item = document.createElement("li");
+      item.className = "recent-session";
+
+      const date = document.createElement("span");
+      date.className = "recent-session__date";
+      date.textContent = new Date(session.endedAt).toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+      });
+
+      const label = document.createElement("span");
+      label.className = "recent-session__label";
+      if (session.label) {
+        label.textContent = session.label;
+      } else {
+        label.textContent = "No label";
+        label.classList.add("recent-session__label--muted");
+      }
+
+      const minutes = document.createElement("span");
+      minutes.className = "recent-session__minutes";
+      minutes.textContent = `${Math.round(session.durationSeconds / 60)} min`;
+
+      item.append(date, label, minutes);
+      return item;
+    });
+    el.statsRecent.replaceChildren(...items);
+  }
+
   function renderStats() {
     const summary = summarise(history, {
       now: Date.now(),
       days: STATS_WINDOW_DAYS,
+      label: activeLabel === null ? undefined : activeLabel,
     });
 
     if (el.statsTotalSessions) {
@@ -271,6 +367,11 @@ export function init() {
       });
       el.statsDays.replaceChildren(...items);
     }
+
+    renderLabelChips(
+      labelSummary(history, { now: Date.now(), days: STATS_WINDOW_DAYS }),
+    );
+    renderRecentSessions();
   }
 
   function render(state, meta = {}) {
@@ -314,11 +415,17 @@ export function init() {
           phase: PHASES.WORK,
           durationSeconds: state.settings.work * 60,
         };
+        if (el.sessionLabel) {
+          entry.label = el.sessionLabel.value;
+        }
         history = pruneHistory(recordSession(history, entry), {
           now: Date.now(),
           retentionDays: DEFAULT_RETENTION_DAYS,
         });
         writeStorage(STORAGE_KEYS.history, history);
+        if (el.sessionLabel) {
+          el.sessionLabel.value = "";
+        }
         renderStats();
       }
     }

@@ -28,9 +28,13 @@ HARNESS = textwrap.dedent(
     """
     import {
       HISTORY_VERSION,
+      MAX_LABEL_LENGTH,
+      UNLABELLED,
       recordSession,
       pruneHistory,
       summarise,
+      labelSummary,
+      recentSessions,
     } from "./history.mjs";
 
     const DAY = 24 * 60 * 60 * 1000;
@@ -162,6 +166,103 @@ HARNESS = textwrap.dedent(
     );
     check("summarise ignores entries outside the window", outside.totalSessions === 1);
 
+    check("HISTORY_VERSION is 2", HISTORY_VERSION === 2);
+    check("MAX_LABEL_LENGTH is 40", MAX_LABEL_LENGTH === 40);
+    check(
+      "UNLABELLED names the fallback bucket",
+      typeof UNLABELLED === "string" && UNLABELLED.length > 0,
+    );
+
+    const trimmed = recordSession([], {
+      endedAt: new Date(NOW).toISOString(),
+      phase: "work",
+      durationSeconds: 1500,
+      label: "  Thesis chapter 3  ",
+    });
+    check("recordSession trims a label", trimmed[0].label === "Thesis chapter 3");
+
+    const truncated = recordSession([], {
+      endedAt: new Date(NOW).toISOString(),
+      phase: "work",
+      durationSeconds: 1500,
+      label: "x".repeat(120),
+    });
+    check(
+      "recordSession truncates a label to MAX_LABEL_LENGTH",
+      truncated[0].label.length === MAX_LABEL_LENGTH,
+    );
+
+    const blank = recordSession([], {
+      endedAt: new Date(NOW).toISOString(),
+      phase: "work",
+      durationSeconds: 1500,
+      label: "   ",
+    });
+    check("recordSession drops a whitespace-only label", !("label" in blank[0]));
+
+    const v1Entry = {
+      endedAt: new Date(NOW).toISOString(),
+      phase: "work",
+      durationSeconds: 1500,
+    };
+    const v1Summary = summarise([v1Entry], { now: NOW, days: 7 });
+    check("v1 entries still summarise", v1Summary.totalSessions === 1);
+    check("v1 entries keep their minutes", v1Summary.totalMinutes === 25);
+
+    const tagged = [
+      { endedAt: new Date(NOW - 2 * DAY).toISOString(), phase: "work", durationSeconds: 600, label: "Admin" },
+      { endedAt: new Date(NOW).toISOString(), phase: "work", durationSeconds: 1500, label: "Thesis" },
+      { endedAt: new Date(NOW - 1 * DAY).toISOString(), phase: "work", durationSeconds: 900, label: "Thesis" },
+      { endedAt: new Date(NOW - 3 * DAY).toISOString(), phase: "work", durationSeconds: 300 },
+      { endedAt: new Date(NOW - 40 * DAY).toISOString(), phase: "work", durationSeconds: 300, label: "Old" },
+    ];
+    const tags = labelSummary(tagged, { now: NOW, days: 7 });
+    check(
+      "labelSummary lists each present label once, sorted",
+      JSON.stringify(tags.labels) === JSON.stringify(["Admin", "Thesis"]),
+    );
+    check("labelSummary totals Thesis sessions", tags.totals.Thesis.sessions === 2);
+    check("labelSummary totals Thesis minutes", tags.totals.Thesis.minutes === 40);
+    check("labelSummary totals Admin minutes", tags.totals.Admin.minutes === 10);
+    check(
+      "labelSummary buckets unlabelled sessions",
+      tags.totals[UNLABELLED].sessions === 1 &&
+        tags.totals[UNLABELLED].minutes === 5,
+    );
+    check("labelSummary ignores labels outside the range", tags.totals.Old === undefined);
+
+    const filtered = labelSummary(tagged, {
+      now: NOW,
+      days: 7,
+      labels: ["Thesis"],
+    });
+    check(
+      "labelSummary allow-list keeps the chosen label",
+      filtered.totals.Thesis.sessions === 2,
+    );
+    check(
+      "labelSummary allow-list drops other labels",
+      filtered.totals.Admin === undefined,
+    );
+
+    const recent = recentSessions(tagged, { limit: 2 });
+    check("recentSessions honours the limit", recent.length === 2);
+    check(
+      "recentSessions is newest first",
+      recent[0].endedAt === new Date(NOW).toISOString(),
+    );
+    check("recentSessions reports the label", recent[0].label === "Thesis");
+    check("recentSessions reports durationSeconds", recent[0].durationSeconds === 1500);
+
+    const defaultRecent = recentSessions(tagged.concat(tagged), {});
+    check("recentSessions defaults to five entries", defaultRecent.length === 5);
+
+    const unlabelledRecent = recentSessions([v1Entry], { limit: 5 });
+    check(
+      "recentSessions omits an empty label",
+      unlabelledRecent.length === 1 && unlabelledRecent[0].label === undefined,
+    );
+
     process.stdout.write(JSON.stringify({ failures }));
     """
 )
@@ -175,7 +276,14 @@ class HistoryStaticTests(unittest.TestCase):
         with open(HISTORY_PATH, encoding="utf-8") as handle:
             source = handle.read()
         self.assertRegex(source, r"export\s+const\s+HISTORY_VERSION\b")
-        for function in ("recordSession", "pruneHistory", "summarise"):
+        self.assertRegex(source, r"export\s+const\s+MAX_LABEL_LENGTH\b")
+        for function in (
+            "recordSession",
+            "pruneHistory",
+            "summarise",
+            "labelSummary",
+            "recentSessions",
+        ):
             self.assertRegex(
                 source,
                 r"export\s+function\s+%s\b" % function,
