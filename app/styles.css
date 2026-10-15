@@ -359,6 +359,65 @@ kbd {
   color: var(--text-muted);
 }
 
+.stats__goal {
+  margin: 1rem 0 0.25rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-muted);
+}
+
+.stats__goal[hidden],
+.stats__goal-reached[hidden] {
+  display: none;
+}
+
+.stats__goal-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.stats__goal-title {
+  font-weight: 600;
+}
+
+.stats__goal-summary {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.stats__goal-bar {
+  display: block;
+  height: 0.85rem;
+  margin-top: 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.stats__goal-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--work);
+  transition: width 0.3s ease-in-out;
+}
+
+.stats__goal--reached .stats__goal-fill,
+.stats__goal-bar--reached .stats__goal-fill {
+  background: var(--short-break);
+}
+
+.stats__goal-reached {
+  margin: 0.5rem 0 0;
+  color: var(--short-break);
+  font-weight: 600;
+}
+
 .stats__labels {
   list-style: none;
   margin: 1rem 0 0;

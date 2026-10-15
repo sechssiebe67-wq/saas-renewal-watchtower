@@ -27,13 +27,19 @@ calls, no telemetry, and no secrets.
   chip for entries without one) — and a **Recent sessions** list shows the
   newest five entries. Labels are capped at 40 characters and cleared after each
   completed work phase.
-- Settings, session count, and history persist across reloads.
+- **Weekly focus goal:** set a target number of focused minutes per week in
+  Settings (optionally scoped to the currently selected label, e.g. "5 hours on
+  Thesis chapter 3"). The Stats panel shows the target, minutes focused so far
+  this week, a percentage, and a progress bar, and switches to a "Goal reached"
+  state once you hit the target. Set it to `0` or use **Clear goal** to remove
+  it.
+- Settings, session count, history, and the weekly goal persist across reloads.
 - Accessible, responsive layout for mobile, tablet, and desktop.
 - Installable PWA with a web manifest and an offline-first service worker.
 
-Focus Flow is **privacy-first by construction**: the focus history and any
-session labels you type live only on your device. They are never uploaded,
-synced, or sent anywhere.
+Focus Flow is **privacy-first by construction**: the focus history, any session
+labels you type, and your weekly focus goal live only on your device. They are
+never uploaded, synced, or sent anywhere.
 
 The full concept, audience, roadmap, and criteria mapping live in
 [`CONCEPT.md`](CONCEPT.md).

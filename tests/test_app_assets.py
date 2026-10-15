@@ -78,7 +78,7 @@ class AppAssetTests(unittest.TestCase):
 
     def test_controls_are_real_buttons(self):
         html = read_app_file("index.html")
-        self.assertEqual(html.count("<button"), 5)
+        self.assertEqual(html.count("<button"), 6)
         self.assertIn('type="button"', html)
 
     def test_settings_expose_configurable_durations(self):
@@ -149,6 +149,30 @@ class AppAssetTests(unittest.TestCase):
             "recentSessions",
         ):
             self.assertIn(symbol, js, "main.js does not use %s" % symbol)
+
+    def test_html_has_weekly_goal_field_and_progressbar(self):
+        html = read_app_file("index.html")
+        expectations = {
+            "weekly goal field": 'id="weekly-goal"',
+            "stats goal region": 'id="stats-goal"',
+            "goal progressbar": 'id="stats-goal-bar"',
+        }
+        for label, fragment in expectations.items():
+            self.assertIn(fragment, html, "missing %s (%s)" % (label, fragment))
+        self.assertIn('role="progressbar"', html)
+        self.assertIn("aria-valuenow", html)
+        self.assertIn("aria-valuemin", html)
+        self.assertIn("aria-valuemax", html)
+        self.assertIn('min="0"', html)
+        self.assertIn('max="10080"', html)
+        self.assertIn('step="15"', html)
+
+    def test_main_js_uses_goal_helpers_and_storage(self):
+        js = read_app_file("main.js")
+        self.assertIn('"focus-flow:goal"', js)
+        self.assertIn("goalProgress", js)
+        self.assertIn("normalizeGoal", js)
+        self.assertIn("Weekly goal reached.", js)
 
     def test_main_js_clears_label_only_on_completed_work(self):
         js = read_app_file("main.js")

@@ -11,6 +11,12 @@
  * `label` is an optional trimmed string of at most `MAX_LABEL_LENGTH`
  * characters. Version 2 of the schema adds the optional `label` field; version
  * 1 entries (no `label`) stay valid and remain unlabelled.
+ *
+ * The module also owns the pure maths for the optional **weekly focus goal**: a
+ * locally stored `{ minutes, label? }` target. `weekWindow` finds the current
+ * week, `goalProgress` measures the logged focus time against the target, and
+ * `normalizeGoal` coerces arbitrary stored input into the canonical shape. None
+ * of these touch the DOM or the storage layer.
  */
 
 export const HISTORY_VERSION = 2;
@@ -18,6 +24,20 @@ export const MAX_ENTRIES = 500;
 export const DEFAULT_RETENTION_DAYS = 90;
 export const MAX_LABEL_LENGTH = 40;
 export const UNLABELLED = "(unlabelled)";
+
+/** Shape version for the `focus-flow:goal` storage entry. Version 1 is the
+ * initial `{ minutes, label? }` object; older or malformed values are coerced
+ * by `normalizeGoal`. */
+export const GOAL_STORAGE_SHAPE_VERSION = 1;
+
+/** Lowest / highest meaningful weekly goal. A goal is minutes focused per
+ * week; the ceiling is a full week (7 × 24 × 60). */
+export const MIN_GOAL_MINUTES = 0;
+export const MAX_GOAL_MINUTES = 7 * 24 * 60;
+
+/** Default first day of the week (Monday), matching `Date#getDay` numbering
+ * where Sunday is `0`. */
+export const DEFAULT_WEEK_START = 1;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WORK_PHASE = "work";
@@ -271,4 +291,120 @@ export function recentSessions(history, { limit = 5 } = {}) {
       label,
       durationSeconds,
     }));
+}
+
+/** Clamp an arbitrary value to the goal bounds, rounding to whole minutes. */
+function clampGoalMinutes(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return MIN_GOAL_MINUTES;
+  }
+  return Math.min(
+    MAX_GOAL_MINUTES,
+    Math.max(MIN_GOAL_MINUTES, Math.round(parsed)),
+  );
+}
+
+/**
+ * Coerce arbitrary stored input into a canonical `{ minutes, label? }` goal.
+ * `minutes` is clamped to `0..MAX_GOAL_MINUTES` (a full week) and rounded to a
+ * whole number; `label` is trimmed to `MAX_LABEL_LENGTH` and dropped when it is
+ * empty. Never throws and never mutates its input.
+ */
+export function normalizeGoal(raw) {
+  let source;
+  if (typeof raw === "number") {
+    source = { minutes: raw };
+  } else if (raw && typeof raw === "object") {
+    source = raw;
+  } else {
+    source = {};
+  }
+  const goal = { minutes: clampGoalMinutes(source.minutes) };
+  const label = normalizeLabel(source.label);
+  if (label.length > 0) {
+    goal.label = label;
+  }
+  return goal;
+}
+
+/**
+ * Return the current week's boundaries as `{ start, end }` timestamps, where
+ * `start` is inclusive and `end` is exclusive. `weekStartsOn` uses
+ * `Date#getDay` numbering (0 = Sunday); it defaults to `DEFAULT_WEEK_START`
+ * (Monday) and is normalised into `0..6`. `now` is injectable for tests.
+ */
+export function weekWindow({
+  now = Date.now(),
+  weekStartsOn = DEFAULT_WEEK_START,
+} = {}) {
+  const resolved = toTimestamp(now);
+  const base = startOfDay(resolved === null ? Date.now() : resolved);
+  const requested = Number(weekStartsOn);
+  const startDay = Number.isFinite(requested)
+    ? ((Math.floor(requested) % 7) + 7) % 7
+    : DEFAULT_WEEK_START;
+  const day = new Date(base).getDay();
+  const offset = (((day - startDay) % 7) + 7) % 7;
+  const start = base - offset * DAY_MS;
+  return { start, end: start + 7 * DAY_MS };
+}
+
+/**
+ * Measure recent focus time against a weekly goal. Returns
+ * `{ targetMinutes, focusedMinutes, remainingMinutes, percent, reached,
+ * weekStart }`:
+ *
+ * - `targetMinutes` is the goal clamped to `0..MAX_GOAL_MINUTES`.
+ * - `focusedMinutes` sums completed work entries in the current week, using the
+ *   same label-matching rule as `summarise`/`labelSummary` (`UNLABELLED` counts
+ *   entries without a label).
+ * - `percent` is clamped to `0..100`; with no goal (`0`) it is `100` by
+ *   definition rather than through division by zero.
+ * - `reached` is only `true` when the target is positive and met.
+ *
+ * Pure: the input log is never mutated, and malformed entries are ignored.
+ */
+export function goalProgress(
+  history,
+  { now = Date.now(), minutes = 0, label, weekStartsOn = DEFAULT_WEEK_START } = {},
+) {
+  const { start, end } = weekWindow({ now, weekStartsOn });
+  const targetMinutes = clampGoalMinutes(minutes);
+  const filter = label === undefined || label === null ? null : String(label);
+  const log = Array.isArray(history) ? history : [];
+
+  let focusedMinutes = 0;
+  for (const entry of log) {
+    const normalized = normalizeEntry(entry);
+    if (!normalized) {
+      continue;
+    }
+    const timestamp = toTimestamp(normalized.endedAt);
+    if (timestamp === null || timestamp < start || timestamp >= end) {
+      continue;
+    }
+    if (filter !== null && (normalized.label || UNLABELLED) !== filter) {
+      continue;
+    }
+    focusedMinutes += Math.round(normalized.durationSeconds / 60);
+  }
+
+  const reached = targetMinutes > 0 && focusedMinutes >= targetMinutes;
+  const percent =
+    targetMinutes <= 0
+      ? 100
+      : Math.min(
+          100,
+          Math.max(0, Math.round((focusedMinutes / targetMinutes) * 100)),
+        );
+
+  return {
+    targetMinutes,
+    focusedMinutes,
+    remainingMinutes: Math.max(0, targetMinutes - focusedMinutes),
+    percent,
+    reached,
+    weekStart: start,
+  };
 }

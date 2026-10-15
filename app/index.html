@@ -166,6 +166,26 @@
             <label for="auto-start-breaks">Automatically start breaks</label>
           </div>
 
+          <div class="field">
+            <label for="weekly-goal">Weekly focus goal (minutes)</label>
+            <input
+              id="weekly-goal"
+              name="weeklyGoal"
+              type="number"
+              min="0"
+              max="10080"
+              step="15"
+              inputmode="numeric"
+              placeholder="0 = no goal"
+            />
+            <p class="field__hint">
+              Minutes per week, optionally scoped to the selected label.
+              Stored only on this device. Set 0 to clear.
+            </p>
+          </div>
+
+          <button id="clear-goal" class="control" type="button">Clear goal</button>
+
           <p id="settings-status" class="settings-status" role="status"></p>
 
           <button id="save-settings" class="control control--primary" type="submit">
@@ -188,6 +208,30 @@
             <p id="stats-empty" class="stats__empty">
               No sessions yet — start your first focus block.
             </p>
+            <div id="stats-goal" class="stats__goal" hidden>
+              <div class="stats__goal-head">
+                <span class="stats__goal-title">Weekly goal</span>
+                <span class="stats__goal-summary">
+                  <strong id="stats-goal-focused">0</strong> /
+                  <strong id="stats-goal-target">0</strong> min ·
+                  <strong id="stats-goal-percent">0</strong>%
+                </span>
+              </div>
+              <div
+                id="stats-goal-bar"
+                class="stats__goal-bar"
+                role="progressbar"
+                aria-label="Weekly focus goal progress"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                aria-valuenow="0"
+              >
+                <span id="stats-goal-fill" class="stats__goal-fill"></span>
+              </div>
+              <p id="stats-goal-reached" class="stats__goal-reached" hidden>
+                ✓ Goal reached
+              </p>
+            </div>
             <ul
               id="stats-labels"
               class="stats__labels"

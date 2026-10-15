@@ -132,10 +132,10 @@ class ServiceWorkerTests(unittest.TestCase):
     def test_history_module_is_precached(self):
         self.assertIn('"./history.js"', self.source)
 
-    def test_cache_name_is_focus_flow_v3(self):
+    def test_cache_name_is_focus_flow_v4(self):
         match = re.search(r'CACHE_NAME\s*=\s*"([^"]+)"', self.source)
         self.assertIsNotNone(match, "service worker has no CACHE_NAME")
-        self.assertEqual(match.group(1), "focus-flow-v3")
+        self.assertEqual(match.group(1), "focus-flow-v4")
 
     def test_ignores_non_get_and_cross_origin(self):
         self.assertIn('request.method !== "GET"', self.source)
