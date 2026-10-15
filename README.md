@@ -1,28 +1,77 @@
-# AI Pipes — empty starting point
+# Focus Flow
 
-This branch contains the autonomous development pipeline and an empty
-`CONCEPT.md`, with no product or product tests. Use it to improve the empty
-starting point or create new, independent projects.
+Focus Flow is a **distraction-free, offline-capable focus timer** delivered as a
+static, client-side web app. It helps students, remote knowledge workers, and
+anyone who benefits from structured work/break cycles run Pomodoro-style
+sessions without accounts, databases, tracking, or any external service.
 
-The first generated issue proposes a project from scratch. Its implementation
-fills `CONCEPT.md` and creates product files and tests. The pipeline documentation lives
-in [`.github/README.md`](.github/README.md), including the required GitHub secrets
-and repository settings.
+Everything runs in the browser and all state (settings and session count) is
+stored locally in `localStorage`. There are no runtime network calls, no
+telemetry, and no secrets.
 
-## Start again in this repository
+## Features
 
-Merge this starting point into `main` when you are ready to start a new project.
-The push to `main` generates the first issue and starts the development cycle.
-Working on `empty-repo` does not start issue generation; the generator always
-uses `main`, even when started manually.
+- Configurable work / short break / long break durations.
+- Start, pause, reset, and skip controls.
+- Keyboard shortcuts: `Space` start/pause, `R` reset, `S` skip.
+- Automatic long break every 4 work sessions (interval configurable).
+- Session counter, dark/light theme, audible and visual notifications.
+- Settings and session count persist across reloads.
+- Accessible, responsive layout for mobile, tablet, and desktop.
 
-Existing issues, pull requests, branches, and history remain available. Avoid a
-commit message beginning with `chore(reset):`: that explicitly triggers cleanup
-of previous remote work when pushed to `main`.
+The full concept, audience, roadmap, and criteria mapping live in
+[`CONCEPT.md`](CONCEPT.md).
+
+## Run locally
+
+The app needs no build step. Serve the `app/` directory with any static server:
+
+```sh
+cd app
+python3 -m http.server 8080
+```
+
+Then open <http://localhost:8080>.
+
+## Run the tests
+
+```sh
+python3 -m unittest discover -s tests -p 'test_*.py' -v
+```
+
+The suite checks the static assets and structure, the `Dockerfile`, and renders
+the Helm chart with `helm template`. The pipeline's own generator tests live in
+`.github/scripts` and run with
+`python3 -m unittest discover -s .github/scripts -p 'test_*.py' -v`.
+
+## Container
+
+```sh
+docker build -t focus-flow:local .
+docker run --rm -p 8080:8080 focus-flow:local
+```
+
+The image serves `app/` with nginx (unprivileged) and exposes `/healthz` for
+health checks. The listen port is configurable via the `PORT` environment
+variable.
+
+## Deployment
+
+The Helm chart in [`helm/`](helm) renders a `Deployment`, `Service`, `Ingress`,
+resource requests/limits, and liveness/readiness probes that hit `/healthz`:
+
+```sh
+helm template focus-flow helm
+```
+
+Argo CD syncs this chart into the existing k3s cluster. No database, external
+API, or additional infrastructure is required.
 
 ## Create an independent project
 
-Export this branch without its Git history:
+This repository ships an autonomous development pipeline alongside the product.
+To reuse it for a new idea, export the tree without Git history and initialize a
+fresh repository:
 
 ```sh
 mkdir ../my-new-project
@@ -33,15 +82,5 @@ git add .
 git commit -m "chore: initialize empty development pipeline"
 ```
 
-Create a GitHub repository, configure the secrets and settings documented in
-`.github/README.md`, then add its remote and push `main`. Each new repository
-has its own project and development cycle.
-
-## Verify the pipeline locally
-
-```sh
-python3 -m unittest discover -s .github/scripts -p 'test_*.py' -v
-```
-
-CI runs these pipeline tests on every push and pull request, and also runs
-product tests from `tests/` once that directory exists.
+See [`.github/README.md`](.github/README.md) for the required secrets and
+repository settings.
