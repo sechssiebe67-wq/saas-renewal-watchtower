@@ -253,6 +253,48 @@
           </div>
         </details>
       </section>
+
+      <section
+        id="weekly-review"
+        class="weekly-review-card"
+        aria-labelledby="weekly-review-heading"
+      >
+        <h2 id="weekly-review-heading" class="weekly-review-card__title">
+          Weekly review
+        </h2>
+        <p id="weekly-review-empty" class="weekly-review__empty">
+          No sessions yet this week — start a focus block to build your review.
+        </p>
+        <p id="weekly-review-summary" class="weekly-review__summary" hidden>
+          This week:
+          <strong id="weekly-review-focused">0</strong> min focused
+          <span id="weekly-review-goal-part" class="weekly-review__goal-part" hidden>
+            of <strong id="weekly-review-target">0</strong> min goal
+            (<strong id="weekly-review-percent">0</strong>%)
+          </span>
+        </p>
+        <div
+          id="weekly-review-bar"
+          class="weekly-review__bar"
+          role="progressbar"
+          aria-label="Weekly focus goal progress for this week"
+          aria-valuemin="0"
+          aria-valuemax="100"
+          aria-valuenow="0"
+          hidden
+        >
+          <span id="weekly-review-fill" class="weekly-review__fill"></span>
+        </div>
+        <p id="weekly-review-reached" class="weekly-review__reached" hidden>
+          ✓ Goal reached
+        </p>
+        <ul
+          id="weekly-review-labels"
+          class="weekly-review__labels"
+          aria-label="Focused minutes by session label this week"
+          hidden
+        ></ul>
+      </section>
     </main>
 
     <footer class="app-footer">

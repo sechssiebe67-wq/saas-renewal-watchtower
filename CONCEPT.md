@@ -66,6 +66,15 @@ after the first load.
   (a `0`/empty value, or the **Clear goal** control) from the settings form.
   The whole goal lives only in `localStorage` under `focus-flow:goal` and is
   never uploaded.
+- **Weekly review:** a dedicated panel lines the weekly goal up against the
+  per-label breakdown for the current week. It shows the focused minutes so far
+  against the target, a percentage, and a `role="progressbar"` bar, plus a
+  per-label list that ranks each label seen this week by focused minutes with its
+  session count and its share of the target (including an `(unlabelled)` row when
+  unlabelled sessions exist). When the target is met the panel shows a clear
+  **"Goal reached"** state and the app announces it once through the ARIA live
+  region. The review reads the existing history and goal keys only and adds no
+  new `localStorage` key.
 - **Audible and visual notifications** when a phase ends.
 - **Local persistence** of settings, the current session count, and the session
   history via `localStorage`.
@@ -89,8 +98,11 @@ after the first load.
   - `timer.js` — the pure timer state machine.
   - `history.js` — the pure session-history helpers (`recordSession`,
     `pruneHistory`, `summarise`, `labelSummary`, `recentSessions`,
-    `normalizeGoal`, `weekWindow`, `goalProgress`, `HISTORY_VERSION`,
-    `GOAL_STORAGE_SHAPE_VERSION`) with no DOM access.
+    `normalizeGoal`, `weekWindow`, `goalProgress`, `weeklyReview`,
+    `HISTORY_VERSION`, `GOAL_STORAGE_SHAPE_VERSION`) with no DOM access.
+    `weeklyReview` returns the current week's goal versus per-label breakdown
+    (`{ weekStart, targetMinutes, focusedMinutes, remainingMinutes, percent,
+    reached, labels, perLabel }`).
   - `main.js` — the DOM layer and the `registerServiceWorker()` helper.
   - `manifest.webmanifest` — the PWA manifest (name, icons, colours, scope).
   - `service-worker.js` — versioned cache, precache list, and offline handlers.
@@ -117,14 +129,16 @@ leaves the device. There is no backend, no account, and no sync.
 | `focus-flow:history` | array of `{ endedAt, phase, durationSeconds, label? }` | Local session log. `endedAt` is an ISO timestamp, `phase` is `"work"`, and `durationSeconds` is the configured work duration. `label` is optional: a trimmed string of at most 40 characters, and it is absent when the user leaves the session-label field empty. Only completed work phases are appended; the log is pruned to the most recent 500 entries and 90 days. `HISTORY_VERSION` in `app/history.js` documents the entry schema version: **version 2** adds the optional `label` field, and version 1 entries (which have no `label`) remain valid and still count toward the 7-day totals. |
 | `focus-flow:goal` | `{ minutes, label? }` | Optional **weekly focus goal**. `minutes` is an integer clamped to `0..10080` (a full week; `0` means "no goal"), and `label` is an optional trimmed string of at most 40 characters that scopes the goal to a single session label. The goal is stored **only in `localStorage`** and is never uploaded; `GOAL_STORAGE_SHAPE_VERSION` in `app/history.js` documents the shape version, and `normalizeGoal` coerces older or malformed values. |
 
+The **Weekly review** panel is derived, not stored: it reads only the existing
+`focus-flow:history` and `focus-flow:goal` keys through the pure `weeklyReview`
+helper and adds no new `localStorage` key and no network request.
+
 ## Next direction
 
 - Optional **ambient sound** (e.g. brown noise / rain) using the Web Audio API.
 - **Internationalisation (i18n)** with a small message catalog.
 - **Focus streaks and reminders**, derived locally from the session history,
-  building on the weekly goal row.
-- A **weekly review** view that lines the weekly goal up against the per-label
-  breakdown so users can see which labels carried the week.
+  building on the weekly goal and weekly review panels.
 
 ## How the repository meets its own criteria
 
@@ -159,14 +173,14 @@ leaves the device. There is no backend, no account, and no sync.
 | Low Maintenance | No backend or data migrations to maintain. |
 | Market Differentiation | Privacy-first, offline, no-account, and packaged as a Kubernetes-native OSS app. |
 | Growth Potential | Serving more users costs effectively nothing. |
-| User Retention | Daily use pattern; persistent settings, session counts, and a 7-day focus-history panel that shows progress; optional per-session labels and a label filter let users review where their focus went, plus one-tap install to the home screen or desktop. |
+| User Retention | Daily use pattern; persistent settings, session counts, and a 7-day focus-history panel that shows progress; optional per-session labels, a label filter, and a weekly review that ranks each label against the weekly goal let users see where their focus went, plus one-tap install to the home screen or desktop. |
 | Discoverability | Clear name, description, and docs; shareable as a URL. |
 | Mobile Friendly | Responsive layout, touch-friendly controls, and an installable PWA that launches standalone. |
 | Accessibility | Semantic landmarks, ARIA live region, keyboard shortcuts, focus states, contrast. |
 | Minimal Dependencies | Zero runtime JS/CSS dependencies. |
-| Measurable Success | `/healthz` for reliability; the local session history, 7-day stats, optional label breakdown, and the weekly focus goal give users a visible, measurable view of their focus habit, including what each block of time was spent on and how close they are to their weekly target. |
+| Measurable Success | `/healthz` for reliability; the local session history, 7-day stats, optional label breakdown, the weekly focus goal, and the weekly review give users a visible, measurable view of their focus habit, including what each block of time was spent on and how close each label came to their weekly target. |
 | Reusability | Reuses the standard static-container + Helm deployment template. |
-| Innovation Potential | Ambient sound, focus streaks, and a weekly review are natural next steps. |
+| Innovation Potential | Ambient sound, focus streaks, and internationalisation are natural next steps. |
 
 ## Repository criteria (canonical definitions)
 
