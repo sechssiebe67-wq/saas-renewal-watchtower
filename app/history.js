@@ -185,13 +185,6 @@ function shiftDayKey(dayKey, delta) {
   return dateKey(new Date(year, month - 1, day + delta));
 }
 
-/** Convert a `YYYY-MM-DD` local calendar key back to its local-midnight
- * timestamp. */
-function dayKeyTimestamp(dayKey) {
-  const [year, month, day] = dayKey.split("-").map(Number);
-  return new Date(year, month - 1, day).getTime();
-}
-
 /** The `YYYY-MM-DD` key of the local week start that contains `timestamp`,
  * using `weekStartsOn` (`0` = Sunday, `1` = Monday). Uses calendar arithmetic
  * only, so a 23h/25h daylight-saving transition never shifts the bucket. */
@@ -1243,34 +1236,19 @@ export function goalPace(
 }
 
 /** Classify a series of weekly totals as trending `"up"`, `"down"`, or
- * `"flat"` from the sign of its least-squares slope. Fewer than two points, an
- * all-equal series, or a degenerate denominator are `"flat"`. */
+ * `"flat"` by comparing the newest week with the week before it. Fewer than
+ * two points is `"flat"`. */
 function trendDirection(values) {
   const count = Array.isArray(values) ? values.length : 0;
   if (count < 2) {
     return "flat";
   }
-  const meanX = (count - 1) / 2;
-  let total = 0;
-  for (const value of values) {
-    total += value;
-  }
-  const meanY = total / count;
-  let numerator = 0;
-  let denominator = 0;
-  for (let index = 0; index < count; index += 1) {
-    const dx = index - meanX;
-    numerator += dx * (values[index] - meanY);
-    denominator += dx * dx;
-  }
-  if (denominator === 0) {
-    return "flat";
-  }
-  const slope = numerator / denominator;
-  if (slope > 0) {
+  const latest = values[count - 1];
+  const previous = values[count - 2];
+  if (latest > previous) {
     return "up";
   }
-  if (slope < 0) {
+  if (latest < previous) {
     return "down";
   }
   return "flat";
@@ -1283,12 +1261,12 @@ function trendDirection(values) {
  * Returns `{ weeks, points, min, max, direction, empty }`:
  *
  * - `points` is one `{ weekStart, minutes }` bucket per week in chronological
- *   order (oldest first), where `weekStart` is the local-midnight timestamp of
- *   that week's first day and `minutes` is the rounded total focused minutes.
+ *   order (oldest first), where `weekStart` is the `YYYY-MM-DD` key of that
+ *   week's first day and `minutes` is the rounded total focused minutes.
  * - `min` / `max` are the smallest and largest weekly totals (`0` when there
  *   are no points).
- * - `direction` is `"up"`, `"down"`, or `"flat"`, taken from the sign of a
- *   least-squares slope across the points.
+ * - `direction` is `"up"`, `"down"`, or `"flat"`, taken from the newest week
+ *   compared with the week before it.
  * - `empty` is `true` when every bucket is zero, so the DOM layer can show the
  *   localised empty-state message instead of an empty chart.
  *
@@ -1298,8 +1276,10 @@ function trendDirection(values) {
  * shift, drop, or duplicate a bucket. The active label filter is honoured and
  * labels are resolved through the optional `tags` map exactly as
  * `weeklyReview` does (`UNLABELLED` matches unlabelled entries). `now` is
- * injectable for tests. Pure: it reads no storage, makes no network request,
- * never mutates its input, and never throws on malformed input.
+ * injectable for tests. The requested `weeks` is clamped to `1..26`, so a
+ * caller can never force an unbounded bucket array. Pure: it reads no storage,
+ * makes no network request, never mutates its input, and never throws on
+ * malformed input.
  */
 export function weeklyTrend(
   history,
@@ -1323,10 +1303,9 @@ export function weeklyTrend(
   const base = resolvedNow === null ? Date.now() : resolvedNow;
 
   const requested = Number(weeks);
-  const count =
-    Number.isFinite(requested) && requested >= 1
-      ? Math.floor(requested)
-      : TREND_WEEKS;
+  const count = Number.isFinite(requested)
+    ? Math.min(26, Math.max(1, Math.floor(requested)))
+    : TREND_WEEKS;
 
   const currentKey = weekStartKeyOf(base, resolvedWeekStart);
   const keys = [];
@@ -1361,7 +1340,7 @@ export function weeklyTrend(
   }
 
   const points = keys.map((key) => ({
-    weekStart: dayKeyTimestamp(key),
+    weekStart: key,
     minutes: totals.get(key) || 0,
   }));
 

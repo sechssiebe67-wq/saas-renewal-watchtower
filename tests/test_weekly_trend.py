@@ -87,6 +87,14 @@ HARNESS = textwrap.dedent(
           index === 0 || point.weekStart > empty.points[index - 1].weekStart,
       ),
     );
+    check(
+      "points carry a YYYY-MM-DD weekStart string",
+      empty.points.every(
+        (point) =>
+          typeof point.weekStart === "string" &&
+          /^\\d{4}-\\d{2}-\\d{2}$/.test(point.weekStart),
+      ),
+    );
 
     // The default week count is exported as TREND_WEEKS.
     check("TREND_WEEKS is eight", TREND_WEEKS === 8);
@@ -97,6 +105,18 @@ HARNESS = textwrap.dedent(
     check(
       "an invalid weeks option falls back to the default",
       weeklyTrend([], { now: Date.now(), weeks: "nope" }).weeks === 8,
+    );
+    check(
+      "the weeks option is clamped to the upper bound",
+      weeklyTrend([], { now: Date.now(), weeks: 100 }).weeks === 26,
+    );
+    check(
+      "the weeks option is clamped to the lower bound",
+      weeklyTrend([], { now: Date.now(), weeks: 0 }).weeks === 1,
+    );
+    check(
+      "a fractional weeks option is floored",
+      weeklyTrend([], { now: Date.now(), weeks: 6.9 }).weeks === 6,
     );
 
     // --- single week --------------------------------------------------------
@@ -154,6 +174,25 @@ HARNESS = textwrap.dedent(
     );
     check("flat direction is flat", flat.direction === "flat");
     check("flat is not empty", flat.empty === false);
+
+    // Direction compares the newest week with the week before it, not a fitted
+    // slope: [120, 30, 60] is "up" (60 > 30) even though the slope is negative,
+    // and [30, 60, 60] is "flat" (60 === 60).
+    const latestRise = weeklyTrend(
+      [weeksAgo(2, 120), weeksAgo(1, 30), weeksAgo(0, 60)],
+      { now, weeks: 3, weekStartsOn: 1 },
+    );
+    check("direction compares the latest week", latestRise.direction === "up");
+    const latestFlat = weeklyTrend(
+      [weeksAgo(2, 30), weeksAgo(1, 60), weeksAgo(0, 60)],
+      { now, weeks: 3, weekStartsOn: 1 },
+    );
+    check("an unchanged latest week is flat", latestFlat.direction === "flat");
+    const latestFall = weeklyTrend(
+      [weeksAgo(2, 30), weeksAgo(1, 90), weeksAgo(0, 60)],
+      { now, weeks: 3, weekStartsOn: 1 },
+    );
+    check("a smaller latest week is down", latestFall.direction === "down");
 
     // --- label filter -------------------------------------------------------
     const filtered = weeklyTrend(
@@ -234,13 +273,9 @@ HARNESS = textwrap.dedent(
     );
     check("DST bucket keeps both boundary entries", dst.points[1].minutes === 40);
     check("DST does not leak the next week", dst.max === 40);
-    const dstKey = new Date(dst.points[1].weekStart);
     check(
       "DST bucket starts on the local Monday",
-      dstKey.getFullYear() === 2026 &&
-        dstKey.getMonth() === 2 &&
-        dstKey.getDate() === 2 &&
-        dstKey.getHours() === 0,
+      dst.points[1].weekStart === "2026-03-02",
     );
 
     // --- robustness ---------------------------------------------------------
@@ -322,6 +357,7 @@ class WeeklyTrendStaticTests(unittest.TestCase):
         self.assertIn("renderTrendChart", js)
         self.assertIn("stats-trend-chart", js)
         self.assertIn("announce.trend", js)
+        self.assertIn("lastAnnouncedTrendDirection", js)
 
     def test_styles_define_the_sparkline(self):
         css = read(STYLES_PATH)

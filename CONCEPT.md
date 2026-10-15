@@ -181,9 +181,12 @@ after the first load.
   filter** — a filtered Stats view shows the trend for that label only — and
   applies the **label aliases** map exactly as `weeklyReview` does. A short
   caption states the direction (**Trending up**, **Steady**, or **Trending
-  down**) plus the numeric min–max range, and the whole chart is a single
+  down**) — computed by comparing the newest week with the week before it — plus
+  the numeric min–max range, and the whole chart is a single
   `role="img"` region with an accessible name and range so the shape is readable
-  by screen readers. It is derived entirely from the already-stored
+  by screen readers. The caption announces itself through the existing ARIA live
+  region when the sparkline first appears or its direction changes. It is derived
+  entirely from the already-stored
   `focus-flow:history` key by the pure `weeklyTrend` helper in `app/history.js`;
   there is **no new `localStorage` key, no network request, no third-party
   dependency, and no new runtime asset**, and every string comes from the bundled
@@ -474,8 +477,9 @@ offline.
 
 The **weekly focus trend sparkline** is derived the same way: the pure
 `weeklyTrend` helper turns `focus-flow:history` into one `{ weekStart, minutes }`
-point per week (plus the `min`/`max` range, a least-squares `direction`, and an
-`empty` flag), and the DOM layer draws it as a single inline-SVG `role="img"`
+point per week (`weekStart` as a `YYYY-MM-DD` calendar key, plus the `min`/`max`
+range, a `direction` that compares the newest week with the week before it, and
+an `empty` flag), and the DOM layer draws it as a single inline-SVG `role="img"`
 chart with a direction + range caption. It respects the active label filter and
 the **Week starts on** preference and reads only `focus-flow:history`, so it adds
 **no new `localStorage` key, no network request, and no third-party dependency**,
@@ -644,12 +648,15 @@ key**, makes **no network request**, and adds **no third-party dependency**.
 - [x] **Weekly focus trend sparkline**, the at-a-glance follow-up to the weekly
   review: the pure `weeklyTrend` helper in `app/history.js` returns one
   `{ weekStart, minutes }` point per week over the trailing `TREND_WEEKS`
-  weeks (the current, partial week included) plus the `min`/`max` range, a
-  least-squares `direction` (`"up"`, `"down"`, or `"flat"`), and an `empty`
+  weeks (the current, partial week included, clamped to `1..26`), with
+  `weekStart` as a `YYYY-MM-DD` calendar key, plus the `min`/`max` range, a
+  `direction` that compares the newest week with the week before it (`"up"`,
+  `"down"`, or `"flat"`), and an `empty`
   flag. The Stats panel draws it as a single inline-SVG `role="img"` sparkline
   with a direction + range caption, respects the active label filter and the
   **Week starts on** preference, applies the alias map, shows a localised empty
-  state, and announces itself once through the existing ARIA live region. It
+  state, and announces itself through the existing ARIA live region when it
+  first appears or its direction changes. It
   reads only `focus-flow:history`, makes no network request, and adds no
   `localStorage` key and no third-party dependency.
 

@@ -748,7 +748,7 @@ export function init() {
   let announcedDailyBreakdown = false;
   let announcedGoalPace = false;
   let announcedGoalPaceReached = false;
-  let announcedTrend = false;
+  let lastAnnouncedTrendDirection = null;
   let lastBadgeValue;
 
   function labelDisplay(label) {
@@ -1462,7 +1462,7 @@ export function init() {
     if (el.statsTrendEmpty) {
       el.statsTrendEmpty.hidden = true;
     }
-    announcedTrend = false;
+    lastAnnouncedTrendDirection = null;
   }
 
   /**
@@ -1525,7 +1525,8 @@ export function init() {
    * alias map exactly as `weeklyReview` does. A caption states the direction
    * and the numeric min–max range; the chart is a single `role="img"` region
    * with an accessible name. It is hidden when there are no sessions at all and
-   * announces itself once through the live region when it first appears.
+   * announces itself through the live region when it first appears or when its
+   * direction changes.
    */
   function renderTrend() {
     if (!el.statsTrend) {
@@ -1552,7 +1553,7 @@ export function init() {
       if (el.statsTrendEmpty) {
         el.statsTrendEmpty.hidden = false;
       }
-      announcedTrend = false;
+      lastAnnouncedTrendDirection = null;
       return;
     }
 
@@ -1584,8 +1585,8 @@ export function init() {
       el.statsTrendSummary.textContent = `${direction} · ${range}`;
     }
 
-    if (!announcedTrend) {
-      announcedTrend = true;
+    if (lastAnnouncedTrendDirection !== trend.direction) {
+      lastAnnouncedTrendDirection = trend.direction;
       announce(t("announce.trend", { summary: `${direction} — ${range}` }));
     }
   }
@@ -1906,7 +1907,7 @@ export function init() {
     announcedDailyBreakdown = false;
     announcedGoalPace = false;
     announcedGoalPaceReached = false;
-    announcedTrend = false;
+    lastAnnouncedTrendDirection = null;
     lastBadgeValue = undefined;
 
     applyStaticTranslations();
