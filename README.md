@@ -56,19 +56,26 @@ calls, no telemetry, and no secrets.
   **synthesised in the browser with the Web Audio API**, so no audio files are
   downloaded or shipped and no network request is made; your choice and volume
   are stored only in `localStorage["focus-flow:ambient"]`.
-- Settings, session count, history, the weekly goal, and the ambient-sound
-  choice persist across reloads.
+- **Bundled internationalisation:** every user-facing string comes from a small
+  message catalog (`app/i18n.js`), and a **Language** switcher in Settings lets
+  you pick between **English**, **Deutsch**, and **Español**. Changing it
+  applies immediately — no save step — and the choice is stored only on the
+  device in `localStorage["focus-flow:locale"]`.
+- Settings, session count, history, the weekly goal, the ambient-sound choice,
+  and the language persist across reloads.
 - Accessible, responsive layout for mobile, tablet, and desktop.
 - Installable PWA with a web manifest and an offline-first service worker.
 
 Focus Flow is **privacy-first by construction**: the focus history, any session
-labels you type, your weekly focus goal, and your ambient-sound choice live only
+labels you type, your weekly focus goal, your ambient-sound choice, and your
+language preference live only
 on your device. They are never uploaded, synced, or sent anywhere. The weekly
 review, the focus streaks, and the daily reminder hint are all **derived** from
 that existing local data only — they add no new storage key, no network request,
 and no third-party dependency. The ambient sound is generated locally and adds
-no audio file, no network request, and no third-party asset. All data stays on
-the device.
+no audio file, no network request, and no third-party asset. The i18n catalog is
+bundled locally, so localisation adds no network request and no third-party
+library. All data stays on the device.
 
 ### Storage keys
 
@@ -83,9 +90,29 @@ All state lives in the browser's `localStorage`:
 - `focus-flow:goal` — the optional weekly focus goal.
 - `focus-flow:ambient` — the optional ambient-sound `{ type, volume }`; removed
   when the type is `off`.
+- `focus-flow:locale` — the canonical locale id for the chosen language;
+  removed when the locale is the default (`en`).
 
 The full concept, audience, roadmap, and criteria mapping live in
 [`CONCEPT.md`](CONCEPT.md).
+
+## Languages
+
+Focus Flow ships **English** (`en`), **German** (`de`), and **Spanish** (`es`).
+Pick a language from the **Language** dropdown in Settings; the change applies
+immediately, with no save step, and every visible string — including the
+screen-reader announcements — updates at once.
+
+The catalog lives in [`app/i18n.js`](app/i18n.js). It is **bundled with the app
+and fully offline**: there is no network request, no third-party library, and no
+runtime download. Unknown or malformed stored values fall back to English, and a
+message missing from a locale falls back to English and then to its own key, so
+the page never breaks. Message keys are shared across locales (verified by the
+test suite), and the rendered labels are localised from the same catalog.
+
+Your language choice is saved **only on the device** under
+`localStorage["focus-flow:locale"]`. A default install stores nothing, and the
+choice is never uploaded, synced, or sent anywhere.
 
 ## Run locally
 

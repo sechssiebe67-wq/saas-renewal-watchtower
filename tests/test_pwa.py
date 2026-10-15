@@ -29,13 +29,14 @@ EXPECTED_PRECACHE = [
     "./timer.js",
     "./history.js",
     "./ambient.js",
+    "./i18n.js",
     "./manifest.webmanifest",
     "./healthz",
     "./icons/icon-192.png",
     "./icons/icon-512.png",
     "./icons/icon-maskable-512.png",
 ]
-EXPECTED_CACHE_NAME = "focus-flow-v7"
+EXPECTED_CACHE_NAME = "focus-flow-v8"
 
 
 def read_text(path):

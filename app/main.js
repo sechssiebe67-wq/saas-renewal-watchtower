@@ -16,12 +16,19 @@ import {
 } from "./timer.js";
 
 import {
-  AMBIENT_LABELS,
   DEFAULT_AMBIENT,
   normalizeAmbient,
   createNoiseBuffer,
   shouldPlay,
 } from "./ambient.js";
+
+import {
+  SUPPORTED_LOCALES,
+  LOCALE_LABELS,
+  DEFAULT_LOCALE,
+  normalizeLocale,
+  createTranslator,
+} from "./i18n.js";
 
 import {
   DEFAULT_RETENTION_DAYS,
@@ -45,14 +52,10 @@ const STORAGE_KEYS = Object.freeze({
   history: "focus-flow:history",
   goal: "focus-flow:goal",
   ambient: "focus-flow:ambient",
+  locale: "focus-flow:locale",
 });
 
 const STATS_WINDOW_DAYS = 7;
-
-const THEME_LABELS = Object.freeze({
-  dark: { button: "Dark theme", next: "light" },
-  light: { button: "Light theme", next: "dark" },
-});
 
 function isSecureContext() {
   if (window.isSecureContext) {
@@ -148,6 +151,7 @@ function getElements() {
     weeklyReviewReached: document.getElementById("weekly-review-reached"),
     weeklyReviewLabels: document.getElementById("weekly-review-labels"),
     clearGoal: document.getElementById("clear-goal"),
+    locale: document.getElementById("locale"),
     themeToggle: document.getElementById("theme-toggle"),
     themeToggleLabel: document.getElementById("theme-toggle-label"),
     themeToggleIcon: document.querySelector(".theme-toggle__icon"),
@@ -195,6 +199,9 @@ function playChime() {
 
 export function init() {
   const el = getElements();
+
+  let locale = normalizeLocale(readStorage(STORAGE_KEYS.locale, DEFAULT_LOCALE));
+  let t = createTranslator(locale);
 
   const storedSettings = normalizeSettings(
     readStorage(STORAGE_KEYS.settings, DEFAULT_SETTINGS),
@@ -331,18 +338,93 @@ export function init() {
       ? "dark"
       : "light";
   applyTheme(initialTheme);
-  updateThemeButton(initialTheme);
 
   function updateThemeButton(theme) {
-    const config = THEME_LABELS[theme];
     if (el.themeToggle) {
       el.themeToggle.setAttribute("aria-pressed", String(theme === "dark"));
     }
     if (el.themeToggleLabel) {
-      el.themeToggleLabel.textContent = config.button;
+      el.themeToggleLabel.textContent =
+        theme === "dark" ? t("theme.dark") : t("theme.light");
     }
     if (el.themeToggleIcon) {
       el.themeToggleIcon.textContent = theme === "dark" ? "☀️" : "🌙";
+    }
+  }
+
+  function currentTheme() {
+    return document.documentElement.getAttribute("data-theme") === "dark"
+      ? "dark"
+      : "light";
+  }
+
+  /** Translate every static `data-i18n` / `data-i18n-attr` hook in the shell.
+   * The English source strings stay in `index.html` as the no-JS fallback. */
+  function applyStaticTranslations() {
+    document.documentElement.setAttribute("lang", locale);
+    document.title = t("app.title");
+    document.querySelectorAll("[data-i18n]").forEach((node) => {
+      node.textContent = t(node.getAttribute("data-i18n"));
+    });
+    document.querySelectorAll("[data-i18n-attr]").forEach((node) => {
+      const spec = node.getAttribute("data-i18n-attr");
+      for (const pair of spec.split(";")) {
+        const separator = pair.indexOf(":");
+        if (separator === -1) {
+          continue;
+        }
+        const attr = pair.slice(0, separator).trim();
+        const key = pair.slice(separator + 1).trim();
+        if (attr && key) {
+          node.setAttribute(attr, t(key));
+        }
+      }
+    });
+  }
+
+  function populateLocaleSelect() {
+    if (!el.locale) {
+      return;
+    }
+    const options = SUPPORTED_LOCALES.map((id) => {
+      const option = document.createElement("option");
+      option.value = id;
+      option.textContent = LOCALE_LABELS[id] || id;
+      return option;
+    });
+    el.locale.replaceChildren(...options);
+    el.locale.value = locale;
+  }
+
+  /** Persist under `focus-flow:locale`; keeping the default removes the key so
+   * a default install leaves no trace, matching the ambient-sound behaviour. */
+  function persistLocale() {
+    if (locale === DEFAULT_LOCALE) {
+      try {
+        window.localStorage.removeItem(STORAGE_KEYS.locale);
+      } catch (error) {
+        /* Storage may be unavailable; the in-memory locale still applies. */
+      }
+      return;
+    }
+    writeStorage(STORAGE_KEYS.locale, locale);
+  }
+
+  /** Apply a locale immediately: persist it, re-render every visible string,
+   * and (optionally) announce the change once through the live region. */
+  function applyLocale(raw, { announceChange = false } = {}) {
+    locale = normalizeLocale(raw);
+    t = createTranslator(locale);
+    persistLocale();
+    if (el.locale) {
+      el.locale.value = locale;
+    }
+    applyStaticTranslations();
+    updateThemeButton(currentTheme());
+    render(engine.snapshot(), { reason: "locale" });
+    renderStats();
+    if (announceChange) {
+      announce(t("announce.locale", { language: LOCALE_LABELS[locale] }));
     }
   }
 
@@ -420,8 +502,8 @@ export function init() {
     if (announceChange) {
       announce(
         ambient.type === "off"
-          ? "Ambient sound off."
-          : `Ambient sound: ${AMBIENT_LABELS[ambient.type]}.`,
+          ? t("announce.ambientOff")
+          : t("announce.ambientOn", { type: t(`ambient.${ambient.type}`) }),
       );
     }
   }
@@ -440,7 +522,7 @@ export function init() {
   let announcedStreak = null;
 
   function labelDisplay(label) {
-    return label === UNLABELLED ? "No label" : label;
+    return label === UNLABELLED ? t("label.noLabel") : label;
   }
 
   function renderLabelChips(summary) {
@@ -478,8 +560,8 @@ export function init() {
         renderStats();
         announce(
           activeLabel === null
-            ? "Label filter cleared."
-            : `Filtered to ${labelDisplay(activeLabel)}.`,
+            ? t("announce.labelCleared")
+            : t("announce.filtered", { label: labelDisplay(activeLabel) }),
         );
       });
 
@@ -502,7 +584,7 @@ export function init() {
 
       const date = document.createElement("span");
       date.className = "recent-session__date";
-      date.textContent = new Date(session.endedAt).toLocaleDateString(undefined, {
+      date.textContent = new Date(session.endedAt).toLocaleDateString(locale, {
         month: "short",
         day: "numeric",
       });
@@ -512,13 +594,15 @@ export function init() {
       if (session.label) {
         label.textContent = session.label;
       } else {
-        label.textContent = "No label";
+        label.textContent = t("label.noLabel");
         label.classList.add("recent-session__label--muted");
       }
 
       const minutes = document.createElement("span");
       minutes.className = "recent-session__minutes";
-      minutes.textContent = `${Math.round(session.durationSeconds / 60)} min`;
+      minutes.textContent = t("recent.minutes", {
+        count: Math.round(session.durationSeconds / 60),
+      });
 
       item.append(date, label, minutes);
       return item;
@@ -527,7 +611,18 @@ export function init() {
   }
 
   function streakLabel(days) {
-    return days === 1 ? "1 day" : `${days} days`;
+    return t(days === 1 ? "streak.daysOne" : "streak.daysMany", {
+      count: days,
+    });
+  }
+
+  function formatWeekday(dayKey) {
+    const parts = String(dayKey).split("-").map(Number);
+    if (parts.length !== 3 || parts.some((part) => !Number.isFinite(part))) {
+      return dayKey;
+    }
+    const date = new Date(parts[0], parts[1] - 1, parts[2]);
+    return date.toLocaleDateString(locale, { weekday: "short" });
   }
 
   function renderStreak() {
@@ -543,9 +638,10 @@ export function init() {
       el.statsStreakLongest.textContent = streakLabel(info.longest);
     }
     if (el.statsStreakToday) {
-      const noun = info.todayCount === 1 ? "session" : "sessions";
-      el.statsStreakToday.textContent =
-        `${info.todayCount} ${noun} · ${info.todayMinutes} min`;
+      el.statsStreakToday.textContent = t(
+        info.todayCount === 1 ? "stats.todayOne" : "stats.todayMany",
+        { count: info.todayCount, minutes: info.todayMinutes },
+      );
     }
     if (el.statsReminder) {
       el.statsReminder.hidden = !(info.todayCount === 0 && goal.minutes > 0);
@@ -555,7 +651,7 @@ export function init() {
       announcedStreak = info.current;
     } else if (info.current !== announcedStreak) {
       announcedStreak = info.current;
-      announce(`Streak: ${streakLabel(info.current)}.`);
+      announce(t("announce.streak", { value: streakLabel(info.current) }));
     }
   }
 
@@ -588,7 +684,7 @@ export function init() {
 
         const label = document.createElement("span");
         label.className = "stats-day__label";
-        label.textContent = day.label;
+        label.textContent = formatWeekday(day.date);
 
         const track = document.createElement("span");
         track.className = "stats-day__track";
@@ -632,7 +728,7 @@ export function init() {
       goalReached = reached;
     } else if (reached && !goalReached) {
       goalReached = true;
-      announce("Weekly goal reached.");
+      announce(t("announce.goalReached"));
     } else if (!reached) {
       goalReached = false;
     }
@@ -731,7 +827,7 @@ export function init() {
 
         const name = document.createElement("span");
         name.className = "weekly-review__label-name";
-        name.textContent = row.label === UNLABELLED ? "No label" : row.label;
+        name.textContent = labelDisplay(row.label);
 
         const track = document.createElement("span");
         track.className = "weekly-review__label-track";
@@ -742,9 +838,14 @@ export function init() {
 
         const stats = document.createElement("span");
         stats.className = "weekly-review__label-stats";
-        stats.textContent = hasGoal
-          ? `${row.sessions} · ${row.minutes} min · ${row.percentOfTarget}%`
-          : `${row.sessions} · ${row.minutes} min`;
+        stats.textContent = t(
+          hasGoal ? "review.labelStatsWithGoal" : "review.labelStats",
+          {
+            sessions: row.sessions,
+            minutes: row.minutes,
+            percent: row.percentOfTarget,
+          },
+        );
 
         item.append(name, track, stats);
         return item;
@@ -784,43 +885,52 @@ export function init() {
     if (announceChange) {
       const progress = currentGoalProgress();
       if (progress.targetMinutes > 0 && progress.reached) {
-        announce("Weekly goal reached.");
+        announce(t("announce.goalReached"));
       } else if (progress.targetMinutes > 0) {
-        announce("Weekly goal saved.");
+        announce(t("announce.goalSaved"));
       } else {
-        announce("Weekly goal cleared.");
+        announce(t("announce.goalCleared"));
       }
     }
   }
 
   function render(state, meta = {}) {
+    const phaseName = t(`phase.${state.phase}`);
     el.display.textContent = formatTime(state.remainingSeconds);
     el.display.dataset.phase = state.phase;
-    el.phaseLabel.textContent = state.label;
+    el.phaseLabel.textContent = phaseName;
     el.phaseLabel.dataset.phase = state.phase;
     el.sessionCount.textContent = String(state.completedWorkSessions);
-    el.startPause.textContent = state.running ? "Pause" : "Start";
+    el.startPause.textContent = t(
+      state.running ? "controls.pause" : "controls.start",
+    );
     el.startPause.setAttribute("aria-pressed", String(state.running));
 
-    document.title = `${formatTime(state.remainingSeconds)} · ${state.label} · Focus Flow`;
+    document.title = `${formatTime(state.remainingSeconds)} · ${phaseName} · Focus Flow`;
 
     if (meta.reason === "phase-complete") {
       const finished =
         meta.previousPhase && PHASE_LABELS[meta.previousPhase]
-          ? PHASE_LABELS[meta.previousPhase]
-          : "Phase";
-      announce(`${finished} finished. ${state.label} ready.`);
+          ? t(`phase.${meta.previousPhase}`)
+          : t("phase.unknown");
+      announce(
+        t("announce.phaseFinished", { finished, next: phaseName }),
+      );
       if (state.settings.sound) {
         playChime();
       }
     } else if (meta.reason === "start") {
-      announce(`Timer started. ${state.label}.`);
+      announce(t("announce.timerStarted", { phase: phaseName }));
     } else if (meta.reason === "pause") {
-      announce(`Timer paused. ${formatTime(state.remainingSeconds)} remaining.`);
+      announce(
+        t("announce.timerPaused", {
+          time: formatTime(state.remainingSeconds),
+        }),
+      );
     } else if (meta.reason === "reset") {
-      announce(`Timer reset. ${state.label}.`);
+      announce(t("announce.timerReset", { phase: phaseName }));
     } else if (meta.reason === "settings") {
-      announce("Settings saved.");
+      announce(t("announce.settingsSaved"));
     }
   }
 
@@ -851,6 +961,9 @@ export function init() {
     }
   });
 
+  populateLocaleSelect();
+  applyStaticTranslations();
+  updateThemeButton(initialTheme);
   syncForm(engine.settings);
   syncAmbientControls();
   renderStats();
@@ -883,7 +996,7 @@ export function init() {
     });
     syncForm(engine.settings);
     if (el.settingsStatus) {
-      el.settingsStatus.textContent = "Saved.";
+      el.settingsStatus.textContent = t("settings.saved");
       window.setTimeout(() => {
         el.settingsStatus.textContent = "";
       }, 2000);
@@ -902,12 +1015,14 @@ export function init() {
     });
   }
 
+  if (el.locale) {
+    el.locale.addEventListener("change", () => {
+      applyLocale(el.locale.value, { announceChange: true });
+    });
+  }
+
   el.themeToggle.addEventListener("click", () => {
-    const current =
-      document.documentElement.getAttribute("data-theme") === "dark"
-        ? "dark"
-        : "light";
-    const next = current === "dark" ? "light" : "dark";
+    const next = currentTheme() === "dark" ? "light" : "dark";
     applyTheme(next);
     updateThemeButton(next);
     writeStorage(STORAGE_KEYS.theme, next);
