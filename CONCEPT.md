@@ -97,6 +97,21 @@ after the first load.
   follows the timer — it starts with a work phase and is silenced whenever the
   timer is paused or reset — and coordinates are chosen so the loop only starts
   on a genuine user gesture.
+- **Internationalisation (i18n):** every user-facing string is delivered from a
+  tiny, bundled message catalog (`app/i18n.js`), and a **Language** switcher in
+  the settings card renders the app in **English**, **German**, or **Spanish**.
+  The pure catalog module maps plain data to plain data — no DOM, no network,
+  no third-party library — and exports `SUPPORTED_LOCALES`, `LOCALE_LABELS`,
+  `DEFAULT_LOCALE`, `MESSAGES`, `normalizeLocale`, `translate`,
+  `createTranslator`, and `LOCALE_STORAGE_SHAPE_VERSION`. Changing the language
+  applies immediately, re-renders every visible string (including the Stats,
+  goal, weekly-review, and streak text), and is announced once through the
+  existing ARIA live region. The choice is stored only on the device under
+  `focus-flow:locale`, and the key is removed when the default locale is
+  selected so a default install leaves no trace. Unknown or malformed stored
+  values fall back to `DEFAULT_LOCALE` (`en`), a message missing from a locale
+  falls back to English and then to its own key, and missing `{name}`
+  placeholders are left in place instead of throwing.
 - **Audible and visual notifications** when a phase ends.
 - **Local persistence** of settings, the current session count, and the session
   history via `localStorage`.
@@ -133,7 +148,15 @@ after the first load.
     reached, labels, perLabel }`), and `streaks` returns the derived
     consistency view (`{ current, longest, todayCount, todayMinutes,
     lastActiveDay }`).
-  - `main.js` — the DOM layer and the `registerServiceWorker()` helper.
+  - `i18n.js` — the pure, bundled message catalog (`SUPPORTED_LOCALES`,
+    `LOCALE_LABELS`, `DEFAULT_LOCALE`, `MESSAGES`, `normalizeLocale`,
+    `translate`, `createTranslator`, `LOCALE_STORAGE_SHAPE_VERSION`) with no DOM
+    access and no third-party import. `normalizeLocale` coerces arbitrary
+    stored input into a supported locale id, `translate` falls back to the
+    default locale and then to the key, and every catalog string ships in the
+    file so the app stays offline.
+  - `main.js` — the DOM layer, the `registerServiceWorker()` helper, and the
+    only place that applies translations to the shell and the dynamic strings.
   - `manifest.webmanifest` — the PWA manifest (name, icons, colours, scope).
   - `service-worker.js` — versioned cache, precache list, and offline handlers.
   - `icons/` — original artwork: `icon.svg` source, `icon-192.png`,
@@ -159,6 +182,7 @@ leaves the device. There is no backend, no account, and no sync.
 | `focus-flow:history` | array of `{ endedAt, phase, durationSeconds, label? }` | Local session log. `endedAt` is an ISO timestamp, `phase` is `"work"`, and `durationSeconds` is the configured work duration. `label` is optional: a trimmed string of at most 40 characters, and it is absent when the user leaves the session-label field empty. Only completed work phases are appended; the log is pruned to the most recent 500 entries and 90 days. `HISTORY_VERSION` in `app/history.js` documents the entry schema version: **version 2** adds the optional `label` field, and version 1 entries (which have no `label`) remain valid and still count toward the 7-day totals. |
 | `focus-flow:goal` | `{ minutes, label? }` | Optional **weekly focus goal**. `minutes` is an integer clamped to `0..10080` (a full week; `0` means "no goal"), and `label` is an optional trimmed string of at most 40 characters that scopes the goal to a single session label. The goal is stored **only in `localStorage`** and is never uploaded; `GOAL_STORAGE_SHAPE_VERSION` in `app/history.js` documents the shape version, and `normalizeGoal` coerces older or malformed values. |
 | `focus-flow:ambient` | `{ type, volume }` | Optional **ambient sound** setting. `type` is one of `"off"`, `"brown"`, `"pink"`, or `"rain"`, and `volume` is a number clamped to `0..1`. The key is **removed** when `type` is `"off"`; `normalizeAmbient` in `app/ambient.js` coerces arbitrary stored input and never throws. Nothing is uploaded and no audio file is stored — the sound is synthesised in the browser. |
+| `focus-flow:locale` | locale id string (`"en"` \| `"de"` \| `"es"`) | Optional **language** preference. The stored value is the canonical id from `SUPPORTED_LOCALES`; `normalizeLocale` in `app/i18n.js` coerces arbitrary stored input (a string, a `{ locale }` object, or anything else) into a supported id, falling back to `DEFAULT_LOCALE` (`"en"`) and never throwing. The key is **removed** when the locale is the default so a default install leaves no trace, matching the ambient-sound behaviour. `LOCALE_STORAGE_SHAPE_VERSION` documents the shape version. This is the only new storage key. |
 
 The **Weekly review** panel is derived, not stored: it reads only the existing
 `focus-flow:history` and `focus-flow:goal` keys through the pure `weeklyReview`
@@ -169,13 +193,22 @@ pure `streaks` helper turns `focus-flow:history` into a current/longest streak
 and today's totals, the reminder compares `todayCount` against the presence of a
 `focus-flow:goal`, and nothing new is persisted or transmitted.
 
+The **internationalisation** catalog is bundled, not fetched: every string lives
+in `app/i18n.js`, the service worker precaches `./i18n.js`, and the app makes no
+network request at runtime. Only the optional `focus-flow:locale` preference is
+persisted, and it is removed when the default locale is selected.
+
 ## Next direction
 
 - [x] **Focus streaks and reminders**, derived locally from the session history
   and building on the weekly goal and weekly review panels.
 - [x] Optional **ambient sound** (brown noise / pink noise / soft rain) using
   the Web Audio API, generated entirely in the browser with no audio files.
-- [ ] **Internationalisation (i18n)** with a small message catalog.
+- [x] **Internationalisation (i18n)** with a small bundled message catalog and a
+  locale switcher.
+- [ ] **Localised date and number formatting** by extending the catalog's locale
+  data to every derived label (weekday and month names, plural rules), building
+  on the shipped i18n module.
 
 ## How the repository meets its own criteria
 
@@ -185,14 +218,14 @@ and today's totals, the reminder compares `todayCount` against the presence of a
 | --- | --- |
 | Web Deployable | Static SPA served from `app/`; installable PWA with a manifest and service worker that runs in any modern browser. |
 | Originality | A no-account, offline, single-file focus timer with explicit privacy and k3s/GitOps packaging; not a copy of an existing product. |
-| Expandable | Pure timer engine (`app/timer.js`) is decoupled from the DOM layer (`app/main.js`), so features slot in without rewrites. |
+| Expandable | Pure timer engine (`app/timer.js`) is decoupled from the DOM layer (`app/main.js`), so features slot in without rewrites. The pure `app/i18n.js` catalog lets new locales and messages be added as plain data. |
 | Real User Value | Structures work/break cycles to improve focus and reduce context switching. |
 | Clearly Defined Audience | Students, remote knowledge workers, and anyone needing structured cycles. |
 | Standalone | No dependency on any other AI Product Factory application. |
 | Autonomous Operation | No backend; nothing to administer after deployment, and the service worker keeps the app usable offline. |
 | Kubernetes Compatible | `Dockerfile` + `helm/` chart with `Deployment`, `Service`, `Ingress`, probes, and resource limits. |
 | Resource Efficient | Tiny nginx:alpine image, static files only, small CPU/RAM requests and limits in `helm/values.yaml`. |
-| Security | No secrets, no runtime external calls, no telemetry, no user input leaves the browser; the service worker ignores cross-origin and non-GET requests; container runs as non-root. The ambient sound layer is synthesised in-browser with the Web Audio API, so it adds **no network request and no third-party asset**. |
+| Security | No secrets, no runtime external calls, no telemetry, no user input leaves the browser; the service worker ignores cross-origin and non-GET requests; container runs as non-root. The ambient sound layer is synthesised in-browser with the Web Audio API, so it adds **no network request and no third-party asset**. The i18n catalog is bundled in `app/i18n.js`, so localisation adds **no network request and no third-party library**, and the only new storage is the optional locale preference. |
 | Testable | `tests/` verifies assets, structure, the PWA manifest and service worker, and Helm rendering via `unittest`. |
 | Maintainable | Plain HTML/CSS/JS with no build step and clear project structure. |
 | Legal Compliance | Original code, no third-party assets, no personal data collected. |
@@ -211,13 +244,13 @@ and today's totals, the reminder compares `todayCount` against the presence of a
 | Market Differentiation | Privacy-first, offline, no-account, and packaged as a Kubernetes-native OSS app. |
 | Growth Potential | Serving more users costs effectively nothing. |
 | User Retention | Daily use pattern; persistent settings, session counts, and a 7-day focus-history panel that shows progress; optional per-session labels, a label filter, and a weekly review that ranks each label against the weekly goal let users see where their focus went; a derived current/longest focus streak and a gentle daily reminder hint encourage users to come back and keep the streak alive, plus one-tap install to the home screen or desktop. |
-| Discoverability | Clear name, description, and docs; shareable as a URL. |
+| Discoverability | Clear name, description, and docs; shareable as a URL. Ships English, German, and Spanish from a bundled catalog with an accessible language switcher. |
 | Mobile Friendly | Responsive layout, touch-friendly controls, and an installable PWA that launches standalone. |
-| Accessibility | Semantic landmarks, ARIA live region, keyboard shortcuts, focus states, contrast. |
-| Minimal Dependencies | Zero runtime JS/CSS dependencies. |
+| Accessibility | Semantic landmarks, ARIA live region, keyboard shortcuts, focus states, contrast. The locale switcher is a labelled `<select>` with an accessible name, every string (including live-region announcements) is routed through the catalog, and `<html lang>` follows the active locale. |
+| Minimal Dependencies | Zero runtime JS/CSS dependencies; the i18n catalog is a dependency-free local module with no network request and no third-party library. |
 | Measurable Success | `/healthz` for reliability; the local session history, 7-day stats, optional label breakdown, the weekly focus goal, and the weekly review give users a visible, measurable view of their focus habit, including what each block of time was spent on and how close each label came to their weekly target; the derived current/longest focus streak and today's totals make consistency itself measurable. |
 | Reusability | Reuses the standard static-container + Helm deployment template. |
-| Innovation Potential | The shipped ambient sound layer shows the in-browser synthesis approach can be extended to more generated soundscapes; internationalisation remains a natural next step after the shipped focus streaks, weekly review, and ambient sound. |
+| Innovation Potential | The shipped ambient sound layer shows the in-browser synthesis approach can be extended to more generated soundscapes, and the shipped bundled message catalog shows how the product can add locales without a build step, a backend, or a third-party dependency; localised date/number formatting is the next natural step. |
 
 ## Repository criteria (canonical definitions)
 

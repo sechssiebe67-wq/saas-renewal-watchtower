@@ -25,7 +25,7 @@
     <link rel="apple-touch-icon" href="icons/icon-512.png" />
   </head>
   <body>
-    <a class="skip-link" href="#main">Skip to main content</a>
+    <a class="skip-link" href="#main" data-i18n="a11y.skip">Skip to main content</a>
 
     <header class="app-header">
       <p class="brand">
@@ -39,15 +39,24 @@
         aria-pressed="false"
       >
         <span class="theme-toggle__icon" aria-hidden="true">🌙</span>
-        <span id="theme-toggle-label">Dark theme</span>
+        <span id="theme-toggle-label" data-i18n="theme.dark">Dark theme</span>
       </button>
     </header>
 
     <main id="main" class="app-main" tabindex="-1">
       <section class="timer-card" aria-labelledby="timer-heading">
-        <h1 id="timer-heading" class="timer-card__title">Focus timer</h1>
+        <h1 id="timer-heading" class="timer-card__title" data-i18n="timer.heading">
+          Focus timer
+        </h1>
 
-        <p id="phase-label" class="phase-label" data-phase="work">Work session</p>
+        <p
+          id="phase-label"
+          class="phase-label"
+          data-phase="work"
+          data-i18n="phase.work"
+        >
+          Work session
+        </p>
 
         <p
           id="timer-display"
@@ -61,20 +70,25 @@
         <p id="timer-announcer" class="visually-hidden" aria-live="polite" aria-atomic="true"></p>
 
         <p class="session-counter">
-          Sessions completed today:
+          <span data-i18n="timer.sessionsToday">Sessions completed today:</span>
           <strong id="session-count" aria-live="polite">0</strong>
         </p>
 
-        <div class="controls" role="group" aria-label="Timer controls">
-          <button id="start-pause" class="control control--primary" type="button">
+        <div
+          class="controls"
+          role="group"
+          aria-label="Timer controls"
+          data-i18n-attr="aria-label:controls.label"
+        >
+          <button id="start-pause" class="control control--primary" type="button" data-i18n="controls.start">
             Start
           </button>
-          <button id="reset" class="control" type="button">Reset</button>
-          <button id="skip" class="control" type="button">Skip</button>
+          <button id="reset" class="control" type="button" data-i18n="controls.reset">Reset</button>
+          <button id="skip" class="control" type="button" data-i18n="controls.skip">Skip</button>
         </div>
 
         <div class="field session-label">
-          <label for="session-label">Session label (optional)</label>
+          <label for="session-label" data-i18n="label.heading">Session label (optional)</label>
           <input
             id="session-label"
             name="sessionLabel"
@@ -82,21 +96,26 @@
             maxlength="40"
             autocomplete="off"
             placeholder="e.g. Thesis chapter 3"
+            data-i18n-attr="placeholder:label.placeholder"
           />
-          <p class="field__hint">Stored only on this device.</p>
+          <p class="field__hint" data-i18n="label.hint">Stored only on this device.</p>
         </div>
 
         <p class="shortcuts">
-          Shortcuts: <kbd>Space</kbd> start/pause · <kbd>R</kbd> reset ·
-          <kbd>S</kbd> skip
+          <span data-i18n="shortcuts.title">Shortcuts:</span>
+          <kbd>Space</kbd> <span data-i18n="shortcuts.startPause">start/pause</span> ·
+          <kbd>R</kbd> <span data-i18n="shortcuts.reset">reset</span> ·
+          <kbd>S</kbd> <span data-i18n="shortcuts.skip">skip</span>
         </p>
       </section>
 
       <section class="settings-card" aria-labelledby="settings-heading">
-        <h2 id="settings-heading" class="settings-card__title">Settings</h2>
+        <h2 id="settings-heading" class="settings-card__title" data-i18n="settings.heading">
+          Settings
+        </h2>
         <form id="settings-form" class="settings-form" novalidate>
           <div class="field">
-            <label for="work-duration">Work (minutes)</label>
+            <label for="work-duration" data-i18n="settings.work">Work (minutes)</label>
             <input
               id="work-duration"
               name="work"
@@ -110,7 +129,7 @@
           </div>
 
           <div class="field">
-            <label for="short-break-duration">Short break (minutes)</label>
+            <label for="short-break-duration" data-i18n="settings.shortBreak">Short break (minutes)</label>
             <input
               id="short-break-duration"
               name="shortBreak"
@@ -124,7 +143,7 @@
           </div>
 
           <div class="field">
-            <label for="long-break-duration">Long break (minutes)</label>
+            <label for="long-break-duration" data-i18n="settings.longBreak">Long break (minutes)</label>
             <input
               id="long-break-duration"
               name="longBreak"
@@ -138,7 +157,7 @@
           </div>
 
           <div class="field">
-            <label for="long-break-interval">Long break after (work sessions)</label>
+            <label for="long-break-interval" data-i18n="settings.longBreakInterval">Long break after (work sessions)</label>
             <input
               id="long-break-interval"
               name="longBreakInterval"
@@ -153,7 +172,7 @@
 
           <div class="field field--checkbox">
             <input id="sound-enabled" name="sound" type="checkbox" checked />
-            <label for="sound-enabled">Play a sound when a phase ends</label>
+            <label for="sound-enabled" data-i18n="settings.sound">Play a sound when a phase ends</label>
           </div>
 
           <div class="field field--checkbox">
@@ -163,25 +182,25 @@
               type="checkbox"
               checked
             />
-            <label for="auto-start-breaks">Automatically start breaks</label>
+            <label for="auto-start-breaks" data-i18n="settings.autoStart">Automatically start breaks</label>
           </div>
 
           <div class="field">
-            <label for="ambient-type">Ambient sound</label>
+            <label for="ambient-type" data-i18n="settings.ambient">Ambient sound</label>
             <select id="ambient-type" name="ambientType">
-              <option value="off">Off</option>
-              <option value="brown">Brown noise</option>
-              <option value="pink">Pink noise</option>
-              <option value="rain">Soft rain</option>
+              <option value="off" data-i18n="ambient.off">Off</option>
+              <option value="brown" data-i18n="ambient.brown">Brown noise</option>
+              <option value="pink" data-i18n="ambient.pink">Pink noise</option>
+              <option value="rain" data-i18n="ambient.rain">Soft rain</option>
             </select>
-            <p class="field__hint">
+            <p class="field__hint" data-i18n="settings.ambientHint">
               Generated in your browser with the Web Audio API. No audio files
               are downloaded, and your choice is stored only on this device.
             </p>
           </div>
 
           <div class="field">
-            <label for="ambient-volume">Ambient volume</label>
+            <label for="ambient-volume" data-i18n="settings.ambientVolume">Ambient volume</label>
             <input
               id="ambient-volume"
               name="ambientVolume"
@@ -192,14 +211,14 @@
               value="0.3"
               aria-describedby="ambient-volume-hint"
             />
-            <p id="ambient-volume-hint" class="field__hint">
+            <p id="ambient-volume-hint" class="field__hint" data-i18n="settings.ambientVolumeHint">
               Plays during work sessions (and breaks when they auto-start).
               Stored only on this device.
             </p>
           </div>
 
           <div class="field">
-            <label for="weekly-goal">Weekly focus goal (minutes)</label>
+            <label for="weekly-goal" data-i18n="settings.goal">Weekly focus goal (minutes)</label>
             <input
               id="weekly-goal"
               name="weeklyGoal"
@@ -209,18 +228,26 @@
               step="15"
               inputmode="numeric"
               placeholder="0 = no goal"
+              data-i18n-attr="placeholder:settings.goalPlaceholder"
             />
-            <p class="field__hint">
+            <p class="field__hint" data-i18n="settings.goalHint">
               Minutes per week, optionally scoped to the selected label.
               Stored only on this device. Set 0 to clear.
             </p>
           </div>
 
-          <button id="clear-goal" class="control" type="button">Clear goal</button>
+          <button id="clear-goal" class="control" type="button" data-i18n="settings.clearGoal">Clear goal</button>
+
+          <div class="field">
+            <label for="locale" data-i18n="settings.language">Language</label>
+            <select id="locale" name="locale">
+              <option value="en">English</option>
+            </select>
+          </div>
 
           <p id="settings-status" class="settings-status" role="status"></p>
 
-          <button id="save-settings" class="control control--primary" type="submit">
+          <button id="save-settings" class="control control--primary" type="submit" data-i18n="settings.save">
             Save settings
           </button>
         </form>
@@ -229,20 +256,24 @@
       <section id="stats" class="stats-card" aria-labelledby="stats-heading">
         <details class="stats" open>
           <summary class="stats__summary">
-            <h2 id="stats-heading" class="stats-card__title">Stats</h2>
+            <h2 id="stats-heading" class="stats-card__title" data-i18n="stats.heading">
+              Stats
+            </h2>
           </summary>
           <div class="stats__body">
             <p class="stats__totals">
-              Last 7 days:
-              <strong id="stats-total-sessions">0</strong> sessions ·
-              <strong id="stats-total-minutes">0</strong> min focused
+              <span data-i18n="stats.last7">Last 7 days:</span>
+              <strong id="stats-total-sessions">0</strong>
+              <span data-i18n="stats.sessions">sessions</span> ·
+              <strong id="stats-total-minutes">0</strong>
+              <span data-i18n="stats.minFocused">min focused</span>
             </p>
-            <p id="stats-empty" class="stats__empty">
+            <p id="stats-empty" class="stats__empty" data-i18n="stats.empty">
               No sessions yet — start your first focus block.
             </p>
             <dl id="stats-streak" class="stats__streak">
               <div class="stats__streak-item">
-                <dt class="stats__streak-label">Current streak</dt>
+                <dt class="stats__streak-label" data-i18n="stats.streakCurrent">Current streak</dt>
                 <dd
                   id="stats-streak-current"
                   class="stats__streak-value"
@@ -251,7 +282,7 @@
                 </dd>
               </div>
               <div class="stats__streak-item">
-                <dt class="stats__streak-label">Longest streak</dt>
+                <dt class="stats__streak-label" data-i18n="stats.streakLongest">Longest streak</dt>
                 <dd
                   id="stats-streak-longest"
                   class="stats__streak-value"
@@ -260,18 +291,18 @@
                 </dd>
               </div>
               <div class="stats__streak-item">
-                <dt class="stats__streak-label">Today</dt>
+                <dt class="stats__streak-label" data-i18n="stats.today">Today</dt>
                 <dd id="stats-streak-today" class="stats__streak-value">
                   0 sessions · 0 min
                 </dd>
               </div>
             </dl>
-            <p id="stats-reminder" class="stats__reminder" hidden>
+            <p id="stats-reminder" class="stats__reminder" hidden data-i18n="stats.reminder">
               No focus session logged today yet.
             </p>
             <div id="stats-goal" class="stats__goal" hidden>
               <div class="stats__goal-head">
-                <span class="stats__goal-title">Weekly goal</span>
+                <span class="stats__goal-title" data-i18n="stats.weeklyGoal">Weekly goal</span>
                 <span class="stats__goal-summary">
                   <strong id="stats-goal-focused">0</strong> /
                   <strong id="stats-goal-target">0</strong> min ·
@@ -283,13 +314,14 @@
                 class="stats__goal-bar"
                 role="progressbar"
                 aria-label="Weekly focus goal progress"
+                data-i18n-attr="aria-label:stats.goalBarLabel"
                 aria-valuemin="0"
                 aria-valuemax="100"
                 aria-valuenow="0"
               >
                 <span id="stats-goal-fill" class="stats__goal-fill"></span>
               </div>
-              <p id="stats-goal-reached" class="stats__goal-reached" hidden>
+              <p id="stats-goal-reached" class="stats__goal-reached" hidden data-i18n="stats.goalReached">
                 ✓ Goal reached
               </p>
             </div>
@@ -297,18 +329,21 @@
               id="stats-labels"
               class="stats__labels"
               aria-label="Filter the last 7 days by session label"
+              data-i18n-attr="aria-label:stats.labelsLabel"
               hidden
             ></ul>
             <ul
               id="stats-days"
               class="stats__days"
               aria-label="Completed work sessions in the last 7 days"
+              data-i18n-attr="aria-label:stats.daysLabel"
               hidden
             ></ul>
             <ul
               id="stats-recent"
               class="stats__recent"
               aria-label="Recent focus sessions"
+              data-i18n-attr="aria-label:stats.recentLabel"
               hidden
             ></ul>
           </div>
@@ -320,17 +355,24 @@
         class="weekly-review-card"
         aria-labelledby="weekly-review-heading"
       >
-        <h2 id="weekly-review-heading" class="weekly-review-card__title">
+        <h2
+          id="weekly-review-heading"
+          class="weekly-review-card__title"
+          data-i18n="review.heading"
+        >
           Weekly review
         </h2>
-        <p id="weekly-review-empty" class="weekly-review__empty">
+        <p id="weekly-review-empty" class="weekly-review__empty" data-i18n="review.empty">
           No sessions yet this week — start a focus block to build your review.
         </p>
         <p id="weekly-review-summary" class="weekly-review__summary" hidden>
-          This week:
-          <strong id="weekly-review-focused">0</strong> min focused
+          <span data-i18n="review.thisWeek">This week:</span>
+          <strong id="weekly-review-focused">0</strong>
+          <span data-i18n="review.minFocused">min focused</span>
           <span id="weekly-review-goal-part" class="weekly-review__goal-part" hidden>
-            of <strong id="weekly-review-target">0</strong> min goal
+            <span data-i18n="review.of">of</span>
+            <strong id="weekly-review-target">0</strong>
+            <span data-i18n="review.minGoal">min goal</span>
             (<strong id="weekly-review-percent">0</strong>%)
           </span>
         </p>
@@ -339,6 +381,7 @@
           class="weekly-review__bar"
           role="progressbar"
           aria-label="Weekly focus goal progress for this week"
+          data-i18n-attr="aria-label:review.barLabel"
           aria-valuemin="0"
           aria-valuemax="100"
           aria-valuenow="0"
@@ -346,20 +389,21 @@
         >
           <span id="weekly-review-fill" class="weekly-review__fill"></span>
         </div>
-        <p id="weekly-review-reached" class="weekly-review__reached" hidden>
+        <p id="weekly-review-reached" class="weekly-review__reached" hidden data-i18n="stats.goalReached">
           ✓ Goal reached
         </p>
         <ul
           id="weekly-review-labels"
           class="weekly-review__labels"
           aria-label="Focused minutes by session label this week"
+          data-i18n-attr="aria-label:review.labelsLabel"
           hidden
         ></ul>
       </section>
     </main>
 
     <footer class="app-footer">
-      <p>
+      <p data-i18n="footer.text">
         Focus Flow runs entirely in your browser. Your settings, session count,
         and focus history stay on this device. No accounts, no tracking, no
         network.

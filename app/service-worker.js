@@ -10,7 +10,7 @@
  * traffic is cached, proxied, or inspected, and no telemetry is sent.
  */
 
-const CACHE_NAME = "focus-flow-v7";
+const CACHE_NAME = "focus-flow-v8";
 
 const PRECACHE_URLS = [
   "./",
@@ -20,6 +20,7 @@ const PRECACHE_URLS = [
   "./timer.js",
   "./history.js",
   "./ambient.js",
+  "./i18n.js",
   "./manifest.webmanifest",
   "./healthz",
   "./icons/icon-192.png",

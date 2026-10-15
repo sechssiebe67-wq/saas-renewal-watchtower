@@ -27,6 +27,7 @@ class AppAssetTests(unittest.TestCase):
             "timer.js",
             "history.js",
             "ambient.js",
+            "i18n.js",
             "healthz",
             "manifest.webmanifest",
             "service-worker.js",
@@ -204,7 +205,7 @@ class AppAssetTests(unittest.TestCase):
         self.assertIn('"focus-flow:goal"', js)
         self.assertIn("goalProgress", js)
         self.assertIn("normalizeGoal", js)
-        self.assertIn("Weekly goal reached.", js)
+        self.assertIn("announce.goalReached", js)
 
     def test_html_has_weekly_review_section(self):
         html = read_app_file("index.html")
