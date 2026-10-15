@@ -95,9 +95,21 @@
             type="text"
             maxlength="40"
             autocomplete="off"
+            role="combobox"
+            aria-autocomplete="list"
+            aria-expanded="false"
+            aria-controls="session-label-suggestions"
             placeholder="e.g. Thesis chapter 3"
             data-i18n-attr="placeholder:label.placeholder"
           />
+          <ul
+            id="session-label-suggestions"
+            class="label-suggestions"
+            role="listbox"
+            aria-label="Previously used session labels"
+            data-i18n-attr="aria-label:label.suggestionsLabel"
+            hidden
+          ></ul>
           <p class="field__hint" data-i18n="label.hint">Stored only on this device.</p>
         </div>
 

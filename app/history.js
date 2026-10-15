@@ -12,6 +12,11 @@
  * characters. Version 2 of the schema adds the optional `label` field; version
  * 1 entries (no `label`) stay valid and remain unlabelled.
  *
+ * `recentLabels` derives the newest distinct labels from the log (trimmed,
+ * case-insensitively de-duplicated, newest first) to power the keyboard
+ * accessible session-label autocomplete; it reads no storage of its own and
+ * makes no network request.
+ *
  * The module also owns the pure maths for the optional **weekly focus goal**: a
  * locally stored `{ minutes, label? }` target. `weekWindow` finds the current
  * week, `goalProgress` measures the logged focus time against the target,
@@ -365,6 +370,60 @@ export function recentSessions(history, { limit = 5 } = {}) {
       label,
       durationSeconds,
     }));
+}
+
+/**
+ * Return the most recently used distinct session labels as a list of strings,
+ * newest first by `endedAt`, capped at `limit`.
+ *
+ * This powers the **session-label autocomplete**: it derives suggestions only
+ * from the already-local `focus-flow:history` log, so it adds no new storage
+ * key, makes no network request, and never leaves the device.
+ *
+ * Rules:
+ *
+ * - Only completed work entries with a non-empty label contribute.
+ * - Labels are trimmed and capped to `MAX_LABEL_LENGTH` by `normalizeLabel`.
+ * - De-duplication is **case-insensitive**; the casing of the most recently
+ *   used occurrence is kept (e.g. `Thesis chapter 3`).
+ * - Entries with a malformed or future (`endedAt > now`) timestamp are ignored,
+ *   so a skewed clock cannot surface a session that has not ended yet.
+ * - `limit` is coerced to a non-negative integer; malformed input becomes `0`.
+ *
+ * Pure: it never touches the DOM, storage, or the network, never mutates the
+ * input log, and never throws on malformed input.
+ */
+export function recentLabels(history, { limit = 8, now = Date.now() } = {}) {
+  const log = Array.isArray(history) ? history : [];
+  const requested = Number(limit);
+  const max = Number.isFinite(requested) ? Math.max(0, Math.floor(requested)) : 0;
+  const reference = toTimestamp(now);
+  const cutoff = reference === null ? Date.now() : reference;
+
+  const latest = new Map();
+  for (const entry of log) {
+    if (!entry || typeof entry !== "object" || entry.phase !== WORK_PHASE) {
+      continue;
+    }
+    const label = normalizeLabel(entry.label);
+    if (label.length === 0) {
+      continue;
+    }
+    const timestamp = toTimestamp(entry.endedAt);
+    if (timestamp === null || timestamp > cutoff) {
+      continue;
+    }
+    const key = label.toLowerCase();
+    const seen = latest.get(key);
+    if (!seen || timestamp > seen.timestamp) {
+      latest.set(key, { label, timestamp });
+    }
+  }
+
+  return Array.from(latest.values())
+    .sort((a, b) => b.timestamp - a.timestamp)
+    .slice(0, max)
+    .map((item) => item.label);
 }
 
 /** Clamp an arbitrary value to `0..max`, rounding to whole minutes. Malformed

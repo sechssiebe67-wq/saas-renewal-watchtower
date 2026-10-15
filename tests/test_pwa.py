@@ -36,7 +36,7 @@ EXPECTED_PRECACHE = [
     "./icons/icon-512.png",
     "./icons/icon-maskable-512.png",
 ]
-EXPECTED_CACHE_NAME = "focus-flow-v12"
+EXPECTED_CACHE_NAME = "focus-flow-v13"
 
 
 def read_text(path):

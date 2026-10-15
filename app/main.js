@@ -45,6 +45,7 @@ import {
   summarise,
   labelSummary,
   recentSessions,
+  recentLabels,
   normalizeGoal,
   goalProgress,
   normalizeDailyGoal,
@@ -137,6 +138,9 @@ function getElements() {
     form: document.getElementById("settings-form"),
     settingsStatus: document.getElementById("settings-status"),
     sessionLabel: document.getElementById("session-label"),
+    sessionLabelSuggestions: document.getElementById(
+      "session-label-suggestions",
+    ),
     statsTotalSessions: document.getElementById("stats-total-sessions"),
     statsTotalMinutes: document.getElementById("stats-total-minutes"),
     statsLabels: document.getElementById("stats-labels"),
@@ -611,6 +615,153 @@ export function init() {
 
   function labelDisplay(label) {
     return label === UNLABELLED ? t("label.unlabelled") : label;
+  }
+
+  /** How many previously used labels the session-label field suggests. */
+  const LABEL_SUGGESTION_LIMIT = 8;
+  let labelSuggestions = [];
+  let activeSuggestion = -1;
+
+  /** Hide the autocomplete list and reset its state. Safe to call at any time. */
+  function closeLabelSuggestions() {
+    labelSuggestions = [];
+    activeSuggestion = -1;
+    if (el.sessionLabelSuggestions) {
+      el.sessionLabelSuggestions.hidden = true;
+      el.sessionLabelSuggestions.replaceChildren();
+    }
+    if (el.sessionLabel) {
+      el.sessionLabel.setAttribute("aria-expanded", "false");
+      el.sessionLabel.removeAttribute("aria-activedescendant");
+    }
+  }
+
+  /** Build the `<li role="option">` items for the current suggestion labels. */
+  function renderLabelSuggestionItems(labels) {
+    return labels.map((label, index) => {
+      const item = document.createElement("li");
+      item.id = `session-label-option-${index}`;
+      item.className = "label-suggestion";
+      item.setAttribute("role", "option");
+      item.setAttribute("aria-selected", "false");
+      item.dataset.label = label;
+      item.textContent = label;
+      /* Keep focus on the input so the click accepts without a blur race. */
+      item.addEventListener("mousedown", (event) => event.preventDefault());
+      item.addEventListener("click", () => acceptLabelSuggestion(index));
+      return item;
+    });
+  }
+
+  /**
+   * Populate the suggestion list from the already-local history. When the user
+   * has typed a partial label the list narrows to matching suggestions; the
+   * free-text value is never changed here, so typing an unknown label still
+   * works exactly as before. The list stays hidden when there is nothing to
+   * suggest, so a fresh install shows no autocomplete at all.
+   */
+  function renderLabelSuggestions() {
+    if (!el.sessionLabelSuggestions || !el.sessionLabel) {
+      return;
+    }
+    const query = String(el.sessionLabel.value || "").trim().toLowerCase();
+    const labels = recentLabels(history, { limit: LABEL_SUGGESTION_LIMIT });
+    const suggestions = query
+      ? labels.filter(
+          (label) =>
+            label.toLowerCase().includes(query) &&
+            label.toLowerCase() !== query,
+        )
+      : labels;
+    if (suggestions.length === 0) {
+      closeLabelSuggestions();
+      return;
+    }
+    labelSuggestions = suggestions;
+    activeSuggestion = -1;
+    el.sessionLabelSuggestions.replaceChildren(
+      ...renderLabelSuggestionItems(suggestions),
+    );
+    el.sessionLabelSuggestions.hidden = false;
+    el.sessionLabel.setAttribute("aria-expanded", "true");
+    el.sessionLabel.removeAttribute("aria-activedescendant");
+  }
+
+  /** Move the highlight to `index` (wrapping) and expose it to assistive tech. */
+  function setActiveSuggestion(index) {
+    if (!el.sessionLabelSuggestions || !el.sessionLabel) {
+      return;
+    }
+    const items = Array.from(el.sessionLabelSuggestions.children);
+    if (items.length === 0) {
+      return;
+    }
+    const next = ((index % items.length) + items.length) % items.length;
+    activeSuggestion = next;
+    items.forEach((item, position) => {
+      const selected = position === next;
+      item.setAttribute("aria-selected", String(selected));
+      item.classList.toggle("label-suggestion--active", selected);
+    });
+    const activeItem = items[next];
+    if (activeItem) {
+      el.sessionLabel.setAttribute("aria-activedescendant", activeItem.id);
+    }
+  }
+
+  /** Fill the input with a suggestion, close the list, and announce it once. */
+  function acceptLabelSuggestion(index) {
+    if (index < 0 || index >= labelSuggestions.length) {
+      return;
+    }
+    const label = labelSuggestions[index];
+    if (el.sessionLabel) {
+      el.sessionLabel.value = label;
+    }
+    closeLabelSuggestions();
+    announce(t("announce.labelSuggestion", { label }));
+  }
+
+  /** Keyboard handling for the listbox; falls through for plain free text. */
+  function handleLabelSuggestionKeydown(event) {
+    if (!el.sessionLabelSuggestions || el.sessionLabelSuggestions.hidden) {
+      return;
+    }
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setActiveSuggestion(activeSuggestion + 1);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setActiveSuggestion(activeSuggestion - 1);
+    } else if (event.key === "Enter" || event.key === "Tab") {
+      if (activeSuggestion >= 0) {
+        event.preventDefault();
+        acceptLabelSuggestion(activeSuggestion);
+      }
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      closeLabelSuggestions();
+    }
+  }
+
+  function wireLabelSuggestions() {
+    if (!el.sessionLabel) {
+      return;
+    }
+    el.sessionLabel.addEventListener("focus", () => {
+      renderLabelSuggestions();
+    });
+    el.sessionLabel.addEventListener("input", () => {
+      renderLabelSuggestions();
+    });
+    el.sessionLabel.addEventListener("keydown", handleLabelSuggestionKeydown);
+    el.sessionLabel.addEventListener("blur", () => {
+      window.setTimeout(() => {
+        if (document.activeElement !== el.sessionLabel) {
+          closeLabelSuggestions();
+        }
+      }, 150);
+    });
   }
 
   function renderLabelChips(summary) {
@@ -1469,6 +1620,7 @@ export function init() {
         if (el.sessionLabel) {
           el.sessionLabel.value = "";
         }
+        closeLabelSuggestions();
         renderStats();
       }
     }
@@ -1480,6 +1632,7 @@ export function init() {
   syncForm(engine.settings);
   syncAmbientControls();
   syncWeekStartControl();
+  wireLabelSuggestions();
   renderStats();
 
   let intervalId = null;

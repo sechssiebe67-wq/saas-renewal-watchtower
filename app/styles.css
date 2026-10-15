@@ -351,6 +351,52 @@ kbd {
   color: var(--text-muted);
 }
 
+.label-suggestions {
+  list-style: none;
+  width: 100%;
+  max-width: 22rem;
+  margin: 0;
+  padding: 0.25rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  max-height: 13rem;
+  overflow-y: auto;
+}
+
+.label-suggestions[hidden] {
+  display: none;
+}
+
+.label-suggestion {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0.55rem 0.7rem;
+  border-radius: 7px;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.label-suggestion:hover {
+  background: var(--surface-muted);
+}
+
+.label-suggestion--active,
+.label-suggestion[aria-selected="true"] {
+  background: var(--surface-muted);
+  outline: 3px solid var(--focus-ring);
+  outline-offset: -3px;
+}
+
+@media (max-width: 360px) {
+  .label-suggestions,
+  .session-label {
+    max-width: 100%;
+  }
+}
+
 .field--checkbox {
   flex-direction: row;
   align-items: center;

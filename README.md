@@ -27,6 +27,18 @@ calls, no telemetry, and no secrets.
   chip for entries without one) — and a **Recent sessions** list shows the
   newest five entries. Labels are capped at 40 characters and cleared after each
   completed work phase.
+- **Session-label autocomplete:** focus the session-label field and Focus Flow
+  suggests the labels you used before (e.g. "Thesis chapter 3") as an accessible
+  `listbox`, so you can pick one instead of retyping it. `ArrowDown`/`ArrowUp`
+  move, `Enter`/`Tab` accept, `Escape` dismisses, and a tap or click chooses an
+  option; accepting one fills the input and is announced once through the
+  screen-reader live region. The suggestions are built by the pure
+  `recentLabels` helper in `app/history.js` from the labels already in
+  `localStorage["focus-flow:history"]` (trimmed, case-insensitively
+  de-duplicated, newest first, capped at 8), so the feature reads **only the
+  existing history key** and adds **no new `localStorage` key, no network
+  request, and no third-party dependency**. A fresh install with no history
+  shows no list, and free-text labels keep working exactly as before.
 - **Weekly focus goal:** set a target number of focused minutes per week in
   Settings (optionally scoped to the currently selected label, e.g. "5 hours on
   Thesis chapter 3"). The Stats panel shows the target, minutes focused so far
@@ -127,9 +139,11 @@ live only on your device. They are never uploaded, synced, or sent anywhere. The
 **Daily goal** row in the Stats panel is derived from today's slice of the
 existing session history, so it adds no history key and no upload of its own. The
 weekly review, the **weekly review CSV export**, the **per-label goal breakdown
-in the Stats panel**, the focus streaks, and the daily reminder hint are all
-**derived** from that existing local data only — they add no new storage key, no
-network request, and no third-party dependency. The CSV
+in the Stats panel**, the focus streaks, the daily reminder hint, and the
+**session-label autocomplete** are all **derived** from that existing local data
+only — they add no new storage key, no network request, and no third-party
+dependency. The autocomplete in particular reads only the labels already in
+`focus-flow:history` and never uploads, adds, or reorders anything. The CSV
 is written by a pure helper and handed to the browser as a local `Blob` URL, so
 it is created and saved entirely on your device and never leaves it. The
 **backup & restore** JSON is likewise built by a pure helper and handed over as a
@@ -172,6 +186,12 @@ The Stats **Daily goal** row is derived from the same `focus-flow:history` log b
 the pure `dailyGoalProgress` helper in `app/history.js`, which sums only
 completed work entries whose `endedAt` falls on the current local calendar day.
 It reads no storage of its own and makes no network request.
+
+The **session-label autocomplete** is derived from the same `focus-flow:history`
+log by the pure `recentLabels` helper in `app/history.js`, which returns the
+newest distinct labels for the suggestion list. It reads **only the existing
+history key**, adds no new `localStorage` key, makes no network request, and
+adds no third-party dependency, so the labels stay on the device.
 
 **Backup & restore** adds **no new `localStorage` key** and makes no network
 request: the exported JSON mirrors the existing keys listed above (settings,
