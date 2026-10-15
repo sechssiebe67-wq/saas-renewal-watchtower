@@ -41,6 +41,20 @@
  * own, make no network request, and never touch the DOM; the only sibling
  * modules they lean on (`normalizeAmbient`, `normalizeLocale`) are themselves
  * pure and dependency-free.
+ *
+ * It also owns the pure maths for the optional, device-only **session tag
+ * aliases**: a `{ [canonicalLabel]: aliasLabel }` map that renames labels in
+ * every derived view without rewriting history. `normalizeSessionTags` coerces
+ * arbitrary stored input (an object, an array of `{ from, to }` pairs, or
+ * anything else) into the canonical map (trimmed, non-empty, length-capped,
+ * case-insensitively de-duplicated, entry-capped) and never throws;
+ * `applyAliases` returns the alias for a label when one is present and the
+ * original label otherwise. The `tags` option is threaded through `summarise`,
+ * `labelSummary`, `recentSessions`, `recentLabels`, `goalProgress`,
+ * `weeklyReview`, `dailyGoalProgress`, and `streaks` so callers can get aliased
+ * labels back, while omitting it keeps the previous behaviour byte-for-byte.
+ * The map lives only in `localStorage` under `focus-flow:session-tags`; this
+ * module never touches storage, the DOM, or the network.
  */
 
 import { normalizeAmbient } from "./ambient.js";
