@@ -18,6 +18,7 @@ telemetry, and no secrets.
 - Session counter, dark/light theme, audible and visual notifications.
 - Settings and session count persist across reloads.
 - Accessible, responsive layout for mobile, tablet, and desktop.
+- Installable PWA with a web manifest and an offline-first service worker.
 
 The full concept, audience, roadmap, and criteria mapping live in
 [`CONCEPT.md`](CONCEPT.md).
@@ -32,6 +33,24 @@ python3 -m http.server 8080
 ```
 
 Then open <http://localhost:8080>.
+
+## Install as an app
+
+Focus Flow is a Progressive Web App. Serve it over `https:` (or `localhost`),
+open it in a modern browser, and use the install icon in the address bar — or
+your browser's "Install" / "Add to Home Screen" action — to add it to your
+desktop or home screen. It then launches standalone, without browser chrome.
+
+A service worker (`app/service-worker.js`) precaches the app shell and assets on
+the first visit. **After that first load the app keeps working fully offline**,
+including the timer, settings, and session counter, so a flaky connection never
+interrupts a focus session. No runtime network calls, telemetry, or third-party
+requests are introduced; the service worker only handles same-origin `GET`
+requests and ignores everything else.
+
+To try the offline mode: load the app, then open your browser DevTools and
+switch the network to "Offline" and reload. The page still loads and the timer
+still runs.
 
 ## Run the tests
 

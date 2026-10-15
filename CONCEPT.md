@@ -51,15 +51,39 @@ after the first load.
 - **Accessible markup:** semantic landmarks, a skip link, an ARIA live region
   that announces timer/phase updates, visible focus states, and a
   high-contrast palette.
+- **Installable PWA:** `manifest.webmanifest` with original 192px, 512px, and
+  maskable icons, so the app can be added to a home screen or desktop and
+  launched standalone.
+- **Offline-first service worker:** `service-worker.js` precaches the static
+  shell and serves cached responses when the network is unavailable, so a focus
+  session never breaks because of a flaky connection. After the first visit the
+  app keeps working fully offline.
+
+## Repository structure
+
+- `app/` — the whole product, served as static files.
+  - `index.html`, `styles.css` — the accessible, responsive shell.
+  - `timer.js` — the pure timer state machine.
+  - `main.js` — the DOM layer and the `registerServiceWorker()` helper.
+  - `manifest.webmanifest` — the PWA manifest (name, icons, colours, scope).
+  - `service-worker.js` — versioned cache, precache list, and offline handlers.
+  - `icons/` — original artwork: `icon.svg` source, `icon-192.png`,
+    `icon-512.png`, `icon-maskable-512.png`, and the
+    `generate_icons.py` rasteriser.
+  - `healthz` — static health endpoint.
+- `docker/` — the nginx template that serves the app with the right content
+  types and caching rules.
+- `Dockerfile` — unprivileged nginx image.
+- `helm/` — the Kubernetes chart.
+- `tests/` — static, PWA, and Helm rendering tests.
 
 ## Next direction
 
 - Optional **ambient sound** (e.g. brown noise / rain) using the Web Audio API.
 - **Task labels** per session, kept locally, with a simple per-day log.
 - **Weekly stats view** computed entirely from `localStorage`.
-- **PWA install support** (service worker + manifest) for an app-like,
-  fully offline experience.
 - **Internationalisation (i18n)** with a small message catalog.
+- **Focus streaks and goals**, derived locally from the session history.
 
 ## How the repository meets its own criteria
 
@@ -67,17 +91,17 @@ after the first load.
 
 | Requirement | How Focus Flow satisfies it |
 | --- | --- |
-| Web Deployable | Static SPA served from `app/`; runs in any browser. |
+| Web Deployable | Static SPA served from `app/`; installable PWA with a manifest and service worker that runs in any modern browser. |
 | Originality | A no-account, offline, single-file focus timer with explicit privacy and k3s/GitOps packaging; not a copy of an existing product. |
 | Expandable | Pure timer engine (`app/timer.js`) is decoupled from the DOM layer (`app/main.js`), so features slot in without rewrites. |
 | Real User Value | Structures work/break cycles to improve focus and reduce context switching. |
 | Clearly Defined Audience | Students, remote knowledge workers, and anyone needing structured cycles. |
 | Standalone | No dependency on any other AI Product Factory application. |
-| Autonomous Operation | No backend; nothing to administer after deployment. |
+| Autonomous Operation | No backend; nothing to administer after deployment, and the service worker keeps the app usable offline. |
 | Kubernetes Compatible | `Dockerfile` + `helm/` chart with `Deployment`, `Service`, `Ingress`, probes, and resource limits. |
 | Resource Efficient | Tiny nginx:alpine image, static files only, small CPU/RAM requests and limits in `helm/values.yaml`. |
-| Security | No secrets, no runtime external calls, no telemetry, no user input leaves the browser; container runs as non-root. |
-| Testable | `tests/` verifies assets, structure, and Helm rendering via `unittest`. |
+| Security | No secrets, no runtime external calls, no telemetry, no user input leaves the browser; the service worker ignores cross-origin and non-GET requests; container runs as non-root. |
+| Testable | `tests/` verifies assets, structure, the PWA manifest and service worker, and Helm rendering via `unittest`. |
 | Maintainable | Plain HTML/CSS/JS with no build step and clear project structure. |
 | Legal Compliance | Original code, no third-party assets, no personal data collected. |
 | Health Monitoring | `/healthz` static endpoint used by liveness/readiness probes. |
@@ -89,19 +113,19 @@ after the first load.
 | --- | --- |
 | Database Independence | Uses only `localStorage`; no database. |
 | Monetization Potential | Future paid themes/ambient packs or a hosted team dashboard; the core stays free. |
-| Low Operating Costs | Static assets, near-zero CPU/RAM, no external APIs. |
+| Low Operating Costs | Static assets, near-zero CPU/RAM, no external APIs; the service worker removes repeated network round-trips. |
 | Fast MVP Development | No build tooling; the MVP is a few files. |
 | Low Maintenance | No backend or data migrations to maintain. |
 | Market Differentiation | Privacy-first, offline, no-account, and packaged as a Kubernetes-native OSS app. |
 | Growth Potential | Serving more users costs effectively nothing. |
-| User Retention | Daily use pattern; persistent settings and session counts. |
+| User Retention | Daily use pattern; persistent settings and session counts, plus one-tap install to the home screen or desktop. |
 | Discoverability | Clear name, description, and docs; shareable as a URL. |
-| Mobile Friendly | Responsive layout and touch-friendly controls. |
+| Mobile Friendly | Responsive layout, touch-friendly controls, and an installable PWA that launches standalone. |
 | Accessibility | Semantic landmarks, ARIA live region, keyboard shortcuts, focus states, contrast. |
 | Minimal Dependencies | Zero runtime JS/CSS dependencies. |
 | Measurable Success | `/healthz` for reliability; session count persisted locally for engagement. |
 | Reusability | Reuses the standard static-container + Helm deployment template. |
-| Innovation Potential | Ambient sound, stats, and PWA support are natural next steps. |
+| Innovation Potential | Ambient sound, stats, and local focus goals are natural next steps. |
 
 ## Repository criteria (canonical definitions)
 
@@ -180,7 +204,9 @@ The maximum number of simultaneously active product repositories is **10**.
 ## Operating notes
 
 - **Run locally:** `python3 -m http.server 8080` from `app/`, then open
-  <http://localhost:8080>.
+  <http://localhost:8080>. `localhost` counts as a secure context, so the
+  service worker registers and offline mode can be tested in DevTools.
+- **Regenerate icons:** `python3 app/icons/generate_icons.py`.
 - **Run tests:** `python3 -m unittest discover -s tests -p 'test_*.py' -v`.
 - **Render the chart:** `helm template focus-flow helm`.
 - **Deploy:** build the image from `Dockerfile`, publish it, and let Argo CD

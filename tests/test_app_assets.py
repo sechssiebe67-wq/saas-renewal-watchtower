@@ -20,9 +20,33 @@ def read_app_file(name):
 
 class AppAssetTests(unittest.TestCase):
     def test_required_assets_exist(self):
-        for name in ("index.html", "styles.css", "main.js", "timer.js", "healthz"):
+        for name in (
+            "index.html",
+            "styles.css",
+            "main.js",
+            "timer.js",
+            "healthz",
+            "manifest.webmanifest",
+            "service-worker.js",
+            "icons/icon-192.png",
+            "icons/icon-512.png",
+            "icons/icon-maskable-512.png",
+        ):
             path = os.path.join(APP_DIR, name)
             self.assertTrue(os.path.isfile(path), "missing app asset: %s" % name)
+
+    def test_html_links_manifest_and_theme_color(self):
+        html = read_app_file("index.html")
+        self.assertIn('rel="manifest"', html)
+        self.assertIn('href="manifest.webmanifest"', html)
+        self.assertIn('name="theme-color"', html)
+
+    def test_main_js_registers_service_worker(self):
+        js = read_app_file("main.js")
+        self.assertIn("registerServiceWorker", js)
+        self.assertIn('"serviceWorker" in navigator', js)
+        self.assertIn("./service-worker.js", js)
+        self.assertIn("console.warn", js)
 
     def test_healthz_reports_ok(self):
         self.assertEqual(read_app_file("healthz").strip(), "ok")

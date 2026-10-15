@@ -7,8 +7,26 @@ server {
     index index.html;
 
     location = /healthz {
-        add_header Content-Type text/plain;
+        default_type text/plain;
         return 200 "ok\n";
+    }
+
+    # The service worker must revalidate so new versions roll out immediately.
+    location = /service-worker.js {
+        types {
+            application/javascript js;
+        }
+        add_header Cache-Control "no-cache";
+        try_files $uri =404;
+    }
+
+    # The manifest is also revalidated so install metadata stays current.
+    location = /manifest.webmanifest {
+        types {
+            application/manifest+json webmanifest;
+        }
+        add_header Cache-Control "no-cache";
+        try_files $uri =404;
     }
 
     location / {

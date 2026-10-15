@@ -26,6 +26,42 @@ const THEME_LABELS = Object.freeze({
   light: { button: "Light theme", next: "dark" },
 });
 
+function isSecureContext() {
+  if (window.isSecureContext) {
+    return true;
+  }
+  const { protocol, hostname } = window.location;
+  return (
+    protocol === "https:" ||
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "[::1]"
+  );
+}
+
+/**
+ * Register the service worker so Focus Flow is installable and works offline.
+ * Failures are logged locally only; registration never throws and never makes
+ * a network report.
+ */
+export function registerServiceWorker() {
+  try {
+    if (!("serviceWorker" in navigator)) {
+      return;
+    }
+    if (!isSecureContext()) {
+      return;
+    }
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("./service-worker.js").catch((error) => {
+        console.warn("Focus Flow: service worker registration failed", error);
+      });
+    });
+  } catch (error) {
+    console.warn("Focus Flow: service worker registration failed", error);
+  }
+}
+
 function readStorage(key, fallback) {
   try {
     const raw = window.localStorage.getItem(key);
@@ -276,6 +312,7 @@ export function init() {
 }
 
 if (typeof document !== "undefined") {
+  registerServiceWorker();
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", () => init());
   } else {
