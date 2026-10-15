@@ -23,8 +23,11 @@
  * `weeklyReview` adds a per-label breakdown of the same week, and
  * `normalizeGoal` coerces arbitrary stored input into the canonical shape.
  * `weeklyReviewCsv` serialises a `weeklyReview` result to an RFC 4180 CSV
- * string for the local, offline **weekly review export**. None of these touch
- * the DOM, the storage layer, or the network.
+ * string for the local, offline **weekly review export**, and `goalPace` turns
+ * a `weeklyReview` result into the forward-looking **weekly goal pace
+ * projection** (remaining minutes, remaining calendar days, per-day pace, and
+ * an on-track flag). None of these touch the DOM, the storage layer, or the
+ * network.
  *
  * It additionally owns the pure maths for the optional **daily focus goal**: a
  * `{ minutes, label? }` target for the current local calendar day.
@@ -1095,6 +1098,120 @@ export function weeklyReview(
     labels: perLabel.map((item) => item.label),
     perLabel,
   };
+}
+
+/**
+ * Project the **weekly goal pace** from a `weeklyReview` result.
+ *
+ * Returns `{ remainingMinutes, remainingDays, perDayMinutes, onTrack }`, or
+ * `null` when there is no usable goal (so the DOM layer can simply hide the
+ * line):
+ *
+ * - `remainingMinutes` is `max(0, targetMinutes − focusedMinutes)`.
+ * - `remainingDays` is the number of local calendar days left in the current
+ *   week **including today**, counted with calendar arithmetic so a 23h/25h
+ *   daylight-saving transition never desynchronises the count.
+ * - `perDayMinutes` is the rounded per-remaining-day requirement, and is `0`
+ *   once the goal is met.
+ * - `onTrack` is `true` when the goal is already met or the current daily
+ *   average (focused minutes divided by the elapsed days, today included) meets
+ *   the required pace.
+ *
+ * The week bounds come from `weekWindow` using the caller's `weekStart`
+ * preference (coerced by `normalizeWeekStart`), so the projection lines up with
+ * the `weekStartsOn` used to build the review. `now` is injectable for tests.
+ * Pure: it touches no DOM, no storage, and no network, never mutates its input,
+ * and never throws on malformed input.
+ */
+export function goalPace(
+  review,
+  { now = Date.now(), weekStart, weekStartsOn } = {},
+) {
+  if (!review || typeof review !== "object") {
+    return null;
+  }
+  const targetValue = Number(review.targetMinutes);
+  if (!Number.isFinite(targetValue) || targetValue <= 0) {
+    return null;
+  }
+  const targetMinutes = Math.round(targetValue);
+  if (targetMinutes <= 0) {
+    return null;
+  }
+  const focusedValue = Number(review.focusedMinutes);
+  const focusedMinutes = Number.isFinite(focusedValue)
+    ? Math.max(0, Math.round(focusedValue))
+    : 0;
+  const remainingMinutes = Math.max(0, targetMinutes - focusedMinutes);
+
+  const resolvedNow = toTimestamp(now);
+  const base = resolvedNow === null ? Date.now() : resolvedNow;
+  const preference =
+    weekStartsOn === undefined || weekStartsOn === null
+      ? weekStart
+      : weekStartsOn;
+  const resolvedWeekStart =
+    preference === undefined || preference === null
+      ? DEFAULT_WEEK_START
+      : normalizeWeekStart(preference);
+  const { start } = weekWindow({
+    now: base,
+    weekStartsOn: resolvedWeekStart,
+  });
+
+  // Count the remaining days with calendar arithmetic (never `DAY_MS`), so a
+  // 23h/25h daylight-saving day cannot add or drop a day. The week start itself
+  // comes from the shared `weekWindow` helper.
+  const firstKey = dateKey(new Date(start));
+  const lastKey = shiftDayKey(firstKey, 6);
+  const todayKey = dateKey(new Date(base));
+
+  let remainingDays = 0;
+  if (todayKey <= lastKey) {
+    let cursor = todayKey;
+    while (true) {
+      remainingDays += 1;
+      if (cursor === lastKey) {
+        break;
+      }
+      const next = shiftDayKey(cursor, 1);
+      if (next === cursor || next > lastKey) {
+        break;
+      }
+      cursor = next;
+    }
+  }
+
+  let elapsedDays = 0;
+  if (todayKey >= firstKey) {
+    let cursor = firstKey;
+    while (true) {
+      elapsedDays += 1;
+      if (cursor === todayKey) {
+        break;
+      }
+      const next = shiftDayKey(cursor, 1);
+      if (next === cursor || next > todayKey) {
+        break;
+      }
+      cursor = next;
+    }
+  }
+  if (elapsedDays <= 0) {
+    elapsedDays = 1;
+  }
+
+  const perDayMinutes =
+    remainingMinutes === 0
+      ? 0
+      : remainingDays > 0
+        ? Math.round(remainingMinutes / remainingDays)
+        : remainingMinutes;
+
+  const currentAverage = focusedMinutes / elapsedDays;
+  const onTrack = remainingMinutes === 0 || currentAverage >= perDayMinutes;
+
+  return { remainingMinutes, remainingDays, perDayMinutes, onTrack };
 }
 
 /** Quote a single CSV field per RFC 4180. A field containing a comma, a double

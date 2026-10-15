@@ -57,7 +57,8 @@ calls, no telemetry, and no secrets.
   Thesis chapter 3"). The Stats panel shows the target, minutes focused so far
   this week, a percentage, and a progress bar, and switches to a "Goal reached"
   state once you hit the target. Set it to `0` or use **Clear goal** to remove
-  it.
+  it. A derived **pace projection** under the per-label breakdown shows the pace
+  needed to finish the week.
 - **Daily focus goal:** set a target number of focused minutes for **today**
   (optionally scoped to the currently selected label). The Stats panel adds a
   **Daily goal** row with the target, today's focused minutes, a percentage, and
@@ -93,6 +94,19 @@ calls, no telemetry, and no secrets.
   pure `weeklyReview` helper as the Weekly review panel, so it reads only the
   existing `focus-flow:history` and `focus-flow:goal` keys and adds **no new
   `localStorage` key, no network request, and no third-party dependency**.
+- **Weekly goal pace projection:** under that per-label breakdown, a single line
+  answers *"will I hit my weekly goal at this pace?"* — it shows the rounded
+  pace needed for each remaining day of the week (e.g. "≈ 45 min/day for 3 more
+  days") plus a neutral **on-track / behind-pace** signal, and hides itself when
+  no weekly goal is set. It respects the active label filter and the **Week
+  starts on** preference, counts the remaining local calendar days (including
+  today) with calendar arithmetic so daylight-saving weeks are handled
+  correctly, and is announced once through the screen-reader live region when it
+  first appears or the goal is reached. The line comes from the pure `goalPace`
+  helper in `app/history.js`, applied to the same `weeklyReview` result, so it
+  reads only the existing `focus-flow:history` and `focus-flow:goal` keys and
+  adds **no new `localStorage` key, no network request, and no third-party
+  dependency**.
 - **Weekly review:** a dedicated panel compares the current week's focused
   minutes against the goal and ranks every session label seen this week by
   focused minutes, with its session count and its share of the target (including
@@ -177,10 +191,15 @@ decided by the pure `badgeState` helper and pushed through a
 **feature-detected, on-device** platform call, adding no new key, no network
 request, and no third-party dependency either. The
 weekly review, the **weekly review CSV export**, the **per-label goal breakdown
-in the Stats panel**, the focus streaks, the daily reminder hint, and the
+in the Stats panel**, the **weekly goal pace projection**, the focus streaks,
+the daily reminder hint, and the
 **session-label autocomplete** are all **derived** from that existing local data
 only — they add no new storage key, no network request, and no third-party
-dependency. The autocomplete in particular reads only the labels already in
+dependency. The weekly goal pace projection in particular is derived from the
+same `weeklyReview` result by the pure `goalPace` helper, so it reads only the
+existing `focus-flow:history` and `focus-flow:goal` keys, adds no new key, makes
+no network request, and adds no third-party dependency. The autocomplete in
+particular reads only the labels already in
 `focus-flow:history` and never uploads, adds, or reorders anything. The label
 aliases are read by pure helpers and stored only under the optional
 `focus-flow:session-tags` key, so they add no network request, no third-party
@@ -220,11 +239,13 @@ All state lives in the browser's `localStorage`:
   **label aliases**, coerced by the pure `normalizeSessionTags` helper; removed
   when the map is empty, and included in backups.
 
-The Stats **Weekly goal** per-label breakdown, the Weekly review panel, the CSV
+The Stats **Weekly goal** per-label breakdown, its **pace projection**, the
+Weekly review panel, the CSV
 export, the focus streaks, and the daily reminder hint are all **derived** from
 `focus-flow:history` and `focus-flow:goal` and add **no new storage key**. The
-breakdown in particular is rendered by the same pure `weeklyReview` helper, so it
-makes no network request and adds no third-party dependency.
+breakdown is rendered by the same pure `weeklyReview` helper and the pace line by
+the pure `goalPace` helper, so they
+make no network request and add no third-party dependency.
 
 The Stats **Daily goal** row is derived from the same `focus-flow:history` log by
 the pure `dailyGoalProgress` helper in `app/history.js`, which sums only

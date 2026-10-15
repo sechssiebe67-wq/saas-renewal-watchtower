@@ -53,6 +53,7 @@ import {
   dailyReview,
   badgeState,
   weeklyReview,
+  goalPace,
   weeklyReviewCsv,
   streaks,
   normalizeSessionTags,
@@ -168,6 +169,9 @@ function getElements() {
       "stats-goal-breakdown-title",
     ),
     statsGoalBreakdown: document.getElementById("stats-goal-breakdown"),
+    statsGoalPace: document.getElementById("stats-goal-pace"),
+    statsGoalPaceText: document.getElementById("stats-goal-pace-text"),
+    statsGoalPaceSignal: document.getElementById("stats-goal-pace-signal"),
     statsDailyGoal: document.getElementById("stats-daily-goal"),
     statsDailyGoalTarget: document.getElementById("stats-daily-goal-target"),
     statsDailyGoalFocused: document.getElementById("stats-daily-goal-focused"),
@@ -736,6 +740,8 @@ export function init() {
   let announcedStreak = null;
   let announcedBreakdown = false;
   let announcedDailyBreakdown = false;
+  let announcedGoalPace = false;
+  let announcedGoalPaceReached = false;
   let lastBadgeValue;
 
   function labelDisplay(label) {
@@ -1132,6 +1138,7 @@ export function init() {
     if (!active) {
       goalReached = null;
       hideGoalBreakdown();
+      hideGoalPace();
       return;
     }
 
@@ -1161,6 +1168,7 @@ export function init() {
     }
 
     renderGoalBreakdown();
+    renderGoalPace();
     noteGoalReached(progress.reached);
   }
 
@@ -1413,6 +1421,25 @@ export function init() {
     announcedBreakdown = false;
   }
 
+  /** Hide the pace projection and let it announce again when it returns. */
+  function hideGoalPace() {
+    if (el.statsGoalPace) {
+      el.statsGoalPace.hidden = true;
+      el.statsGoalPace.classList.remove(
+        "stats__goal-pace--on-track",
+        "stats__goal-pace--behind",
+      );
+    }
+    if (el.statsGoalPaceText) {
+      el.statsGoalPaceText.textContent = "";
+    }
+    if (el.statsGoalPaceSignal) {
+      el.statsGoalPaceSignal.textContent = "";
+    }
+    announcedGoalPace = false;
+    announcedGoalPaceReached = false;
+  }
+
   /**
    * Render the current week's per-label breakdown inside the existing Weekly
    * goal row. The rows come from the pure `weeklyReview` helper (already sorted
@@ -1486,6 +1513,82 @@ export function init() {
         );
         announce(t("announce.goalBreakdown", { summary }));
       }
+    }
+  }
+
+  /**
+   * Render the forward-looking **weekly goal pace projection** under the
+   * per-label weekly breakdown, using the pure `goalPace` helper on the same
+   * `weeklyReview` result. It shows the rounded per-day pace needed for the
+   * remaining local calendar days (today included) plus a neutral on-track /
+   * behind-pace signal, and hides itself when no goal is set. It respects the
+   * active label filter (through `currentWeeklyReview`) and the **Week starts
+   * on** preference, reads only the existing history and goal keys, and
+   * announces itself once through the live region when it first appears or the
+   * goal is reached.
+   */
+  function renderGoalPace() {
+    if (!el.statsGoalPace) {
+      return;
+    }
+
+    const pace = goalPace(currentWeeklyReview(), {
+      now: Date.now(),
+      weekStart: weekStartsOn,
+    });
+
+    if (!pace) {
+      hideGoalPace();
+      return;
+    }
+
+    const daysTemplate = pluralise(
+      pace.remainingDays,
+      {
+        one: t("stats.goalPaceDaysOne"),
+        other: t("stats.goalPaceDaysMany"),
+      },
+      locale,
+    );
+    const days = daysTemplate.replace(
+      "{count}",
+      formatNumber(pace.remainingDays, locale),
+    );
+    const line = t("stats.goalPaceLine", {
+      minutes: formatDuration(pace.perDayMinutes, locale),
+      days,
+    });
+    const signal = t(
+      pace.onTrack ? "stats.goalPaceOnTrack" : "stats.goalPaceBehind",
+    );
+
+    if (el.statsGoalPaceText) {
+      el.statsGoalPaceText.textContent = line;
+    }
+    if (el.statsGoalPaceSignal) {
+      el.statsGoalPaceSignal.textContent = signal;
+    }
+
+    el.statsGoalPace.hidden = false;
+    el.statsGoalPace.classList.toggle(
+      "stats__goal-pace--on-track",
+      pace.onTrack,
+    );
+    el.statsGoalPace.classList.toggle(
+      "stats__goal-pace--behind",
+      !pace.onTrack,
+    );
+
+    const reached = pace.remainingMinutes === 0;
+    if (!announcedGoalPace) {
+      announcedGoalPace = true;
+      announcedGoalPaceReached = reached;
+      announce(t("announce.goalPace", { summary: `${line} — ${signal}` }));
+    } else if (reached && !announcedGoalPaceReached) {
+      announcedGoalPaceReached = true;
+      announce(t("announce.goalPace", { summary: `${line} — ${signal}` }));
+    } else if (!reached) {
+      announcedGoalPaceReached = false;
     }
   }
 
@@ -1651,6 +1754,8 @@ export function init() {
     announcedStreak = null;
     announcedBreakdown = false;
     announcedDailyBreakdown = false;
+    announcedGoalPace = false;
+    announcedGoalPaceReached = false;
     lastBadgeValue = undefined;
 
     applyStaticTranslations();

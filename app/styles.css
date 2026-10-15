@@ -534,6 +534,42 @@ kbd {
   display: none;
 }
 
+.stats__goal-pace[hidden] {
+  display: none;
+}
+
+.stats__goal-pace {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin: 0.6rem 0 0;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.stats__goal-pace-text {
+  font-weight: 600;
+}
+
+.stats__goal-pace-signal {
+  padding: 0.1rem 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.stats__goal-pace--on-track .stats__goal-pace-signal {
+  color: var(--short-break);
+  border-color: var(--short-break);
+}
+
+.stats__goal-pace--behind .stats__goal-pace-signal {
+  color: var(--long-break);
+  border-color: var(--long-break);
+}
+
 .stats__goal-breakdown {
   list-style: none;
   margin: 0.4rem 0 0;
