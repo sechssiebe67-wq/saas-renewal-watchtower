@@ -255,6 +255,26 @@ body {
   transform: translateY(1px);
 }
 
+.control:disabled,
+.control[disabled] {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.weekly-review__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.weekly-review__hint {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
 :focus-visible {
   outline: 3px solid var(--focus-ring);
   outline-offset: 2px;

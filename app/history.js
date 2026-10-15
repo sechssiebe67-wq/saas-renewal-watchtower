@@ -16,8 +16,10 @@
  * locally stored `{ minutes, label? }` target. `weekWindow` finds the current
  * week, `goalProgress` measures the logged focus time against the target,
  * `weeklyReview` adds a per-label breakdown of the same week, and
- * `normalizeGoal` coerces arbitrary stored input into the canonical shape. None
- * of these touch the DOM or the storage layer.
+ * `normalizeGoal` coerces arbitrary stored input into the canonical shape.
+ * `weeklyReviewCsv` serialises a `weeklyReview` result to an RFC 4180 CSV
+ * string for the local, offline **weekly review export**. None of these touch
+ * the DOM, the storage layer, or the network.
  */
 
 export const HISTORY_VERSION = 2;
@@ -546,6 +548,77 @@ export function weeklyReview(
     labels: perLabel.map((item) => item.label),
     perLabel,
   };
+}
+
+/** Quote a single CSV field per RFC 4180. A field containing a comma, a double
+ * quote, or a line break is wrapped in double quotes and its internal quotes
+ * are doubled; every other value is returned unchanged. `null` and `undefined`
+ * become an empty field, and this helper never throws. */
+function csvField(value) {
+  const text = value === undefined || value === null ? "" : String(value);
+  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+/** Coerce an arbitrary value to a non-negative whole number for a CSV cell.
+ * Malformed, negative, or non-finite input becomes `0`. */
+function csvCount(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return 0;
+  }
+  return Math.round(parsed);
+}
+
+/**
+ * Serialise a `weeklyReview(...)` result as an **RFC 4180 CSV** text.
+ *
+ * The output starts with a header row (`Label, Sessions, Minutes, Share of
+ * target (%)`), then one row per `perLabel` entry, and ends with a `Total` row
+ * that carries the summed sessions plus the review's `focusedMinutes` and
+ * `percent`. The unlabelled bucket is rendered with `options.unlabelled` when a
+ * non-empty string is provided (the DOM layer passes the localised catalog
+ * string there) and with the shared `UNLABELLED` label otherwise, matching the
+ * Weekly review panel. `options.locale` is accepted for API compatibility with
+ * that layer.
+ *
+ * Deterministic and total: the input is never mutated, malformed shapes (a
+ * missing `perLabel`, non-object rows, `null`, or `undefined`) degrade to an
+ * empty review rather than throwing, and there is **no DOM, no storage, and no
+ * network access**.
+ */
+export function weeklyReviewCsv(review, { locale, unlabelled } = {}) {
+  void locale;
+  const source = review && typeof review === "object" ? review : {};
+  const rows = Array.isArray(source.perLabel)
+    ? source.perLabel.filter((row) => row && typeof row === "object")
+    : [];
+  const unlabelledLabel =
+    typeof unlabelled === "string" && unlabelled.length > 0
+      ? unlabelled
+      : UNLABELLED;
+
+  const lines = [["Label", "Sessions", "Minutes", "Share of target (%)"]];
+  let totalSessions = 0;
+
+  for (const row of rows) {
+    totalSessions += csvCount(row.sessions);
+    const label = row.label === UNLABELLED ? unlabelledLabel : row.label;
+    lines.push([
+      label === undefined || label === null ? "" : label,
+      csvCount(row.sessions),
+      csvCount(row.minutes),
+      csvCount(row.percentOfTarget),
+    ]);
+  }
+
+  lines.push([
+    "Total",
+    totalSessions,
+    csvCount(source.focusedMinutes),
+    csvCount(source.percent),
+  ]);
+
+  return `${lines.map((cells) => cells.map(csvField).join(",")).join("\n")}\n`;
 }
 
 /**

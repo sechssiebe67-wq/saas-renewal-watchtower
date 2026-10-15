@@ -117,6 +117,10 @@ const EN_MESSAGES = {
   "review.labelsLabel": "Focused minutes by session label this week",
   "review.labelStatsWithGoal": "{sessions} · {minutes} min · {percent}%",
   "review.labelStats": "{sessions} · {minutes} min",
+  "review.export": "Export CSV",
+  "review.exportHint":
+    "Downloads this week's review as a local CSV file. Nothing is uploaded.",
+  "review.exported": "Weekly review exported as CSV.",
   "footer.text":
     "Focus Flow runs entirely in your browser. Your settings, session count, and focus history stay on this device. No accounts, no tracking, no network.",
   "announce.ambientOff": "Ambient sound off.",
@@ -224,6 +228,10 @@ const DE_MESSAGES = {
     "Fokussierte Minuten nach Sitzungsbezeichnung diese Woche",
   "review.labelStatsWithGoal": "{sessions} · {minutes} Min. · {percent} %",
   "review.labelStats": "{sessions} · {minutes} Min.",
+  "review.export": "CSV exportieren",
+  "review.exportHint":
+    "Lädt den Wochenrückblick als lokale CSV-Datei herunter. Es wird nichts hochgeladen.",
+  "review.exported": "Wochenrückblick als CSV exportiert.",
   "footer.text":
     "Focus Flow läuft vollständig in deinem Browser. Deine Einstellungen, dein Sitzungszähler und dein Fokusverlauf bleiben auf diesem Gerät. Keine Konten, kein Tracking, kein Netzwerk.",
   "announce.ambientOff": "Hintergrundgeräusch aus.",
@@ -331,6 +339,10 @@ const ES_MESSAGES = {
     "Minutos concentrados por etiqueta de sesión esta semana",
   "review.labelStatsWithGoal": "{sessions} · {minutes} min · {percent} %",
   "review.labelStats": "{sessions} · {minutes} min",
+  "review.export": "Exportar CSV",
+  "review.exportHint":
+    "Descarga la revisión de esta semana como un archivo CSV local. No se sube nada.",
+  "review.exported": "Revisión semanal exportada como CSV.",
   "footer.text":
     "Focus Flow funciona por completo en tu navegador. Tus ajustes, el recuento de sesiones y el historial de concentración permanecen en este dispositivo. Sin cuentas, sin seguimiento, sin red.",
   "announce.ambientOff": "Sonido ambiente desactivado.",

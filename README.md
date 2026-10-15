@@ -39,6 +39,17 @@ calls, no telemetry, and no secrets.
   an `(unlabelled)` row when needed). It updates live when a work phase
   completes, the goal changes, or a label filter changes, and it shows a
   "Goal reached" state once the target is met.
+- **Weekly review CSV export:** an **Export CSV** button in the Weekly review
+  panel downloads the current week's review as
+  `focus-flow-week-<YYYY-MM-DD>.csv` — a header row, one row per session label
+  (label, sessions, minutes, share of the target), and a totals row. Fields
+  containing commas, quotes, or newlines are quoted and their internal quotes
+  doubled per RFC 4180, so labels round-trip safely into any spreadsheet. The
+  button is **disabled until the week has at least one label row**. The file is
+  built by the pure `weeklyReviewCsv` helper in `app/history.js` and saved
+  through a browser `Blob` URL, so the export makes **no network request, adds
+  no new `localStorage` key, and adds no third-party dependency** — the CSV is
+  created and downloaded entirely on your device.
 - **Focus streaks & daily reminder hint:** the Stats panel derives a **current
   streak** (consecutive local calendar days, ending today or yesterday, with at
   least one completed work session) and a **longest streak** from your local
@@ -82,12 +93,14 @@ Focus Flow is **privacy-first by construction**: the focus history, any session
 labels you type, your weekly focus goal, your ambient-sound choice, your
 language preference, and your week-start preference live only
 on your device. They are never uploaded, synced, or sent anywhere. The weekly
-review, the focus streaks, and the daily reminder hint are all **derived** from
-that existing local data only — they add no new storage key, no network request,
-and no third-party dependency. The ambient sound is generated locally and adds
-no audio file, no network request, and no third-party asset. The i18n catalog is
-bundled locally, so localisation adds no network request and no third-party
-library. All data stays on the device.
+review, the **weekly review CSV export**, the focus streaks, and the daily
+reminder hint are all **derived** from that existing local data only — they add
+no new storage key, no network request, and no third-party dependency. The CSV
+is written by a pure helper and handed to the browser as a local `Blob` URL, so
+it is created and saved entirely on your device and never leaves it. The ambient
+sound is generated locally and adds no audio file, no network request, and no
+third-party asset. The i18n catalog is bundled locally, so localisation adds no
+network request and no third-party library. All data stays on the device.
 
 ### Storage keys
 
