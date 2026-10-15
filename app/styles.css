@@ -142,12 +142,17 @@ body {
 }
 
 .timer-card,
-.settings-card {
+.settings-card,
+.stats-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: clamp(1.25rem, 4vw, 2.5rem);
+}
+
+.stats-card {
+  grid-column: 1 / -1;
 }
 
 .timer-card {
@@ -158,7 +163,8 @@ body {
 }
 
 .timer-card__title,
-.settings-card__title {
+.settings-card__title,
+.stats-card__title {
   margin: 0 0 0.5rem;
   font-size: 1rem;
   text-transform: uppercase;
@@ -313,6 +319,75 @@ kbd {
   min-height: 1.2rem;
   margin: 0;
   color: var(--short-break);
+  font-weight: 600;
+}
+
+.stats__summary {
+  cursor: pointer;
+  list-style-position: inside;
+}
+
+.stats__summary::-webkit-details-marker {
+  color: var(--text-muted);
+}
+
+.stats-card__title {
+  display: inline;
+}
+
+.stats__totals {
+  margin: 1rem 0 0.25rem;
+  color: var(--text-muted);
+}
+
+.stats__empty {
+  margin: 0.5rem 0 0;
+  color: var(--text-muted);
+}
+
+.stats__days {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.stats__days[hidden] {
+  display: none;
+}
+
+.stats-day {
+  display: grid;
+  grid-template-columns: 3.25rem minmax(0, 1fr) 2rem;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.stats-day__label {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.stats-day__track {
+  display: block;
+  height: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-muted);
+  overflow: hidden;
+}
+
+.stats-day__fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--work);
+}
+
+.stats-day__count {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
   font-weight: 600;
 }
 

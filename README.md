@@ -5,9 +5,9 @@ static, client-side web app. It helps students, remote knowledge workers, and
 anyone who benefits from structured work/break cycles run Pomodoro-style
 sessions without accounts, databases, tracking, or any external service.
 
-Everything runs in the browser and all state (settings and session count) is
-stored locally in `localStorage`. There are no runtime network calls, no
-telemetry, and no secrets.
+Everything runs in the browser and all state (settings, session count, and
+focus history) is stored locally in `localStorage`. There are no runtime network
+calls, no telemetry, and no secrets.
 
 ## Features
 
@@ -16,9 +16,16 @@ telemetry, and no secrets.
 - Keyboard shortcuts: `Space` start/pause, `R` reset, `S` skip.
 - Automatic long break every 4 work sessions (interval configurable).
 - Session counter, dark/light theme, audible and visual notifications.
-- Settings and session count persist across reloads.
+- **Local session history:** every completed work phase is logged to
+  `localStorage["focus-flow:history"]` (capped at 500 entries / 90 days), and a
+  **7-day stats panel** shows the total sessions, focused minutes, and a
+  per-day count. Skipped phases are not recorded.
+- Settings, session count, and history persist across reloads.
 - Accessible, responsive layout for mobile, tablet, and desktop.
 - Installable PWA with a web manifest and an offline-first service worker.
+
+Focus Flow is **privacy-first by construction**: the focus history lives only on
+your device. It is never uploaded, synced, or sent anywhere.
 
 The full concept, audience, roadmap, and criteria mapping live in
 [`CONCEPT.md`](CONCEPT.md).

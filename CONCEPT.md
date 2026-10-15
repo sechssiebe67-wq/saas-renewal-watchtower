@@ -43,9 +43,15 @@ after the first load.
 - **Keyboard shortcuts:** `Space` start/pause, `R` reset, `S` skip.
 - **Session counter** with an automatic **long break every 4 work sessions**
   (interval configurable).
+- **Session history & stats:** every completed *work* phase is appended to a
+  fully local log (`app/history.js`), and a collapsible **Stats** panel
+  summarises the last 7 days — total completed work sessions, total focused
+  minutes, and a per-day list that pairs each bar with its numeric count.
+  Skipped phases are not recorded. The log is capped at 500 entries and 90 days
+  so `localStorage` cannot grow unbounded.
 - **Audible and visual notifications** when a phase ends.
-- **Local persistence** of settings and the current session count via
-  `localStorage`.
+- **Local persistence** of settings, the current session count, and the session
+  history via `localStorage`.
 - **Dark / light theme** toggle that is remembered.
 - **Responsive layout** for mobile (360px), tablet (768px), and desktop (1280px).
 - **Accessible markup:** semantic landmarks, a skip link, an ARIA live region
@@ -64,6 +70,8 @@ after the first load.
 - `app/` — the whole product, served as static files.
   - `index.html`, `styles.css` — the accessible, responsive shell.
   - `timer.js` — the pure timer state machine.
+  - `history.js` — the pure session-history helpers (`recordSession`,
+    `pruneHistory`, `summarise`, `HISTORY_VERSION`) with no DOM access.
   - `main.js` — the DOM layer and the `registerServiceWorker()` helper.
   - `manifest.webmanifest` — the PWA manifest (name, icons, colours, scope).
   - `service-worker.js` — versioned cache, precache list, and offline handlers.
@@ -77,11 +85,22 @@ after the first load.
 - `helm/` — the Kubernetes chart.
 - `tests/` — static, PWA, and Helm rendering tests.
 
+## Data & persistence
+
+Focus Flow stores everything in the browser's `localStorage`; no data ever
+leaves the device. There is no backend, no account, and no sync.
+
+| Key | Shape | Notes |
+| --- | --- | --- |
+| `focus-flow:settings` | `{ work, shortBreak, longBreak, longBreakInterval, sound, autoStartBreaks }` | Timer configuration. |
+| `focus-flow:sessions` | integer | Running "sessions completed today" counter, kept for backwards compatibility. |
+| `focus-flow:theme` | `"light"` \| `"dark"` | Remembered theme choice. |
+| `focus-flow:history` | array of `{ endedAt, phase, durationSeconds }` | Local session log. `endedAt` is an ISO timestamp, `phase` is `"work"`, and `durationSeconds` is the configured work duration. Only completed work phases are appended; the log is pruned to the most recent 500 entries and 90 days. `HISTORY_VERSION` in `app/history.js` documents the entry schema version. |
+
 ## Next direction
 
 - Optional **ambient sound** (e.g. brown noise / rain) using the Web Audio API.
-- **Task labels** per session, kept locally, with a simple per-day log.
-- **Weekly stats view** computed entirely from `localStorage`.
+- **Task labels** per session, kept locally, extending the existing history log.
 - **Internationalisation (i18n)** with a small message catalog.
 - **Focus streaks and goals**, derived locally from the session history.
 
@@ -118,12 +137,12 @@ after the first load.
 | Low Maintenance | No backend or data migrations to maintain. |
 | Market Differentiation | Privacy-first, offline, no-account, and packaged as a Kubernetes-native OSS app. |
 | Growth Potential | Serving more users costs effectively nothing. |
-| User Retention | Daily use pattern; persistent settings and session counts, plus one-tap install to the home screen or desktop. |
+| User Retention | Daily use pattern; persistent settings, session counts, and a 7-day focus-history panel that shows progress, plus one-tap install to the home screen or desktop. |
 | Discoverability | Clear name, description, and docs; shareable as a URL. |
 | Mobile Friendly | Responsive layout, touch-friendly controls, and an installable PWA that launches standalone. |
 | Accessibility | Semantic landmarks, ARIA live region, keyboard shortcuts, focus states, contrast. |
 | Minimal Dependencies | Zero runtime JS/CSS dependencies. |
-| Measurable Success | `/healthz` for reliability; session count persisted locally for engagement. |
+| Measurable Success | `/healthz` for reliability; the local session history and 7-day stats give users a visible, measurable view of their focus habit. |
 | Reusability | Reuses the standard static-container + Helm deployment template. |
 | Innovation Potential | Ambient sound, stats, and local focus goals are natural next steps. |
 
