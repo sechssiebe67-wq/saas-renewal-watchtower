@@ -40,9 +40,11 @@ calls, no telemetry, and no secrets.
   completes, the goal changes, or a label filter changes, and it shows a
   "Goal reached" state once the target is met.
 - **Focus streaks & daily reminder hint:** the Stats panel derives a **current
-  streak** (consecutive days, ending today or yesterday, with at least one
-  completed work session) and a **longest streak** from your local session log,
-  and shows how many sessions and focused minutes you have logged today. When
+  streak** (consecutive local calendar days, ending today or yesterday, with at
+  least one completed work session) and a **longest streak** from your local
+  session log, and shows how many sessions and focused minutes you have logged
+  today. Days are compared with local calendar arithmetic, so daylight-saving
+  transitions never break a streak. When
   today has no completed session *and* a weekly goal is set, a neutral **"No
   focus session logged today yet."** hint appears. The streak increases the
   moment a work phase completes and the new value is announced once through the

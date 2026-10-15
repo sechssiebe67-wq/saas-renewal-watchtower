@@ -76,10 +76,12 @@ after the first load.
   region. The review reads the existing history and goal keys only and adds no
   new `localStorage` key.
 - **Focus streaks & daily reminder hint:** the Stats panel derives a **current
-  streak** (the number of consecutive calendar days, ending today or yesterday,
-  on which at least one completed work session was logged) and a **longest
-  streak** from the local session log, and shows today's completed-session count
-  and focused minutes. A neutral **"No focus session logged today yet."**
+  streak** (the number of consecutive local calendar days, ending today or
+  yesterday, on which at least one completed work session was logged) and a
+  **longest streak** from the local session log, and shows today's
+  completed-session count and focused minutes. Day adjacency is computed with
+  local calendar arithmetic, so a 23h/25h daylight-saving transition does not
+  break or shorten a run. A neutral **"No focus session logged today yet."**
   reminder appears only when today has no completed work *and* a weekly goal is
   set. The values come from a new pure `streaks` helper and read only the
   existing `focus-flow:history` and `focus-flow:goal` keys — there is **no new

@@ -151,6 +151,69 @@ HARNESS = textwrap.dedent(
 )
 
 
+DST_HARNESS = textwrap.dedent(
+    """
+    import { streaks } from "./history.mjs";
+
+    const spec = JSON.parse(process.argv[2]);
+    const failures = [];
+
+    for (const testCase of spec.cases) {
+      const [ny, nm, nd, nh] = testCase.now;
+      const now = new Date(ny, nm - 1, nd, nh).getTime();
+      const log = testCase.days.map(([y, m, d, h]) => ({
+        endedAt: new Date(y, m - 1, d, h).toISOString(),
+        phase: "work",
+        durationSeconds: 1500,
+      }));
+      const result = streaks(log, { now });
+      if (result.current !== testCase.expected) {
+        failures.push(`${testCase.name}: current ${result.current} !== ${testCase.expected}`);
+      }
+      if (result.longest !== testCase.expected) {
+        failures.push(`${testCase.name}: longest ${result.longest} !== ${testCase.expected}`);
+      }
+    }
+
+    process.stdout.write(JSON.stringify({ failures }));
+    """
+)
+
+# Each case is a run of consecutive local calendar days that straddles a DST
+# transition in the given timezone. `expected` is 3: the calendar run must be
+# counted as three consecutive days even though one of the nights is 23h/25h.
+DST_TZ_CASES = {
+    "America/New_York": [
+        {
+            "name": "spring forward",
+            "now": [2026, 3, 9, 12],
+            "days": [[2026, 3, 7, 9], [2026, 3, 8, 9], [2026, 3, 9, 9]],
+            "expected": 3,
+        },
+        {
+            "name": "fall back",
+            "now": [2026, 11, 2, 12],
+            "days": [[2026, 10, 31, 9], [2026, 11, 1, 9], [2026, 11, 2, 9]],
+            "expected": 3,
+        },
+    ],
+    "Europe/London": [
+        {
+            "name": "spring forward",
+            "now": [2026, 3, 30, 12],
+            "days": [[2026, 3, 28, 9], [2026, 3, 29, 9], [2026, 3, 30, 9]],
+            "expected": 3,
+        },
+        {
+            "name": "fall back",
+            "now": [2026, 10, 26, 12],
+            "days": [[2026, 10, 24, 9], [2026, 10, 25, 9], [2026, 10, 26, 9]],
+            "expected": 3,
+        },
+    ],
+}
+
+
 class StreaksStaticTests(unittest.TestCase):
     def test_history_exports_streaks(self):
         with open(HISTORY_PATH, encoding="utf-8") as handle:
@@ -170,6 +233,15 @@ class StreaksStaticTests(unittest.TestCase):
         )
         self.assertNotIn("fetch(", source)
         self.assertNotIn("XMLHttpRequest", source)
+
+    def test_streaks_uses_calendar_day_arithmetic(self):
+        with open(HISTORY_PATH, encoding="utf-8") as handle:
+            source = handle.read()
+        self.assertNotIn(
+            "DAY_MS",
+            source[source.index("export function streaks"):],
+            "streaks must not step days with the fixed DAY_MS constant (DST bug)",
+        )
 
 
 class StreaksStaticAssetTests(unittest.TestCase):
@@ -236,6 +308,49 @@ class StreaksLogicTests(unittest.TestCase):
             [],
             "streaks logic failures: %s" % ", ".join(self.payload["failures"]),
         )
+
+
+@unittest.skipUnless(NODE_BIN, "node is not installed")
+class StreaksDstTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp_dir = tempfile.mkdtemp(prefix="focus-flow-streaks-dst-")
+        with open(HISTORY_PATH, encoding="utf-8") as handle:
+            source = handle.read()
+        with open(os.path.join(cls.tmp_dir, "history.mjs"), "w", encoding="utf-8") as handle:
+            handle.write(source)
+        with open(os.path.join(cls.tmp_dir, "harness.mjs"), "w", encoding="utf-8") as handle:
+            handle.write(DST_HARNESS)
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp_dir, ignore_errors=True)
+
+    def _run(self, timezone, cases):
+        env = dict(os.environ, TZ=timezone)
+        result = subprocess.run(
+            [NODE_BIN, os.path.join(self.tmp_dir, "harness.mjs"), json.dumps({"cases": cases})],
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        if result.returncode != 0:
+            raise AssertionError(
+                "node DST harness failed for %s (exit %s):\n%s\n%s"
+                % (timezone, result.returncode, result.stdout, result.stderr)
+            )
+        return json.loads(result.stdout)
+
+    def test_streaks_survive_dst_transitions(self):
+        for timezone, cases in DST_TZ_CASES.items():
+            with self.subTest(timezone=timezone):
+                payload = self._run(timezone, cases)
+                self.assertEqual(
+                    payload["failures"],
+                    [],
+                    "DST streak failures in %s: %s"
+                    % (timezone, ", ".join(payload["failures"])),
+                )
 
 
 if __name__ == "__main__":

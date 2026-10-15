@@ -67,6 +67,14 @@ function startOfDay(timestamp) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
 }
 
+/** Shift a `YYYY-MM-DD` calendar key by whole local days. Uses calendar
+ * arithmetic rather than adding `DAY_MS` so DST transitions (23h/25h days)
+ * never desynchronise the day keys. */
+function shiftDayKey(dayKey, delta) {
+  const [year, month, day] = dayKey.split("-").map(Number);
+  return dateKey(new Date(year, month - 1, day + delta));
+}
+
 /** Normalise an optional label: trim it, drop it when empty, and cap its
  * length so a single entry can never bloat local storage. */
 function normalizeLabel(value) {
@@ -528,6 +536,13 @@ export function streaks(
   void weekStartsOn;
   const resolved = toTimestamp(now);
   const todayStart = startOfDay(resolved === null ? Date.now() : resolved);
+  const todayDate = new Date(todayStart);
+  const todayKey = dateKey(todayDate);
+  const tomorrowStart = new Date(
+    todayDate.getFullYear(),
+    todayDate.getMonth(),
+    todayDate.getDate() + 1,
+  ).getTime();
   const log = Array.isArray(history) ? history : [];
 
   const days = new Set();
@@ -544,8 +559,8 @@ export function streaks(
     if (timestamp === null) {
       continue;
     }
-    days.add(startOfDay(timestamp));
-    if (timestamp >= todayStart && timestamp < todayStart + DAY_MS) {
+    days.add(dateKey(new Date(timestamp)));
+    if (timestamp >= todayStart && timestamp < tomorrowStart) {
       todayCount += 1;
       todaySeconds += normalized.durationSeconds;
     }
@@ -554,31 +569,33 @@ export function streaks(
     }
   }
 
-  const sortedDays = Array.from(days).sort((a, b) => a - b);
+  const sortedDays = Array.from(days).sort();
 
   let longest = 0;
   let run = 0;
   let previous = null;
-  for (const dayStart of sortedDays) {
-    run = previous !== null && dayStart - previous === DAY_MS ? run + 1 : 1;
+  for (const dayKeyValue of sortedDays) {
+    const isConsecutive =
+      previous !== null && dayKeyValue === shiftDayKey(previous, 1);
+    run = isConsecutive ? run + 1 : 1;
     if (run > longest) {
       longest = run;
     }
-    previous = dayStart;
+    previous = dayKeyValue;
   }
 
-  const yesterdayStart = todayStart - DAY_MS;
+  const yesterdayKey = shiftDayKey(todayKey, -1);
   let cursor = null;
-  if (days.has(todayStart)) {
-    cursor = todayStart;
-  } else if (days.has(yesterdayStart)) {
-    cursor = yesterdayStart;
+  if (days.has(todayKey)) {
+    cursor = todayKey;
+  } else if (days.has(yesterdayKey)) {
+    cursor = yesterdayKey;
   }
 
   let current = 0;
   while (cursor !== null && days.has(cursor)) {
     current += 1;
-    cursor -= DAY_MS;
+    cursor = shiftDayKey(cursor, -1);
   }
 
   return {
