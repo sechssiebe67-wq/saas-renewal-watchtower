@@ -1352,12 +1352,10 @@ export function init() {
     const settings = readForm();
     engine.setSettings(settings);
     writeStorage(STORAGE_KEYS.settings, settings);
-    applyGoal(el.inputs.goal ? el.inputs.goal.value : 0, {
-      announceChange: true,
-    });
-    applyDailyGoal(el.inputs.dailyGoal ? el.inputs.dailyGoal.value : 0, {
-      announceChange: true,
-    });
+    const nextGoal = el.inputs.goal ? el.inputs.goal.value : 0;
+    const nextDailyGoal = el.inputs.dailyGoal ? el.inputs.dailyGoal.value : 0;
+    applyGoal(nextGoal, { announceChange: true });
+    applyDailyGoal(nextDailyGoal, { announceChange: true });
     syncForm(engine.settings);
     if (el.settingsStatus) {
       el.settingsStatus.textContent = t("settings.saved");

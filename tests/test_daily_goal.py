@@ -210,6 +210,32 @@ HARNESS = textwrap.dedent(
     """
 )
 
+
+def extract_submit_handler(source):
+    """Return the body of ``el.form``'s submit listener, or ``None``.
+
+    A simple brace-matching scan is enough for this single listener and avoids
+    pulling in a JavaScript parser just to guard an ordering regression.
+    """
+    marker = 'el.form.addEventListener("submit"'
+    start = source.find(marker)
+    if start == -1:
+        return None
+    brace = source.find("{", start)
+    if brace == -1:
+        return None
+    depth = 0
+    for index in range(brace, len(source)):
+        char = source[index]
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                return source[brace : index + 1]
+    return None
+
+
 DAILY_I18N_KEYS = (
     "settings.dailyGoal",
     "settings.dailyGoalPlaceholder",
@@ -297,6 +323,29 @@ class DailyGoalStaticTests(unittest.TestCase):
             "announce.dailyGoalReached",
         ):
             self.assertIn(symbol, js, "main.js does not use %s" % symbol)
+
+    def test_submit_saves_typed_goals_not_clobbered_inputs(self):
+        """Regression: ``applyGoal`` calls ``syncForm``, which rewrites the
+        daily-goal input from the old stored value. The submit handler must read
+        both inputs *before* applying either, otherwise the daily goal typed by
+        the user is discarded and the old value (or a clear) is saved."""
+        with open(MAIN_PATH, encoding="utf-8") as handle:
+            js = handle.read()
+        handler = extract_submit_handler(js)
+        self.assertIsNotNone(
+            handler, "could not find the form submit handler in main.js"
+        )
+        self.assertIsNone(
+            re.search(r"apply(?:Daily)?Goal\s*\(\s*el\.inputs", handler),
+            "submit handler calls an apply*Goal function with a live "
+            "el.inputs read; capture both field values first",
+        )
+        self.assertRegex(
+            handler,
+            r"const\s+\w*[Dd]ailyGoal\w*\s*=\s*el\.inputs\.dailyGoal",
+            "submit handler must capture the daily-goal input into a local "
+            "before calling applyDailyGoal",
+        )
 
 
 @unittest.skipUnless(NODE_BIN, "node is not installed")
