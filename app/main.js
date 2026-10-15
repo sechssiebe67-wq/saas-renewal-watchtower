@@ -15,11 +15,21 @@ import {
   formatTime,
 } from "./timer.js";
 
+import {
+  DEFAULT_RETENTION_DAYS,
+  recordSession,
+  pruneHistory,
+  summarise,
+} from "./history.js";
+
 const STORAGE_KEYS = Object.freeze({
   settings: "focus-flow:settings",
   sessions: "focus-flow:sessions",
   theme: "focus-flow:theme",
+  history: "focus-flow:history",
 });
+
+const STATS_WINDOW_DAYS = 7;
 
 const THEME_LABELS = Object.freeze({
   dark: { button: "Dark theme", next: "light" },
@@ -90,6 +100,10 @@ function getElements() {
     skip: document.getElementById("skip"),
     form: document.getElementById("settings-form"),
     settingsStatus: document.getElementById("settings-status"),
+    statsTotalSessions: document.getElementById("stats-total-sessions"),
+    statsTotalMinutes: document.getElementById("stats-total-minutes"),
+    statsDays: document.getElementById("stats-days"),
+    statsEmpty: document.getElementById("stats-empty"),
     themeToggle: document.getElementById("theme-toggle"),
     themeToggleLabel: document.getElementById("theme-toggle-label"),
     themeToggleIcon: document.querySelector(".theme-toggle__icon"),
@@ -142,6 +156,12 @@ export function init() {
     readStorage(STORAGE_KEYS.sessions, 0),
     10,
   );
+
+  const storedHistory = readStorage(STORAGE_KEYS.history, []);
+  let history = pruneHistory(Array.isArray(storedHistory) ? storedHistory : [], {
+    now: Date.now(),
+    retentionDays: DEFAULT_RETENTION_DAYS,
+  });
 
   const engine = new TimerEngine(storedSettings);
   engine.completedWorkSessions = Number.isFinite(storedSessions)
@@ -205,6 +225,54 @@ export function init() {
     });
   }
 
+  function renderStats() {
+    const summary = summarise(history, {
+      now: Date.now(),
+      days: STATS_WINDOW_DAYS,
+    });
+
+    if (el.statsTotalSessions) {
+      el.statsTotalSessions.textContent = String(summary.totalSessions);
+    }
+    if (el.statsTotalMinutes) {
+      el.statsTotalMinutes.textContent = String(summary.totalMinutes);
+    }
+    if (el.statsEmpty) {
+      el.statsEmpty.hidden = summary.totalSessions > 0;
+    }
+    if (el.statsDays) {
+      el.statsDays.hidden = summary.totalSessions === 0;
+      const maxCount = summary.perDay.reduce(
+        (max, day) => Math.max(max, day.count),
+        0,
+      );
+      const items = summary.perDay.map((day) => {
+        const item = document.createElement("li");
+        item.className = "stats-day";
+        item.dataset.count = String(day.count);
+
+        const label = document.createElement("span");
+        label.className = "stats-day__label";
+        label.textContent = day.label;
+
+        const track = document.createElement("span");
+        track.className = "stats-day__track";
+        const fill = document.createElement("span");
+        fill.className = "stats-day__fill";
+        fill.style.width = `${maxCount > 0 ? Math.round((day.count / maxCount) * 100) : 0}%`;
+        track.append(fill);
+
+        const count = document.createElement("span");
+        count.className = "stats-day__count";
+        count.textContent = String(day.count);
+
+        item.append(label, track, count);
+        return item;
+      });
+      el.statsDays.replaceChildren(...items);
+    }
+  }
+
   function render(state, meta = {}) {
     el.display.textContent = formatTime(state.remainingSeconds);
     el.display.dataset.phase = state.phase;
@@ -240,10 +308,24 @@ export function init() {
     render(state, meta);
     if (meta.reason === "phase-complete") {
       writeStorage(STORAGE_KEYS.sessions, state.completedWorkSessions);
+      if (meta.previousPhase === PHASES.WORK && meta.skipped === false) {
+        const entry = {
+          endedAt: new Date().toISOString(),
+          phase: PHASES.WORK,
+          durationSeconds: state.settings.work * 60,
+        };
+        history = pruneHistory(recordSession(history, entry), {
+          now: Date.now(),
+          retentionDays: DEFAULT_RETENTION_DAYS,
+        });
+        writeStorage(STORAGE_KEYS.history, history);
+        renderStats();
+      }
     }
   });
 
   syncForm(engine.settings);
+  renderStats();
 
   let intervalId = null;
   function startClock() {

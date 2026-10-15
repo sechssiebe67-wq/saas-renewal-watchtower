@@ -160,12 +160,37 @@
           </button>
         </form>
       </section>
+
+      <section id="stats" class="stats-card" aria-labelledby="stats-heading">
+        <details class="stats" open>
+          <summary class="stats__summary">
+            <h2 id="stats-heading" class="stats-card__title">Stats</h2>
+          </summary>
+          <div class="stats__body">
+            <p class="stats__totals">
+              Last 7 days:
+              <strong id="stats-total-sessions">0</strong> sessions ·
+              <strong id="stats-total-minutes">0</strong> min focused
+            </p>
+            <p id="stats-empty" class="stats__empty">
+              No sessions yet — start your first focus block.
+            </p>
+            <ul
+              id="stats-days"
+              class="stats__days"
+              aria-label="Completed work sessions in the last 7 days"
+              hidden
+            ></ul>
+          </div>
+        </details>
+      </section>
     </main>
 
     <footer class="app-footer">
       <p>
-        Focus Flow runs entirely in your browser. Your settings and session count
-        stay on this device. No accounts, no tracking, no network.
+        Focus Flow runs entirely in your browser. Your settings, session count,
+        and focus history stay on this device. No accounts, no tracking, no
+        network.
       </p>
     </footer>
 

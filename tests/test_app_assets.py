@@ -25,6 +25,7 @@ class AppAssetTests(unittest.TestCase):
             "styles.css",
             "main.js",
             "timer.js",
+            "history.js",
             "healthz",
             "manifest.webmanifest",
             "service-worker.js",
@@ -109,6 +110,27 @@ class AppAssetTests(unittest.TestCase):
         self.assertIn('"Space"', js)
         for key in ('"r"', '"R"', '"s"', '"S"'):
             self.assertIn(key, js, "missing keyboard shortcut: %s" % key)
+
+    def test_html_has_stats_section(self):
+        html = read_app_file("index.html")
+        expectations = {
+            "stats section": 'id="stats"',
+            "stats heading": 'id="stats-heading"',
+            "stats total sessions": 'id="stats-total-sessions"',
+            "stats total minutes": 'id="stats-total-minutes"',
+            "stats day list": 'id="stats-days"',
+            "stats empty state": 'id="stats-empty"',
+        }
+        for label, fragment in expectations.items():
+            self.assertIn(fragment, html, "missing %s (%s)" % (label, fragment))
+        self.assertIn("No sessions yet", html)
+
+    def test_main_js_references_history_module(self):
+        js = read_app_file("main.js")
+        self.assertIn("./history.js", js)
+        self.assertIn('"focus-flow:history"', js)
+        for symbol in ("recordSession", "pruneHistory", "summarise"):
+            self.assertIn(symbol, js, "main.js does not use %s" % symbol)
 
     def test_timer_engine_implements_state_machine(self):
         js = read_app_file("timer.js")
