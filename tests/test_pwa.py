@@ -18,6 +18,24 @@ ICONS_DIR = os.path.join(APP_DIR, "icons")
 MANIFEST_PATH = os.path.join(APP_DIR, "manifest.webmanifest")
 SERVICE_WORKER_PATH = os.path.join(APP_DIR, "service-worker.js")
 
+# The precache manifest and cache version baked into the current service worker.
+# If ``PRECACHE_URLS`` changes, ``CACHE_NAME`` must be bumped above
+# ``EXPECTED_CACHE_NAME`` so returning clients pick up the new offline shell.
+EXPECTED_PRECACHE = [
+    "./",
+    "./index.html",
+    "./styles.css",
+    "./main.js",
+    "./timer.js",
+    "./history.js",
+    "./manifest.webmanifest",
+    "./healthz",
+    "./icons/icon-192.png",
+    "./icons/icon-512.png",
+    "./icons/icon-maskable-512.png",
+]
+EXPECTED_CACHE_NAME = "focus-flow-v6"
+
 
 def read_text(path):
     with open(path, "r", encoding="utf-8") as handle:
@@ -132,13 +150,52 @@ class ServiceWorkerTests(unittest.TestCase):
     def test_history_module_is_precached(self):
         self.assertIn('"./history.js"', self.source)
 
-    def test_cache_name_is_focus_flow_v5(self):
+    def _cache_name(self):
         match = re.search(r'CACHE_NAME\s*=\s*"([^"]+)"', self.source)
         self.assertIsNotNone(match, "service worker has no CACHE_NAME")
-        self.assertEqual(match.group(1), "focus-flow-v5")
+        return match.group(1)
+
+    def _precache_urls(self):
+        match = re.search(r"PRECACHE_URLS\s*=\s*\[(.*?)\]", self.source, re.S)
+        self.assertIsNotNone(match, "service worker has no PRECACHE_URLS")
+        return re.findall(r'"([^"]+)"', match.group(1))
+
+    def _version_number(self, cache_name):
+        match = re.search(r"v(\d+)$", cache_name)
+        self.assertIsNotNone(match, "cache name has no version: %s" % cache_name)
+        return int(match.group(1))
+
+    def test_cache_name_matches_precache_manifest(self):
+        cache_name = self._cache_name()
+        listed = self._precache_urls()
+        if sorted(listed) == sorted(EXPECTED_PRECACHE):
+            # Unchanged precache list keeps the exact known version.
+            self.assertEqual(cache_name, EXPECTED_CACHE_NAME)
+        else:
+            # Changed precache list must come with a bumped cache version.
+            self.assertGreater(
+                self._version_number(cache_name),
+                self._version_number(EXPECTED_CACHE_NAME),
+                "bump CACHE_NAME when PRECACHE_URLS changes",
+            )
+
+    def test_precache_urls_exist_on_disk(self):
+        for asset in self._precache_urls():
+            if asset == "./":
+                continue
+            path = os.path.join(APP_DIR, asset[2:])
+            self.assertTrue(
+                os.path.isfile(path), "precached asset missing on disk: %s" % asset
+            )
 
     def test_ignores_non_get_and_cross_origin(self):
         self.assertIn('request.method !== "GET"', self.source)
+        self.assertIn("url.origin !== self.location.origin", self.source)
+
+    def test_no_cross_origin_handling_added(self):
+        self.assertNotIn("Access-Control-Allow-Origin", self.source)
+        self.assertNotIn("no-cors", self.source)
+        self.assertNotIn("mode: \"cors\"", self.source)
         self.assertIn("url.origin !== self.location.origin", self.source)
 
     def test_install_and_activate_take_control(self):

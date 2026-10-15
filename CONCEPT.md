@@ -75,6 +75,15 @@ after the first load.
   **"Goal reached"** state and the app announces it once through the ARIA live
   region. The review reads the existing history and goal keys only and adds no
   new `localStorage` key.
+- **Focus streaks & daily reminder hint:** the Stats panel derives a **current
+  streak** (the number of consecutive calendar days, ending today or yesterday,
+  on which at least one completed work session was logged) and a **longest
+  streak** from the local session log, and shows today's completed-session count
+  and focused minutes. A neutral **"No focus session logged today yet."**
+  reminder appears only when today has no completed work *and* a weekly goal is
+  set. The values come from a new pure `streaks` helper and read only the
+  existing `focus-flow:history` and `focus-flow:goal` keys — there is **no new
+  `localStorage` key, no network request, and no new runtime dependency**.
 - **Audible and visual notifications** when a phase ends.
 - **Local persistence** of settings, the current session count, and the session
   history via `localStorage`.
@@ -98,11 +107,13 @@ after the first load.
   - `timer.js` — the pure timer state machine.
   - `history.js` — the pure session-history helpers (`recordSession`,
     `pruneHistory`, `summarise`, `labelSummary`, `recentSessions`,
-    `normalizeGoal`, `weekWindow`, `goalProgress`, `weeklyReview`,
+    `normalizeGoal`, `weekWindow`, `goalProgress`, `weeklyReview`, `streaks`,
     `HISTORY_VERSION`, `GOAL_STORAGE_SHAPE_VERSION`) with no DOM access.
     `weeklyReview` returns the current week's goal versus per-label breakdown
     (`{ weekStart, targetMinutes, focusedMinutes, remainingMinutes, percent,
-    reached, labels, perLabel }`).
+    reached, labels, perLabel }`), and `streaks` returns the derived
+    consistency view (`{ current, longest, todayCount, todayMinutes,
+    lastActiveDay }`).
   - `main.js` — the DOM layer and the `registerServiceWorker()` helper.
   - `manifest.webmanifest` — the PWA manifest (name, icons, colours, scope).
   - `service-worker.js` — versioned cache, precache list, and offline handlers.
@@ -133,12 +144,17 @@ The **Weekly review** panel is derived, not stored: it reads only the existing
 `focus-flow:history` and `focus-flow:goal` keys through the pure `weeklyReview`
 helper and adds no new `localStorage` key and no network request.
 
+The **focus streaks** and the daily reminder hint are derived the same way: the
+pure `streaks` helper turns `focus-flow:history` into a current/longest streak
+and today's totals, the reminder compares `todayCount` against the presence of a
+`focus-flow:goal`, and nothing new is persisted or transmitted.
+
 ## Next direction
 
-- Optional **ambient sound** (e.g. brown noise / rain) using the Web Audio API.
-- **Internationalisation (i18n)** with a small message catalog.
-- **Focus streaks and reminders**, derived locally from the session history,
-  building on the weekly goal and weekly review panels.
+- [x] **Focus streaks and reminders**, derived locally from the session history
+  and building on the weekly goal and weekly review panels.
+- [ ] Optional **ambient sound** (e.g. brown noise / rain) using the Web Audio API.
+- [ ] **Internationalisation (i18n)** with a small message catalog.
 
 ## How the repository meets its own criteria
 
@@ -173,14 +189,14 @@ helper and adds no new `localStorage` key and no network request.
 | Low Maintenance | No backend or data migrations to maintain. |
 | Market Differentiation | Privacy-first, offline, no-account, and packaged as a Kubernetes-native OSS app. |
 | Growth Potential | Serving more users costs effectively nothing. |
-| User Retention | Daily use pattern; persistent settings, session counts, and a 7-day focus-history panel that shows progress; optional per-session labels, a label filter, and a weekly review that ranks each label against the weekly goal let users see where their focus went, plus one-tap install to the home screen or desktop. |
+| User Retention | Daily use pattern; persistent settings, session counts, and a 7-day focus-history panel that shows progress; optional per-session labels, a label filter, and a weekly review that ranks each label against the weekly goal let users see where their focus went; a derived current/longest focus streak and a gentle daily reminder hint encourage users to come back and keep the streak alive, plus one-tap install to the home screen or desktop. |
 | Discoverability | Clear name, description, and docs; shareable as a URL. |
 | Mobile Friendly | Responsive layout, touch-friendly controls, and an installable PWA that launches standalone. |
 | Accessibility | Semantic landmarks, ARIA live region, keyboard shortcuts, focus states, contrast. |
 | Minimal Dependencies | Zero runtime JS/CSS dependencies. |
-| Measurable Success | `/healthz` for reliability; the local session history, 7-day stats, optional label breakdown, the weekly focus goal, and the weekly review give users a visible, measurable view of their focus habit, including what each block of time was spent on and how close each label came to their weekly target. |
+| Measurable Success | `/healthz` for reliability; the local session history, 7-day stats, optional label breakdown, the weekly focus goal, and the weekly review give users a visible, measurable view of their focus habit, including what each block of time was spent on and how close each label came to their weekly target; the derived current/longest focus streak and today's totals make consistency itself measurable. |
 | Reusability | Reuses the standard static-container + Helm deployment template. |
-| Innovation Potential | Ambient sound, focus streaks, and internationalisation are natural next steps. |
+| Innovation Potential | Ambient sound and internationalisation remain natural next steps after the shipped focus streaks and weekly review. |
 
 ## Repository criteria (canonical definitions)
 

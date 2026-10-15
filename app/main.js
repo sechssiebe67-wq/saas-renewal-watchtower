@@ -26,6 +26,7 @@ import {
   normalizeGoal,
   goalProgress,
   weeklyReview,
+  streaks,
   UNLABELLED,
 } from "./history.js";
 
@@ -115,6 +116,11 @@ function getElements() {
     statsDays: document.getElementById("stats-days"),
     statsRecent: document.getElementById("stats-recent"),
     statsEmpty: document.getElementById("stats-empty"),
+    statsStreak: document.getElementById("stats-streak"),
+    statsStreakCurrent: document.getElementById("stats-streak-current"),
+    statsStreakLongest: document.getElementById("stats-streak-longest"),
+    statsStreakToday: document.getElementById("stats-streak-today"),
+    statsReminder: document.getElementById("stats-reminder"),
     statsGoal: document.getElementById("stats-goal"),
     statsGoalTarget: document.getElementById("stats-goal-target"),
     statsGoalFocused: document.getElementById("stats-goal-focused"),
@@ -262,6 +268,7 @@ export function init() {
   }
 
   let activeLabel = null;
+  let announcedStreak = null;
 
   function labelDisplay(label) {
     return label === UNLABELLED ? "No label" : label;
@@ -350,6 +357,39 @@ export function init() {
     el.statsRecent.replaceChildren(...items);
   }
 
+  function streakLabel(days) {
+    return days === 1 ? "1 day" : `${days} days`;
+  }
+
+  function renderStreak() {
+    const info = streaks(history, {
+      now: Date.now(),
+      weekStartsOn: DEFAULT_WEEK_START,
+    });
+
+    if (el.statsStreakCurrent) {
+      el.statsStreakCurrent.textContent = streakLabel(info.current);
+    }
+    if (el.statsStreakLongest) {
+      el.statsStreakLongest.textContent = streakLabel(info.longest);
+    }
+    if (el.statsStreakToday) {
+      const noun = info.todayCount === 1 ? "session" : "sessions";
+      el.statsStreakToday.textContent =
+        `${info.todayCount} ${noun} · ${info.todayMinutes} min`;
+    }
+    if (el.statsReminder) {
+      el.statsReminder.hidden = !(info.todayCount === 0 && goal.minutes > 0);
+    }
+
+    if (announcedStreak === null) {
+      announcedStreak = info.current;
+    } else if (info.current !== announcedStreak) {
+      announcedStreak = info.current;
+      announce(`Streak: ${streakLabel(info.current)}.`);
+    }
+  }
+
   function renderStats() {
     const summary = summarise(history, {
       now: Date.now(),
@@ -402,6 +442,7 @@ export function init() {
       labelSummary(history, { now: Date.now(), days: STATS_WINDOW_DAYS }),
     );
     renderRecentSessions();
+    renderStreak();
     renderGoal();
     renderWeeklyReview();
   }

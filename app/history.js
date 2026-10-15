@@ -501,3 +501,92 @@ export function weeklyReview(
     perLabel,
   };
 }
+
+/**
+ * Derive **focus streaks** from the local session log. Pure: no DOM, no
+ * storage, and the input is never mutated. Returns
+ * `{ current, longest, todayCount, todayMinutes, lastActiveDay }`:
+ *
+ * - `current` is the number of consecutive calendar days with at least one
+ *   completed work entry, counting back from today. If today has no entry but
+ *   yesterday does, the streak is still considered active and `current` counts
+ *   from yesterday; otherwise it is `0`.
+ * - `longest` is the longest such run anywhere in the retained history.
+ * - `todayCount` / `todayMinutes` summarise today's completed work entries.
+ * - `lastActiveDay` is the `YYYY-MM-DD` key of the most recent day with an
+ *   entry, or `null` when there are none.
+ *
+ * Malformed entries and non-work phases are ignored exactly as in `summarise`.
+ * `weekStartsOn` is accepted for signature consistency with the other weekly
+ * helpers and normalised the same way as `weekWindow`; streaks are day-based,
+ * so the value does not otherwise change the result.
+ */
+export function streaks(
+  history,
+  { now = Date.now(), weekStartsOn = DEFAULT_WEEK_START } = {},
+) {
+  void weekStartsOn;
+  const resolved = toTimestamp(now);
+  const todayStart = startOfDay(resolved === null ? Date.now() : resolved);
+  const log = Array.isArray(history) ? history : [];
+
+  const days = new Set();
+  let todayCount = 0;
+  let todaySeconds = 0;
+  let lastTimestamp = null;
+
+  for (const entry of log) {
+    const normalized = normalizeEntry(entry);
+    if (!normalized) {
+      continue;
+    }
+    const timestamp = toTimestamp(normalized.endedAt);
+    if (timestamp === null) {
+      continue;
+    }
+    days.add(startOfDay(timestamp));
+    if (timestamp >= todayStart && timestamp < todayStart + DAY_MS) {
+      todayCount += 1;
+      todaySeconds += normalized.durationSeconds;
+    }
+    if (lastTimestamp === null || timestamp > lastTimestamp) {
+      lastTimestamp = timestamp;
+    }
+  }
+
+  const sortedDays = Array.from(days).sort((a, b) => a - b);
+
+  let longest = 0;
+  let run = 0;
+  let previous = null;
+  for (const dayStart of sortedDays) {
+    run = previous !== null && dayStart - previous === DAY_MS ? run + 1 : 1;
+    if (run > longest) {
+      longest = run;
+    }
+    previous = dayStart;
+  }
+
+  const yesterdayStart = todayStart - DAY_MS;
+  let cursor = null;
+  if (days.has(todayStart)) {
+    cursor = todayStart;
+  } else if (days.has(yesterdayStart)) {
+    cursor = yesterdayStart;
+  }
+
+  let current = 0;
+  while (cursor !== null && days.has(cursor)) {
+    current += 1;
+    cursor -= DAY_MS;
+  }
+
+  return {
+    current,
+    longest,
+    todayCount,
+    todayMinutes: Math.round(todaySeconds / 60),
+    lastActiveDay:
+      lastTimestamp === null ? null : dateKey(new Date(lastTimestamp)),
+  };
+}
