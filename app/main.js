@@ -52,6 +52,9 @@ import {
   weeklyReview,
   weeklyReviewCsv,
   streaks,
+  backupFileName,
+  backupToJson,
+  parseBackup,
   UNLABELLED,
 } from "./history.js";
 
@@ -174,6 +177,10 @@ function getElements() {
     weeklyReviewReached: document.getElementById("weekly-review-reached"),
     weeklyReviewLabels: document.getElementById("weekly-review-labels"),
     reviewExport: document.getElementById("review-export"),
+    backupExport: document.getElementById("backup-export"),
+    backupRestore: document.getElementById("backup-restore"),
+    backupRestoreFile: document.getElementById("backup-restore-file"),
+    backupStatus: document.getElementById("backup-status"),
     clearGoal: document.getElementById("clear-goal"),
     clearDailyGoal: document.getElementById("clear-daily-goal"),
     locale: document.getElementById("locale"),
@@ -1086,6 +1093,158 @@ export function init() {
     announce(t("review.exported"));
   }
 
+  /** Snapshot the current in-memory state for a backup. The values are the
+   * already-read (and normalised) storage values, so `exportBackup` stays
+   * pure. */
+  function readBackupState() {
+    return {
+      settings: engine.settings,
+      history,
+      goal,
+      dailyGoal,
+      ambient,
+      locale,
+      weekStart: weekStartsOn,
+    };
+  }
+
+  /**
+   * Export the whole local state as a JSON file. The file is produced by the
+   * pure `backupToJson` helper and handed to the browser as a `Blob` object
+   * URL, so nothing is uploaded and no storage key is written.
+   */
+  function exportBackupFile() {
+    const json = backupToJson(readBackupState(), { now: Date.now() });
+    const blob = new Blob([json], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = backupFileName();
+    link.rel = "noopener";
+    document.body.append(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    announce(t("announce.backupExported"));
+  }
+
+  /** Show a non-destructive inline error and announce it. Existing data is
+   * never touched on a rejected file. */
+  function showBackupError(message) {
+    if (el.backupStatus) {
+      el.backupStatus.textContent = message;
+      window.setTimeout(() => {
+        if (el.backupStatus.textContent === message) {
+          el.backupStatus.textContent = "";
+        }
+      }, 4000);
+    }
+    announce(message);
+  }
+
+  /**
+   * Write a validated backup back to `localStorage`. Keys whose normalised
+   * value is empty/default are removed, matching the "a default install leaves
+   * no trace" rule used everywhere else. The whole UI is re-rendered at the
+   * end.
+   */
+  function applyRestoredBackup(parsed) {
+    if (parsed.settings) {
+      engine.setSettings(parsed.settings);
+      writeStorage(STORAGE_KEYS.settings, engine.settings);
+    }
+
+    history = pruneHistory(parsed.history, {
+      now: Date.now(),
+      retentionDays: DEFAULT_RETENTION_DAYS,
+    });
+    if (history.length > 0) {
+      writeStorage(STORAGE_KEYS.history, history);
+    } else {
+      try {
+        window.localStorage.removeItem(STORAGE_KEYS.history);
+      } catch (error) {
+        /* Storage may be unavailable; the in-memory history still applies. */
+      }
+    }
+
+    goal = normalizeGoal(parsed.goal);
+    persistGoal();
+    dailyGoal = normalizeDailyGoal(parsed.dailyGoal);
+    persistDailyGoal();
+
+    const nextAmbient = normalizeAmbient(parsed.ambient);
+    const ambientChanged =
+      nextAmbient.type !== ambient.type ||
+      nextAmbient.volume !== ambient.volume;
+    ambient = nextAmbient;
+    persistAmbient();
+    if (ambientChanged) {
+      stopAmbient();
+    }
+    syncAmbient(engine.snapshot());
+
+    locale = normalizeLocale(parsed.locale);
+    t = createTranslator(locale);
+    persistLocale();
+    if (el.locale) {
+      el.locale.value = locale;
+    }
+
+    weekStartsOn = normalizeWeekStart(parsed.weekStart);
+    persistWeekStart();
+
+    goalReached = null;
+    dailyGoalReached = null;
+    activeLabel = null;
+    announcedStreak = null;
+    announcedBreakdown = false;
+
+    applyStaticTranslations();
+    updateThemeButton(currentTheme());
+    syncForm(engine.settings);
+    syncAmbientControls();
+    syncWeekStartControl();
+    render(engine.snapshot());
+    renderStats();
+  }
+
+  /** Validate and apply a backup string; returns `true` on success. A rejected
+   * file leaves all existing data untouched. */
+  function restoreBackupText(text) {
+    const parsed = parseBackup(text, {
+      now: Date.now(),
+      retentionDays: DEFAULT_RETENTION_DAYS,
+    });
+    if (!parsed) {
+      showBackupError(t("settings.backupInvalid"));
+      return false;
+    }
+    applyRestoredBackup(parsed);
+    announce(t("announce.backupRestored"));
+    return true;
+  }
+
+  /** Read a chosen file with the browser's `FileReader` and restore it. The
+   * read is entirely local; a read error is reported without touching data. */
+  function handleBackupFile(file) {
+    if (!file) {
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      restoreBackupText(typeof reader.result === "string" ? reader.result : "");
+    };
+    reader.onerror = () => {
+      showBackupError(t("announce.backupFailed"));
+    };
+    try {
+      reader.readAsText(file);
+    } catch (error) {
+      showBackupError(t("announce.backupFailed"));
+    }
+  }
+
   function renderWeeklyReview() {
     const review = currentWeeklyReview();
 
@@ -1391,6 +1550,22 @@ export function init() {
 
   if (el.reviewExport) {
     el.reviewExport.addEventListener("click", exportWeeklyReview);
+  }
+
+  if (el.backupExport) {
+    el.backupExport.addEventListener("click", exportBackupFile);
+  }
+
+  if (el.backupRestore && el.backupRestoreFile) {
+    el.backupRestore.addEventListener("click", () => {
+      el.backupRestoreFile.click();
+    });
+    el.backupRestoreFile.addEventListener("change", () => {
+      const file =
+        el.backupRestoreFile.files && el.backupRestoreFile.files[0];
+      handleBackupFile(file);
+      el.backupRestoreFile.value = "";
+    });
   }
 
   el.themeToggle.addEventListener("click", () => {

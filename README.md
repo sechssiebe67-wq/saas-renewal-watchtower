@@ -102,6 +102,18 @@ calls, no telemetry, and no secrets.
   through the screen-reader live region, and stored only on the device in
   `localStorage["focus-flow:week-start"]` (the key is removed when you pick the
   default).
+- **Backup & restore:** a **Backup & restore** group in Settings can export all of
+  your local Focus Flow data to a single
+  `focus-flow-backup-<YYYY-MM-DD>.json` file — your settings, session history
+  (with labels), weekly goal, daily goal, ambient-sound choice, language, and
+  week-start preference — and restore it on the same or another device. The
+  **Restore backup** control reads a file you pick, **validates and normalises**
+  it before writing, and leaves your existing data untouched if the file is not a
+  usable backup (showing an inline error and announcing it). The JSON is built by
+  the pure backup helpers in `app/history.js` and handed to the browser as a
+  `Blob` URL; restore uses the browser's `FileReader`. Nothing is uploaded, and
+  the feature adds **no new `localStorage` key, no network request, and no
+  third-party dependency**.
 - Settings, session count, history, the weekly goal, the daily goal, the
   ambient-sound choice, the language, and the week-start choice persist across
   reloads.
@@ -119,7 +131,11 @@ in the Stats panel**, the focus streaks, and the daily reminder hint are all
 **derived** from that existing local data only — they add no new storage key, no
 network request, and no third-party dependency. The CSV
 is written by a pure helper and handed to the browser as a local `Blob` URL, so
-it is created and saved entirely on your device and never leaves it. The ambient
+it is created and saved entirely on your device and never leaves it. The
+**backup & restore** JSON is likewise built by a pure helper and handed over as a
+local `Blob` URL, then read back with the browser's `FileReader`, so it is
+created, saved, and restored entirely on your device, adds no new `localStorage`
+key, and never leaves it. The ambient
 sound is generated locally and adds no audio file, no network request, and no
 third-party asset. The i18n catalog is bundled locally, so localisation adds no
 network request and no third-party library. All data stays on the device.
@@ -156,6 +172,12 @@ The Stats **Daily goal** row is derived from the same `focus-flow:history` log b
 the pure `dailyGoalProgress` helper in `app/history.js`, which sums only
 completed work entries whose `endedAt` falls on the current local calendar day.
 It reads no storage of its own and makes no network request.
+
+**Backup & restore** adds **no new `localStorage` key** and makes no network
+request: the exported JSON mirrors the existing keys listed above (settings,
+history, goal, daily goal, ambient, locale, and week start) and a restored file
+is normalised with the same pure helpers before those keys are rewritten. The
+file is created and read entirely on the device.
 
 The full concept, audience, roadmap, and criteria mapping live in
 [`CONCEPT.md`](CONCEPT.md).

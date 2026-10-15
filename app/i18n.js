@@ -85,6 +85,18 @@ const EN_MESSAGES = {
   "settings.weekStart": "Week starts on",
   "settings.weekStartMonday": "Monday",
   "settings.weekStartSunday": "Sunday",
+  "settings.backup": "Backup & restore",
+  "settings.backupHint":
+    "Export a local JSON copy of your settings, history, and goals, or restore one. Files stay on this device.",
+  "settings.exportBackup": "Export backup",
+  "settings.exportBackupHint":
+    "Downloads a JSON file with your settings, history, and goals. Nothing is uploaded.",
+  "settings.restoreBackup": "Restore backup",
+  "settings.restoreBackupHint":
+    "Replaces your local data with a backup file you choose. Nothing is uploaded.",
+  "settings.restoreBackupFile": "Backup file to restore",
+  "settings.backupInvalid":
+    "That file is not a valid Focus Flow backup. Your data was not changed.",
   "ambient.off": "Off",
   "ambient.brown": "Brown noise",
   "ambient.pink": "Pink noise",
@@ -152,6 +164,10 @@ const EN_MESSAGES = {
   "announce.dailyGoalCleared": "Daily goal cleared.",
   "announce.locale": "Language: {language}.",
   "announce.weekStart": "Week starts on {day}.",
+  "announce.backupExported": "Backup exported.",
+  "announce.backupRestored": "Backup restored.",
+  "announce.backupFailed":
+    "Backup restore failed. Your data was not changed.",
   "announce.phaseFinished": "{finished} finished. {next} ready.",
   "announce.timerStarted": "Timer started. {phase}.",
   "announce.timerPaused": "Timer paused. {time} remaining.",
@@ -213,6 +229,18 @@ const DE_MESSAGES = {
   "settings.weekStart": "Woche beginnt am",
   "settings.weekStartMonday": "Montag",
   "settings.weekStartSunday": "Sonntag",
+  "settings.backup": "Sichern & wiederherstellen",
+  "settings.backupHint":
+    "Exportiere eine lokale JSON-Kopie deiner Einstellungen, deines Verlaufs und deiner Ziele oder stelle eine wieder her. Dateien bleiben auf diesem Gerät.",
+  "settings.exportBackup": "Sicherung exportieren",
+  "settings.exportBackupHint":
+    "Lädt eine JSON-Datei mit deinen Einstellungen, deinem Verlauf und deinen Zielen herunter. Es wird nichts hochgeladen.",
+  "settings.restoreBackup": "Sicherung wiederherstellen",
+  "settings.restoreBackupHint":
+    "Ersetzt deine lokalen Daten durch eine von dir gewählte Sicherungsdatei. Es wird nichts hochgeladen.",
+  "settings.restoreBackupFile": "Wiederherzustellende Sicherungsdatei",
+  "settings.backupInvalid":
+    "Diese Datei ist keine gültige Focus-Flow-Sicherung. Deine Daten wurden nicht geändert.",
   "ambient.off": "Aus",
   "ambient.brown": "Braunes Rauschen",
   "ambient.pink": "Rosa Rauschen",
@@ -282,6 +310,10 @@ const DE_MESSAGES = {
   "announce.dailyGoalCleared": "Tagesziel gelöscht.",
   "announce.locale": "Sprache: {language}.",
   "announce.weekStart": "Woche beginnt am {day}.",
+  "announce.backupExported": "Sicherung exportiert.",
+  "announce.backupRestored": "Sicherung wiederhergestellt.",
+  "announce.backupFailed":
+    "Wiederherstellung der Sicherung fehlgeschlagen. Deine Daten wurden nicht geändert.",
   "announce.phaseFinished": "{finished} beendet. {next} bereit.",
   "announce.timerStarted": "Timer gestartet. {phase}.",
   "announce.timerPaused": "Timer pausiert. {time} verbleibend.",
@@ -343,6 +375,18 @@ const ES_MESSAGES = {
   "settings.weekStart": "La semana comienza el",
   "settings.weekStartMonday": "lunes",
   "settings.weekStartSunday": "domingo",
+  "settings.backup": "Copia de seguridad y restauración",
+  "settings.backupHint":
+    "Exporta una copia local en JSON de tus ajustes, tu historial y tus objetivos, o restaura una. Los archivos permanecen en este dispositivo.",
+  "settings.exportBackup": "Exportar copia de seguridad",
+  "settings.exportBackupHint":
+    "Descarga un archivo JSON con tus ajustes, tu historial y tus objetivos. No se sube nada.",
+  "settings.restoreBackup": "Restaurar copia de seguridad",
+  "settings.restoreBackupHint":
+    "Reemplaza tus datos locales con un archivo de copia de seguridad que elijas. No se sube nada.",
+  "settings.restoreBackupFile": "Archivo de copia de seguridad que restaurar",
+  "settings.backupInvalid":
+    "Ese archivo no es una copia de seguridad de Focus Flow válida. Tus datos no se modificaron.",
   "ambient.off": "Desactivado",
   "ambient.brown": "Ruido marrón",
   "ambient.pink": "Ruido rosa",
@@ -412,6 +456,10 @@ const ES_MESSAGES = {
   "announce.dailyGoalCleared": "Objetivo diario borrado.",
   "announce.locale": "Idioma: {language}.",
   "announce.weekStart": "La semana comienza el {day}.",
+  "announce.backupExported": "Copia de seguridad exportada.",
+  "announce.backupRestored": "Copia de seguridad restaurada.",
+  "announce.backupFailed":
+    "No se pudo restaurar la copia de seguridad. Tus datos no se modificaron.",
   "announce.phaseFinished": "{finished} finalizada. {next} lista.",
   "announce.timerStarted": "Temporizador iniciado. {phase}.",
   "announce.timerPaused": "Temporizador en pausa. Quedan {time}.",
