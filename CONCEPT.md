@@ -29,7 +29,10 @@ first day of the week are all local, device-only preferences.
   to patch beyond the base container image.
 - **Privacy by construction:** all state lives in the browser's `localStorage`.
   No data ever leaves the device, so there is no personal data to protect or
-  leak.
+  leak. Everything the product adds on top of the raw log — the weekly and daily
+  goals, the weekly review, the paces, the streaks, and the new **weekly focus
+  trend sparkline** — is **derived locally** from that same on-device history by
+  pure functions, so it needs no server, no third-party service, and no upload.
 
 ## Intended users
 
@@ -167,6 +170,24 @@ after the first load.
   preference, every string comes from the bundled `app/i18n.js` catalog, and it
   is announced once through the existing ARIA live region when it first appears
   or when the goal is reached.
+- **Weekly focus trend sparkline in the Stats panel:** the Stats panel shows a
+  compact **Focus trend** line chart covering the **last 8 weeks** (including the
+  current, partial week), with one point per week, so a user can answer *"is my
+  focus trending up or down over the last few weeks?"* without leaving the app.
+  Each point is the total focused minutes for that week, computed with the user's
+  existing **Week starts on** preference and the same local-calendar arithmetic
+  already used by `weeklyReview` (so daylight-saving transitions never shift,
+  drop, or duplicate a week bucket). The sparkline respects the active **label
+  filter** — a filtered Stats view shows the trend for that label only — and
+  applies the **label aliases** map exactly as `weeklyReview` does. A short
+  caption states the direction (**Trending up**, **Steady**, or **Trending
+  down**) plus the numeric min–max range, and the whole chart is a single
+  `role="img"` region with an accessible name and range so the shape is readable
+  by screen readers. It is derived entirely from the already-stored
+  `focus-flow:history` key by the pure `weeklyTrend` helper in `app/history.js`;
+  there is **no new `localStorage` key, no network request, no third-party
+  dependency, and no new runtime asset**, and every string comes from the bundled
+  `app/i18n.js` catalog.
 - **Per-label daily goal breakdown in the Stats panel:** the **Daily goal** row
   in the Stats panel also shows a compact, per-label breakdown of *today's*
   focused minutes, so a label-scoped daily goal (e.g. "50 minutes on Thesis
