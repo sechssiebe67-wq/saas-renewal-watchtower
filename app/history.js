@@ -29,9 +29,13 @@
  * It additionally owns the pure maths for the optional **daily focus goal**: a
  * `{ minutes, label? }` target for the current local calendar day.
  * `dailyGoalProgress` measures today's logged focus time against that target
- * using the same label-matching rule as `goalProgress`, and
+ * using the same label-matching rule as `goalProgress`, `dailyReview` adds a
+ * per-label breakdown of today (mirroring `weeklyReview`), and
  * `normalizeDailyGoal` coerces arbitrary stored input into the canonical shape
- * (clamped to a single day). These are pure too: no DOM, no storage, no network.
+ * (clamped to a single day). `badgeState` turns a daily goal plus a
+ * `dailyReview` result into the on-device **app badge** decision (the remaining
+ * focused minutes, or `null`), leaving the feature-detected platform badge
+ * calls to the DOM layer. These are pure too: no DOM, no storage, no network.
  *
  * Finally it owns the pure maths for the local **backup / restore** capability:
  * `exportBackup` / `backupToJson` turn already-read storage values into a
@@ -851,6 +855,142 @@ export function dailyGoalProgress(
     reached,
     dayStart,
   };
+}
+
+/**
+ * Build a **daily review** that lines the daily focus goal up against the
+ * per-label breakdown for the current local calendar day. Returns
+ * `{ dayStart, targetMinutes, focusedMinutes, remainingMinutes, percent,
+ * reached, scoped, labels, perLabel }`:
+ *
+ * - `targetMinutes` is `goal.minutes` clamped to `0..MAX_DAILY_GOAL_MINUTES`.
+ * - `focusedMinutes` sums completed work entries on the current local calendar
+ *   day, using the same label-matching rule as `dailyGoalProgress` (`UNLABELLED`
+ *   counts entries without a label). The optional `goal.label` scopes the whole
+ *   review to it; without it every label seen today is covered.
+ * - `percent` is clamped to `0..100`; with no goal (`0`) it is `100`, matching
+ *   `dailyGoalProgress`.
+ * - `reached` is only `true` when the target is positive and met.
+ * - `perLabel` covers every label seen today plus an `UNLABELLED` bucket when
+ *   applicable, each shaped as `{ label, sessions, minutes, percentOfTarget }`,
+ *   sorted by minutes descending then label ascending. `percentOfTarget` is
+ *   clamped to `0..100` and is `0` when there is no target.
+ * - `labels` is the list of label names in `perLabel` order.
+ * - `scoped` is `true` when the goal carries a `label`, so the DOM layer can
+ *   label the breakdown as a single-label view without inspecting `perLabel`.
+ *
+ * When `tags` is provided each entry's label is run through `applyAliases`, so
+ * the breakdown groups by display alias and a label-scoped goal expressed as an
+ * alias still matches. The day span is computed with local calendar arithmetic,
+ * so a 23h/25h daylight-saving transition never drops or duplicates entries.
+ * Pure: the input log is never mutated, malformed entries and non-work phases
+ * are ignored, and there is no DOM, storage, or network access.
+ */
+export function dailyReview(history, { now = Date.now(), goal, tags } = {}) {
+  const resolvedGoal = normalizeDailyGoal(goal);
+  const filter =
+    resolvedGoal.label === undefined ? null : String(resolvedGoal.label);
+  const progress = dailyGoalProgress(history, {
+    now,
+    minutes: resolvedGoal.minutes,
+    label: filter === null ? undefined : filter,
+    tags,
+  });
+
+  const resolvedNow = toTimestamp(now);
+  const base = resolvedNow === null ? Date.now() : resolvedNow;
+  const baseDate = new Date(base);
+  const dayEnd = new Date(
+    baseDate.getFullYear(),
+    baseDate.getMonth(),
+    baseDate.getDate() + 1,
+  ).getTime();
+
+  const log = Array.isArray(history) ? history : [];
+  const buckets = new Map();
+  for (const entry of log) {
+    const normalized = normalizeEntry(entry);
+    if (!normalized) {
+      continue;
+    }
+    const timestamp = toTimestamp(normalized.endedAt);
+    if (
+      timestamp === null ||
+      timestamp < progress.dayStart ||
+      timestamp >= dayEnd
+    ) {
+      continue;
+    }
+    const key = applyAliases(normalized.label, tags) || UNLABELLED;
+    if (filter !== null && key !== filter) {
+      continue;
+    }
+    const entryMinutes = Math.round(normalized.durationSeconds / 60);
+    const bucket = buckets.get(key) || { label: key, sessions: 0, minutes: 0 };
+    bucket.sessions += 1;
+    bucket.minutes += entryMinutes;
+    buckets.set(key, bucket);
+  }
+
+  const targetMinutes = progress.targetMinutes;
+  const perLabel = Array.from(buckets.values())
+    .map((bucket) => ({
+      label: bucket.label,
+      sessions: bucket.sessions,
+      minutes: bucket.minutes,
+      percentOfTarget:
+        targetMinutes <= 0
+          ? 0
+          : Math.min(
+              100,
+              Math.max(0, Math.round((bucket.minutes / targetMinutes) * 100)),
+            ),
+    }))
+    .sort((a, b) => b.minutes - a.minutes || a.label.localeCompare(b.label));
+
+  return {
+    dayStart: progress.dayStart,
+    targetMinutes,
+    focusedMinutes: progress.focusedMinutes,
+    remainingMinutes: progress.remainingMinutes,
+    percent: progress.percent,
+    reached: progress.reached,
+    scoped: filter !== null,
+    labels: perLabel.map((item) => item.label),
+    perLabel,
+  };
+}
+
+/**
+ * Decide the value for the on-device **app badge** from the daily goal and a
+ * `dailyReview` result.
+ *
+ * Returns `null` when no daily goal is set, when the review is missing or
+ * malformed, or when the goal has been reached; otherwise it returns the
+ * remaining focused minutes, clamped to `>= 0`. Pure and injectable: it reads
+ * no DOM, no storage, and no platform API, so the DOM layer owns the
+ * feature-detected badge calls and unsupported browsers are unaffected.
+ */
+export function badgeState({ goal, review } = {}) {
+  const resolvedGoal = normalizeDailyGoal(goal);
+  if (resolvedGoal.minutes <= 0) {
+    return null;
+  }
+  if (!review || typeof review !== "object") {
+    return null;
+  }
+  const target = clampDailyGoalMinutes(review.targetMinutes);
+  if (target <= 0) {
+    return null;
+  }
+  const focusedValue = Number(review.focusedMinutes);
+  const focused = Number.isFinite(focusedValue)
+    ? Math.max(0, Math.round(focusedValue))
+    : 0;
+  if (review.reached === true || focused >= target) {
+    return null;
+  }
+  return Math.max(0, target - focused);
 }
 
 /**

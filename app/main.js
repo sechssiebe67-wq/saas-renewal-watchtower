@@ -50,6 +50,8 @@ import {
   goalProgress,
   normalizeDailyGoal,
   dailyGoalProgress,
+  dailyReview,
+  badgeState,
   weeklyReview,
   weeklyReviewCsv,
   streaks,
@@ -173,6 +175,10 @@ function getElements() {
     statsDailyGoalBar: document.getElementById("stats-daily-goal-bar"),
     statsDailyGoalFill: document.getElementById("stats-daily-goal-fill"),
     statsDailyGoalReached: document.getElementById("stats-daily-goal-reached"),
+    statsDailyBreakdownTitle: document.getElementById(
+      "stats-daily-breakdown-title",
+    ),
+    statsDailyBreakdown: document.getElementById("stats-daily-breakdown"),
     weeklyReviewEmpty: document.getElementById("weekly-review-empty"),
     weeklyReviewSummary: document.getElementById("weekly-review-summary"),
     weeklyReviewFocused: document.getElementById("weekly-review-focused"),
@@ -729,6 +735,8 @@ export function init() {
   let activeLabel = null;
   let announcedStreak = null;
   let announcedBreakdown = false;
+  let announcedDailyBreakdown = false;
+  let lastBadgeValue;
 
   function labelDisplay(label) {
     return label === UNLABELLED ? t("label.unlabelled") : label;
@@ -1085,6 +1093,7 @@ export function init() {
     renderGoal();
     renderDailyGoal();
     renderWeeklyReview();
+    syncBadge();
   }
 
   function currentGoalProgress() {
@@ -1197,6 +1206,7 @@ export function init() {
     }
     if (!active) {
       dailyGoalReached = null;
+      hideDailyBreakdown();
       return;
     }
 
@@ -1240,7 +1250,155 @@ export function init() {
       );
     }
 
+    renderDailyBreakdown();
     noteDailyGoalReached(progress.reached);
+  }
+
+  /** Hide the per-label daily breakdown and let it announce again when it
+   * returns. */
+  function hideDailyBreakdown() {
+    if (el.statsDailyBreakdown) {
+      el.statsDailyBreakdown.hidden = true;
+      el.statsDailyBreakdown.replaceChildren();
+    }
+    if (el.statsDailyBreakdownTitle) {
+      el.statsDailyBreakdownTitle.hidden = true;
+    }
+    announcedDailyBreakdown = false;
+  }
+
+  /** The current day's review for the active daily goal / label / alias map. */
+  function currentDailyReview() {
+    return dailyReview(history, {
+      now: Date.now(),
+      goal: {
+        minutes: dailyGoal.minutes,
+        label:
+          activeLabel === null
+            ? applyAliases(dailyGoal.label, sessionTags)
+            : activeLabel,
+      },
+      tags: sessionTags,
+    });
+  }
+
+  /**
+   * Render today's per-label breakdown inside the existing Daily goal row. The
+   * rows come from the pure `dailyReview` helper (already sorted by minutes
+   * descending then label ascending), so no new storage or network access is
+   * involved. Labelled and `(unlabelled)` entries are both shown, the existing
+   * label filter scopes the list, and the breakdown is hidden — and reset so it
+   * can announce again — when today has no label rows.
+   */
+  function renderDailyBreakdown() {
+    if (!el.statsDailyBreakdown) {
+      return;
+    }
+
+    const review = currentDailyReview();
+    const rows = review.perLabel;
+    const visible = rows.length > 0;
+
+    el.statsDailyBreakdown.hidden = !visible;
+    if (el.statsDailyBreakdownTitle) {
+      el.statsDailyBreakdownTitle.hidden = !visible;
+    }
+
+    if (!visible) {
+      el.statsDailyBreakdown.replaceChildren();
+      announcedDailyBreakdown = false;
+      return;
+    }
+
+    const items = rows.map((row) => {
+      const item = document.createElement("li");
+      item.className = "stats__goal-label";
+
+      const name = document.createElement("span");
+      name.className = "stats__goal-label-name";
+      name.textContent = labelDisplay(row.label);
+
+      const stats = document.createElement("span");
+      stats.className = "stats__goal-label-stats";
+      stats.textContent = t("stats.dailyLabelStats", {
+        minutes: formatDuration(row.minutes, locale),
+        percent: formatNumber(row.percentOfTarget, locale),
+      });
+
+      item.append(name, stats);
+      return item;
+    });
+    el.statsDailyBreakdown.replaceChildren(...items);
+
+    if (!announcedDailyBreakdown) {
+      announcedDailyBreakdown = true;
+      if (review.scoped) {
+        const row = rows[0];
+        announce(
+          t("announce.dailyBreakdownScoped", {
+            label: labelDisplay(row.label),
+            minutes: formatDuration(row.minutes, locale),
+          }),
+        );
+      } else {
+        const summaryTemplate = pluralise(
+          rows.length,
+          {
+            one: t("stats.goalBreakdownOne"),
+            other: t("stats.goalBreakdownMany"),
+          },
+          locale,
+        );
+        const summary = summaryTemplate.replace(
+          "{count}",
+          formatNumber(rows.length, locale),
+        );
+        announce(t("announce.dailyBreakdown", { summary }));
+      }
+    }
+  }
+
+  /**
+   * Push the on-device **app badge** to the platform from the pure
+   * `badgeState` helper. The feature is detected before any call, so a browser
+   * without `setAppBadge` is a no-op and never throws; the badge shows today's
+   * remaining focused minutes and is cleared once the daily goal is reached or
+   * unset. The state is announced once through the live region only when it
+   * actually changes. No storage key and no network request is involved.
+   */
+  function syncBadge() {
+    if (
+      typeof navigator === "undefined" ||
+      typeof navigator.setAppBadge !== "function"
+    ) {
+      return;
+    }
+    const value = badgeState({
+      goal: dailyGoal,
+      review: currentDailyReview(),
+    });
+    if (value === lastBadgeValue) {
+      return;
+    }
+    lastBadgeValue = value;
+    try {
+      if (value === null) {
+        if (typeof navigator.clearAppBadge === "function") {
+          const clearing = navigator.clearAppBadge();
+          if (clearing && typeof clearing.catch === "function") {
+            clearing.catch(() => {});
+          }
+        }
+        return;
+      }
+      const setting = navigator.setAppBadge(value);
+      if (setting && typeof setting.catch === "function") {
+        setting.catch(() => {});
+      }
+    } catch (error) {
+      return;
+    }
+    announce(t("announce.badge", { minutes: formatDuration(value, locale) }));
   }
 
   /** Hide the per-label breakdown and let it announce again when it returns. */
@@ -1492,6 +1650,8 @@ export function init() {
     activeLabel = null;
     announcedStreak = null;
     announcedBreakdown = false;
+    announcedDailyBreakdown = false;
+    lastBadgeValue = undefined;
 
     applyStaticTranslations();
     updateThemeButton(currentTheme());
