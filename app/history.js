@@ -42,7 +42,6 @@ export const DEFAULT_WEEK_START = 1;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WORK_PHASE = "work";
-const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function toTimestamp(value) {
   if (typeof value === "number" && Number.isFinite(value)) {
@@ -181,9 +180,11 @@ export function pruneHistory(
  * Summarise completed work sessions over the trailing `days`-day period that
  * ends today. Returns `{ days, totalSessions, totalMinutes, perDay, empty }`
  * where `perDay` is a zero-filled list of `{ date, label, count, minutes }`
- * buckets in chronological order. When `label` is provided, only entries
- * matching it are counted; pass `UNLABELLED` to count entries without a label.
- * Purely data in, data out.
+ * buckets in chronological order. `date` is the `YYYY-MM-DD` calendar key and
+ * `label` mirrors it; the buckets no longer carry a language-specific weekday
+ * name, so the DOM layer localises the weekday from `date` through the catalog.
+ * When `label` is provided, only entries matching it are counted; pass
+ * `UNLABELLED` to count entries without a label. Purely data in, data out.
  */
 export function summarise(history, { now = Date.now(), days = 7, label } = {}) {
   const { spanDays, rangeStart, entries } = collectWindow(history, { now, days });
@@ -195,7 +196,7 @@ export function summarise(history, { now = Date.now(), days = 7, label } = {}) {
     const key = dateKey(date);
     buckets.set(key, {
       date: key,
-      label: DAY_NAMES[date.getDay()],
+      label: key,
       count: 0,
       minutes: 0,
     });
