@@ -65,14 +65,22 @@ calls, no telemetry, and no secrets.
   forms, and number grouping, so the Stats per-day bars, the **Recent sessions**
   timestamps, the streak text, and the weekly-review label stats render in the
   selected language (for example `1.234,5` and `Montag` in German).
+- **User-selectable first day of week:** a **Week starts on** control in
+  Settings lets you start the week on **Monday** (the default) or **Sunday**. The
+  choice flows through every week-scoped surface — the Stats **Weekly goal** row,
+  the **Weekly review** panel and its per-label breakdown, and the streak
+  day-adjacency logic. It is rendered through the bundled catalog, announced once
+  through the screen-reader live region, and stored only on the device in
+  `localStorage["focus-flow:week-start"]` (the key is removed when you pick the
+  default).
 - Settings, session count, history, the weekly goal, the ambient-sound choice,
-  and the language persist across reloads.
+  the language, and the week-start choice persist across reloads.
 - Accessible, responsive layout for mobile, tablet, and desktop.
 - Installable PWA with a web manifest and an offline-first service worker.
 
 Focus Flow is **privacy-first by construction**: the focus history, any session
-labels you type, your weekly focus goal, your ambient-sound choice, and your
-language preference live only
+labels you type, your weekly focus goal, your ambient-sound choice, your
+language preference, and your week-start preference live only
 on your device. They are never uploaded, synced, or sent anywhere. The weekly
 review, the focus streaks, and the daily reminder hint are all **derived** from
 that existing local data only — they add no new storage key, no network request,
@@ -96,6 +104,9 @@ All state lives in the browser's `localStorage`:
   when the type is `off`.
 - `focus-flow:locale` — the canonical locale id for the chosen language;
   removed when the locale is the default (`en`).
+- `focus-flow:week-start` — the optional first-day-of-week preference (`0` =
+  Sunday, `1` = Monday), rendered through the bundled catalog; removed when the
+  default Monday is selected.
 
 The full concept, audience, roadmap, and criteria mapping live in
 [`CONCEPT.md`](CONCEPT.md).
@@ -126,6 +137,11 @@ dependency or request.
 Your language choice is saved **only on the device** under
 `localStorage["focus-flow:locale"]`. A default install stores nothing, and the
 choice is never uploaded, synced, or sent anywhere.
+
+The same bundled catalog also labels the **Week starts on** preference in
+Settings, so the first-day-of-week choice is localised with the rest of the UI.
+It adds no network request, no third-party dependency, and no storage beyond the
+optional `focus-flow:week-start` key described above.
 
 ## Run locally
 

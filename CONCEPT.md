@@ -11,6 +11,8 @@ The repository goal is to keep the whole product small enough to understand in
 one sitting: a handful of plain HTML/CSS/JS files, a minimal container image,
 and a Helm chart that renders on the existing k3s / Argo CD pipeline. Anyone can
 serve the `app/` directory with any static file server and get the full product.
+It follows the user's own conventions where it can — language, sound, and the
+first day of the week are all local, device-only preferences.
 
 ### Why this exists
 
@@ -125,6 +127,18 @@ after the first load.
   and plural forms. This adds **no `Intl` dependency, no new `localStorage` key,
   no network request, and no third-party library** — the data ships in the same
   file as the message catalog.
+- **User-selectable first day of week:** a **Week starts on** control in the
+  settings card lets the user choose whether the week begins on **Monday**
+  (default) or **Sunday**. The choice is rendered through the existing bundled
+  `app/i18n.js` catalog (no new dependency and no network request), and flows
+  through every week-scoped surface — the Stats **Weekly goal** row, the
+  **Weekly review** panel, and its per-label breakdown, plus the streak
+  day-adjacency logic. Changing it re-renders the Stats and Weekly review panels
+  immediately and is announced once through the existing ARIA live region. It is
+  stored only on the device under `focus-flow:week-start` (`0` = Sunday,
+  `1` = Monday), and the key is removed when the default Monday is selected so a
+  default install leaves no trace. `normalizeWeekStart` in `app/history.js`
+  coerces arbitrary stored input into `0` or `1` and never throws.
 - **Audible and visual notifications** when a phase ends.
 - **Local persistence** of settings, the current session count, and the session
   history via `localStorage`.
@@ -155,7 +169,11 @@ after the first load.
   - `history.js` — the pure session-history helpers (`recordSession`,
     `pruneHistory`, `summarise`, `labelSummary`, `recentSessions`,
     `normalizeGoal`, `weekWindow`, `goalProgress`, `weeklyReview`, `streaks`,
-    `HISTORY_VERSION`, `GOAL_STORAGE_SHAPE_VERSION`) with no DOM access.
+    `normalizeWeekStart`, `HISTORY_VERSION`, `GOAL_STORAGE_SHAPE_VERSION`,
+    `WEEK_START_OPTIONS`, `WEEK_START_STORAGE_SHAPE_VERSION`) with no DOM
+    access. `normalizeWeekStart` coerces arbitrary stored input into the
+    supported first day of week (`0` = Sunday, `1` = Monday), and
+    `WEEK_START_OPTIONS` pairs each value with its catalog label key.
     `weeklyReview` returns the current week's goal versus per-label breakdown
     (`{ weekStart, targetMinutes, focusedMinutes, remainingMinutes, percent,
     reached, labels, perLabel }`), and `streaks` returns the derived
@@ -198,7 +216,8 @@ leaves the device. There is no backend, no account, and no sync.
 | `focus-flow:history` | array of `{ endedAt, phase, durationSeconds, label? }` | Local session log. `endedAt` is an ISO timestamp, `phase` is `"work"`, and `durationSeconds` is the configured work duration. `label` is optional: a trimmed string of at most 40 characters, and it is absent when the user leaves the session-label field empty. Only completed work phases are appended; the log is pruned to the most recent 500 entries and 90 days. `HISTORY_VERSION` in `app/history.js` documents the entry schema version: **version 2** adds the optional `label` field, and version 1 entries (which have no `label`) remain valid and still count toward the 7-day totals. |
 | `focus-flow:goal` | `{ minutes, label? }` | Optional **weekly focus goal**. `minutes` is an integer clamped to `0..10080` (a full week; `0` means "no goal"), and `label` is an optional trimmed string of at most 40 characters that scopes the goal to a single session label. The goal is stored **only in `localStorage`** and is never uploaded; `GOAL_STORAGE_SHAPE_VERSION` in `app/history.js` documents the shape version, and `normalizeGoal` coerces older or malformed values. |
 | `focus-flow:ambient` | `{ type, volume }` | Optional **ambient sound** setting. `type` is one of `"off"`, `"brown"`, `"pink"`, or `"rain"`, and `volume` is a number clamped to `0..1`. The key is **removed** when `type` is `"off"`; `normalizeAmbient` in `app/ambient.js` coerces arbitrary stored input and never throws. Nothing is uploaded and no audio file is stored — the sound is synthesised in the browser. |
-| `focus-flow:locale` | locale id string (`"en"` \| `"de"` \| `"es"`) | Optional **language** preference. The stored value is the canonical id from `SUPPORTED_LOCALES`; `normalizeLocale` in `app/i18n.js` coerces arbitrary stored input (a string, a `{ locale }` object, or anything else) into a supported id, falling back to `DEFAULT_LOCALE` (`"en"`) and never throwing. The key is **removed** when the locale is the default so a default install leaves no trace, matching the ambient-sound behaviour. `LOCALE_STORAGE_SHAPE_VERSION` documents the shape version. This is the only new storage key. |
+| `focus-flow:locale` | locale id string (`"en"` \| `"de"` \| `"es"`) | Optional **language** preference. The stored value is the canonical id from `SUPPORTED_LOCALES`; `normalizeLocale` in `app/i18n.js` coerces arbitrary stored input (a string, a `{ locale }` object, or anything else) into a supported id, falling back to `DEFAULT_LOCALE` (`"en"`) and never throwing. The key is **removed** when the locale is the default so a default install leaves no trace, matching the ambient-sound behaviour. `LOCALE_STORAGE_SHAPE_VERSION` documents the shape version. Together with `focus-flow:week-start` this is one of the only added storage keys, and both are removed when they hold a default value. |
+| `focus-flow:week-start` | `0` \| `1` | Optional **first day of the week** preference: `0` = Sunday, `1` = Monday (default `1`). Stored as a bare integer; `normalizeWeekStart` in `app/history.js` coerces arbitrary stored input (a number, a numeric string, a `{ weekStartsOn }` object, `null`, or anything else) into `0` or `1`, falling back to `DEFAULT_WEEK_START` and never throwing. The key is **removed** when the default Monday is selected so a default install leaves no trace, matching the ambient-sound and locale behaviour. `WEEK_START_STORAGE_SHAPE_VERSION` documents the shape version. |
 
 The **Weekly review** panel is derived, not stored: it reads only the existing
 `focus-flow:history` and `focus-flow:goal` keys through the pure `weeklyReview`
@@ -228,10 +247,12 @@ locale is selected.
 - [x] **Localised date and number formatting** by extending the catalog's locale
   data to every derived label (weekday and month names, plural rules), building
   on the shipped i18n module.
-- [ ] **User-selectable first day of week**, letting the weekly goal and the
+- [x] **User-selectable first day of week**, letting the weekly goal and the
   weekly review start their week on Sunday or Monday, with the choice rendered
   through the same bundled catalog and stored only on the device as the next
-  follow-up to localised formatting.
+  follow-up to localised formatting. Implemented: the **Week starts on**
+  setting is announced once through the live region and stored under
+  `focus-flow:week-start` (removed when the default Monday is selected).
 
 ## How the repository meets its own criteria
 
@@ -248,7 +269,7 @@ locale is selected.
 | Autonomous Operation | No backend; nothing to administer after deployment, and the service worker keeps the app usable offline. |
 | Kubernetes Compatible | `Dockerfile` + `helm/` chart with `Deployment`, `Service`, `Ingress`, probes, and resource limits. |
 | Resource Efficient | Tiny nginx:alpine image, static files only, small CPU/RAM requests and limits in `helm/values.yaml`. |
-| Security | No secrets, no runtime external calls, no telemetry, no user input leaves the browser; the service worker ignores cross-origin and non-GET requests; container runs as non-root. The ambient sound layer is synthesised in-browser with the Web Audio API, so it adds **no network request and no third-party asset**. The i18n catalog is bundled in `app/i18n.js`, so localisation adds **no network request and no third-party library**, and the only new storage is the optional locale preference. |
+| Security | No secrets, no runtime external calls, no telemetry, no user input leaves the browser; the service worker ignores cross-origin and non-GET requests; container runs as non-root. The ambient sound layer is synthesised in-browser with the Web Audio API, so it adds **no network request and no third-party asset**. The i18n catalog is bundled in `app/i18n.js`, so localisation adds **no network request and no third-party library**, and the only new storage is the optional locale preference. The user-selectable first day of week is rendered from that same bundled catalog, so it too adds **no network request and no third-party dependency** — the only new storage is the optional `focus-flow:week-start` preference. |
 | Testable | `tests/` verifies assets, structure, the PWA manifest and service worker, and Helm rendering via `unittest`. |
 | Maintainable | Plain HTML/CSS/JS with no build step and clear project structure. |
 | Legal Compliance | Original code, no third-party assets, no personal data collected. |
@@ -269,11 +290,11 @@ locale is selected.
 | User Retention | Daily use pattern; persistent settings, session counts, and a 7-day focus-history panel that shows progress; optional per-session labels, a label filter, and a weekly review that ranks each label against the weekly goal let users see where their focus went; a derived current/longest focus streak and a gentle daily reminder hint encourage users to come back and keep the streak alive, plus one-tap install to the home screen or desktop. |
 | Discoverability | Clear name, description, and docs; shareable as a URL. Ships English, German, and Spanish from a bundled catalog with an accessible language switcher, and the derived weekday/month names, plural forms, and number grouping come from that same bundled catalog. |
 | Mobile Friendly | Responsive layout, touch-friendly controls, and an installable PWA that launches standalone. |
-| Accessibility | Semantic landmarks, ARIA live region, keyboard shortcuts, focus states, contrast. The locale switcher is a labelled `<select>` with an accessible name, every string (including live-region announcements) is routed through the catalog, derived weekday/month names and numbers are localised from the same bundled catalog, and `<html lang>` follows the active locale. |
+| Accessibility | Semantic landmarks, ARIA live region, keyboard shortcuts, focus states, contrast. The locale switcher and the **Week starts on** control are labelled `<select>`s with accessible names, every string (including live-region announcements) is routed through the catalog, derived weekday/month names and numbers are localised from the same bundled catalog, and `<html lang>` follows the active locale. |
 | Minimal Dependencies | Zero runtime JS/CSS dependencies; the i18n catalog and its `LOCALE_DATA` (weekday/month names, separators, plural rules) are a dependency-free local module with no network request, no `Intl` dependency, and no third-party library. |
 | Measurable Success | `/healthz` for reliability; the local session history, 7-day stats, optional label breakdown, the weekly focus goal, and the weekly review give users a visible, measurable view of their focus habit, including what each block of time was spent on and how close each label came to their weekly target; the derived current/longest focus streak and today's totals make consistency itself measurable. |
 | Reusability | Reuses the standard static-container + Helm deployment template. |
-| Innovation Potential | The shipped ambient sound layer shows the in-browser synthesis approach can be extended to more generated soundscapes, and the shipped bundled catalog with bundled locale data shows how the product can add locales, weekday/month names, and plural rules without a build step, a backend, or a third-party dependency; a user-selectable first day of week is the next natural step. |
+| Innovation Potential | The shipped ambient sound layer shows the in-browser synthesis approach can be extended to more generated soundscapes, and the shipped bundled catalog with bundled locale data shows how the product can add locales, weekday/month names, and plural rules without a build step, a backend, or a third-party dependency; a shipped user-selectable first day of week shows how further local conventions (a fiscal week start, custom week windows) can reuse the same catalogue-and-storage pattern. |
 
 ## Repository criteria (canonical definitions)
 

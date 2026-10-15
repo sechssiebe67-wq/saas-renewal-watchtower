@@ -38,6 +38,8 @@ import {
 import {
   DEFAULT_RETENTION_DAYS,
   DEFAULT_WEEK_START,
+  WEEK_START_OPTIONS,
+  normalizeWeekStart,
   recordSession,
   pruneHistory,
   summarise,
@@ -58,6 +60,7 @@ const STORAGE_KEYS = Object.freeze({
   goal: "focus-flow:goal",
   ambient: "focus-flow:ambient",
   locale: "focus-flow:locale",
+  weekStart: "focus-flow:week-start",
 });
 
 const STATS_WINDOW_DAYS = 7;
@@ -170,6 +173,7 @@ function getElements() {
       goal: document.getElementById("weekly-goal"),
       ambientType: document.getElementById("ambient-type"),
       ambientVolume: document.getElementById("ambient-volume"),
+      weekStart: document.getElementById("week-start"),
     },
   };
 }
@@ -229,6 +233,10 @@ export function init() {
 
   let goal = normalizeGoal(readStorage(STORAGE_KEYS.goal, null));
   let goalReached = null;
+
+  let weekStartsOn = normalizeWeekStart(
+    readStorage(STORAGE_KEYS.weekStart, DEFAULT_WEEK_START),
+  );
 
   let ambient = normalizeAmbient(
     readStorage(STORAGE_KEYS.ambient, DEFAULT_AMBIENT),
@@ -433,6 +441,49 @@ export function init() {
     }
   }
 
+  function syncWeekStartControl() {
+    if (el.inputs.weekStart) {
+      el.inputs.weekStart.value = String(weekStartsOn);
+    }
+  }
+
+  /** The catalog key for the label of a resolved first day of the week. */
+  function weekStartLabelKey(value) {
+    const option = WEEK_START_OPTIONS.find((item) => item.value === value);
+    return option ? option.labelKey : "settings.weekStartMonday";
+  }
+
+  /** Persist under `focus-flow:week-start`; keeping the default Monday removes
+   * the key so a default install leaves no trace, matching the ambient-sound
+   * and locale behaviour. */
+  function persistWeekStart() {
+    if (weekStartsOn === DEFAULT_WEEK_START) {
+      try {
+        window.localStorage.removeItem(STORAGE_KEYS.weekStart);
+      } catch (error) {
+        /* Storage may be unavailable; the in-memory value still applies. */
+      }
+      return;
+    }
+    writeStorage(STORAGE_KEYS.weekStart, weekStartsOn);
+  }
+
+  /** Apply a first day of the week immediately: persist it, re-render the
+   * week-scoped panels, and (optionally) announce the change once. */
+  function applyWeekStart(raw, { announceChange = false } = {}) {
+    weekStartsOn = normalizeWeekStart(raw);
+    persistWeekStart();
+    syncWeekStartControl();
+    renderStats();
+    if (announceChange) {
+      announce(
+        t("announce.weekStart", {
+          day: t(weekStartLabelKey(weekStartsOn)),
+        }),
+      );
+    }
+  }
+
   function syncForm(settings) {
     if (el.inputs.work) el.inputs.work.value = String(settings.work);
     if (el.inputs.shortBreak) el.inputs.shortBreak.value = String(settings.shortBreak);
@@ -629,7 +680,7 @@ export function init() {
   function renderStreak() {
     const info = streaks(history, {
       now: Date.now(),
-      weekStartsOn: DEFAULT_WEEK_START,
+      weekStartsOn,
     });
 
     if (el.statsStreakCurrent) {
@@ -731,7 +782,7 @@ export function init() {
       now: Date.now(),
       minutes: goal.minutes,
       label: activeLabel === null ? goal.label : activeLabel,
-      weekStartsOn: DEFAULT_WEEK_START,
+      weekStartsOn,
     });
   }
 
@@ -793,7 +844,7 @@ export function init() {
       now: Date.now(),
       minutes: goal.minutes,
       label: activeLabel === null ? goal.label : activeLabel,
-      weekStartsOn: DEFAULT_WEEK_START,
+      weekStartsOn,
     });
 
     const hasGoal = review.targetMinutes > 0;
@@ -983,6 +1034,7 @@ export function init() {
   updateThemeButton(initialTheme);
   syncForm(engine.settings);
   syncAmbientControls();
+  syncWeekStartControl();
   renderStats();
 
   let intervalId = null;
@@ -1035,6 +1087,12 @@ export function init() {
   if (el.locale) {
     el.locale.addEventListener("change", () => {
       applyLocale(el.locale.value, { announceChange: true });
+    });
+  }
+
+  if (el.inputs.weekStart) {
+    el.inputs.weekStart.addEventListener("change", () => {
+      applyWeekStart(el.inputs.weekStart.value, { announceChange: true });
     });
   }
 
