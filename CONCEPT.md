@@ -86,6 +86,17 @@ after the first load.
   set. The values come from a new pure `streaks` helper and read only the
   existing `focus-flow:history` and `focus-flow:goal` keys — there is **no new
   `localStorage` key, no network request, and no new runtime dependency**.
+- **Optional ambient sound:** an off-by-default background layer that loops
+  during work phases and, when breaks are set to auto-start, keeps playing
+  through them. The user picks between **brown noise**, **pink noise**, and
+  **soft rain**, or keeps the default **Off**, and sets a volume between `0`
+  and `1`. Every sound is **synthesised in the browser** from a seeded PRNG with
+  the Web Audio API (a pure `ambient.js` module with no DOM access), so the app
+  ships **no audio files, makes no network request, and adds no third-party
+  asset**; the choice and volume are stored only in `localStorage`. Playback
+  follows the timer — it starts with a work phase and is silenced whenever the
+  timer is paused or reset — and coordinates are chosen so the loop only starts
+  on a genuine user gesture.
 - **Audible and visual notifications** when a phase ends.
 - **Local persistence** of settings, the current session count, and the session
   history via `localStorage`.
@@ -107,6 +118,12 @@ after the first load.
 - `app/` — the whole product, served as static files.
   - `index.html`, `styles.css` — the accessible, responsive shell.
   - `timer.js` — the pure timer state machine.
+  - `ambient.js` — the pure ambient-sound helpers (`AMBIENT_TYPES`,
+    `AMBIENT_LABELS`, `DEFAULT_AMBIENT`, `normalizeAmbient`,
+    `createNoiseBuffer`, `shouldPlay`) with no DOM access. `createNoiseBuffer`
+    synthesises brown, pink, or filtered-rain noise from a deterministic seeded
+    PRNG, and `shouldPlay` decides whether the layer is active for a timer
+    phase.
   - `history.js` — the pure session-history helpers (`recordSession`,
     `pruneHistory`, `summarise`, `labelSummary`, `recentSessions`,
     `normalizeGoal`, `weekWindow`, `goalProgress`, `weeklyReview`, `streaks`,
@@ -141,6 +158,7 @@ leaves the device. There is no backend, no account, and no sync.
 | `focus-flow:theme` | `"light"` \| `"dark"` | Remembered theme choice. |
 | `focus-flow:history` | array of `{ endedAt, phase, durationSeconds, label? }` | Local session log. `endedAt` is an ISO timestamp, `phase` is `"work"`, and `durationSeconds` is the configured work duration. `label` is optional: a trimmed string of at most 40 characters, and it is absent when the user leaves the session-label field empty. Only completed work phases are appended; the log is pruned to the most recent 500 entries and 90 days. `HISTORY_VERSION` in `app/history.js` documents the entry schema version: **version 2** adds the optional `label` field, and version 1 entries (which have no `label`) remain valid and still count toward the 7-day totals. |
 | `focus-flow:goal` | `{ minutes, label? }` | Optional **weekly focus goal**. `minutes` is an integer clamped to `0..10080` (a full week; `0` means "no goal"), and `label` is an optional trimmed string of at most 40 characters that scopes the goal to a single session label. The goal is stored **only in `localStorage`** and is never uploaded; `GOAL_STORAGE_SHAPE_VERSION` in `app/history.js` documents the shape version, and `normalizeGoal` coerces older or malformed values. |
+| `focus-flow:ambient` | `{ type, volume }` | Optional **ambient sound** setting. `type` is one of `"off"`, `"brown"`, `"pink"`, or `"rain"`, and `volume` is a number clamped to `0..1`. The key is **removed** when `type` is `"off"`; `normalizeAmbient` in `app/ambient.js` coerces arbitrary stored input and never throws. Nothing is uploaded and no audio file is stored — the sound is synthesised in the browser. |
 
 The **Weekly review** panel is derived, not stored: it reads only the existing
 `focus-flow:history` and `focus-flow:goal` keys through the pure `weeklyReview`
@@ -155,7 +173,8 @@ and today's totals, the reminder compares `todayCount` against the presence of a
 
 - [x] **Focus streaks and reminders**, derived locally from the session history
   and building on the weekly goal and weekly review panels.
-- [ ] Optional **ambient sound** (e.g. brown noise / rain) using the Web Audio API.
+- [x] Optional **ambient sound** (brown noise / pink noise / soft rain) using
+  the Web Audio API, generated entirely in the browser with no audio files.
 - [ ] **Internationalisation (i18n)** with a small message catalog.
 
 ## How the repository meets its own criteria
@@ -173,7 +192,7 @@ and today's totals, the reminder compares `todayCount` against the presence of a
 | Autonomous Operation | No backend; nothing to administer after deployment, and the service worker keeps the app usable offline. |
 | Kubernetes Compatible | `Dockerfile` + `helm/` chart with `Deployment`, `Service`, `Ingress`, probes, and resource limits. |
 | Resource Efficient | Tiny nginx:alpine image, static files only, small CPU/RAM requests and limits in `helm/values.yaml`. |
-| Security | No secrets, no runtime external calls, no telemetry, no user input leaves the browser; the service worker ignores cross-origin and non-GET requests; container runs as non-root. |
+| Security | No secrets, no runtime external calls, no telemetry, no user input leaves the browser; the service worker ignores cross-origin and non-GET requests; container runs as non-root. The ambient sound layer is synthesised in-browser with the Web Audio API, so it adds **no network request and no third-party asset**. |
 | Testable | `tests/` verifies assets, structure, the PWA manifest and service worker, and Helm rendering via `unittest`. |
 | Maintainable | Plain HTML/CSS/JS with no build step and clear project structure. |
 | Legal Compliance | Original code, no third-party assets, no personal data collected. |
@@ -198,7 +217,7 @@ and today's totals, the reminder compares `todayCount` against the presence of a
 | Minimal Dependencies | Zero runtime JS/CSS dependencies. |
 | Measurable Success | `/healthz` for reliability; the local session history, 7-day stats, optional label breakdown, the weekly focus goal, and the weekly review give users a visible, measurable view of their focus habit, including what each block of time was spent on and how close each label came to their weekly target; the derived current/longest focus streak and today's totals make consistency itself measurable. |
 | Reusability | Reuses the standard static-container + Helm deployment template. |
-| Innovation Potential | Ambient sound and internationalisation remain natural next steps after the shipped focus streaks and weekly review. |
+| Innovation Potential | The shipped ambient sound layer shows the in-browser synthesis approach can be extended to more generated soundscapes; internationalisation remains a natural next step after the shipped focus streaks, weekly review, and ambient sound. |
 
 ## Repository criteria (canonical definitions)
 

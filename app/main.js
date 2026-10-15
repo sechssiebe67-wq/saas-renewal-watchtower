@@ -16,6 +16,14 @@ import {
 } from "./timer.js";
 
 import {
+  AMBIENT_LABELS,
+  DEFAULT_AMBIENT,
+  normalizeAmbient,
+  createNoiseBuffer,
+  shouldPlay,
+} from "./ambient.js";
+
+import {
   DEFAULT_RETENTION_DAYS,
   DEFAULT_WEEK_START,
   recordSession,
@@ -36,6 +44,7 @@ const STORAGE_KEYS = Object.freeze({
   theme: "focus-flow:theme",
   history: "focus-flow:history",
   goal: "focus-flow:goal",
+  ambient: "focus-flow:ambient",
 });
 
 const STATS_WINDOW_DAYS = 7;
@@ -150,6 +159,8 @@ function getElements() {
       sound: document.getElementById("sound-enabled"),
       autoStartBreaks: document.getElementById("auto-start-breaks"),
       goal: document.getElementById("weekly-goal"),
+      ambientType: document.getElementById("ambient-type"),
+      ambientVolume: document.getElementById("ambient-volume"),
     },
   };
 }
@@ -207,6 +218,111 @@ export function init() {
   let goal = normalizeGoal(readStorage(STORAGE_KEYS.goal, null));
   let goalReached = null;
 
+  let ambient = normalizeAmbient(
+    readStorage(STORAGE_KEYS.ambient, DEFAULT_AMBIENT),
+  );
+  let ambientContext = null;
+  let ambientSource = null;
+  let ambientGain = null;
+  let ambientPlaying = false;
+
+  /**
+   * Lazily create the single shared AudioContext on the first user gesture that
+   * actually needs sound, mirroring the chime's feature detection. Returns
+   * `null` when the Web Audio API is unavailable or the context cannot be
+   * created; failures are always non-fatal.
+   */
+  function ensureAudioContext() {
+    if (ambientContext) {
+      return ambientContext;
+    }
+    const Ctor = window.AudioContext || window.webkitAudioContext;
+    if (!Ctor) {
+      return null;
+    }
+    try {
+      ambientContext = new Ctor();
+    } catch (error) {
+      ambientContext = null;
+    }
+    return ambientContext;
+  }
+
+  function stopAmbient() {
+    if (ambientSource) {
+      try {
+        ambientSource.stop();
+      } catch (error) {
+        /* Already stopped; ignore. */
+      }
+      try {
+        ambientSource.disconnect();
+      } catch (error) {
+        /* Already disconnected; ignore. */
+      }
+      ambientSource = null;
+    }
+    if (ambientGain) {
+      try {
+        ambientGain.disconnect();
+      } catch (error) {
+        /* Already disconnected; ignore. */
+      }
+      ambientGain = null;
+    }
+    ambientPlaying = false;
+  }
+
+  function startAmbient() {
+    if (ambient.type === "off") {
+      return;
+    }
+    const context = ensureAudioContext();
+    if (!context) {
+      return;
+    }
+    try {
+      if (context.state === "suspended" && typeof context.resume === "function") {
+        context.resume().catch(() => {});
+      }
+      stopAmbient();
+      const buffer = createNoiseBuffer(context, ambient.type, { seconds: 4 });
+      if (!buffer) {
+        return;
+      }
+      const source = context.createBufferSource();
+      source.buffer = buffer;
+      source.loop = true;
+      const gain = context.createGain();
+      gain.gain.value = ambient.volume;
+      source.connect(gain).connect(context.destination);
+      source.start();
+      ambientSource = source;
+      ambientGain = gain;
+      ambientPlaying = true;
+    } catch (error) {
+      stopAmbient();
+      console.warn("Focus Flow: ambient sound failed", error);
+    }
+  }
+
+  /** Keep the running loop in sync with the timer: play during the phases the
+   * helper allows, and always silence when the timer is not running. */
+  function syncAmbient(state) {
+    const wanted =
+      state.running &&
+      shouldPlay({
+        phase: state.phase,
+        type: ambient.type,
+        autoStartBreaks: state.settings.autoStartBreaks,
+      });
+    if (wanted && !ambientPlaying) {
+      startAmbient();
+    } else if (!wanted && ambientPlaying) {
+      stopAmbient();
+    }
+  }
+
   const prefersDark =
     window.matchMedia &&
     window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -255,6 +371,59 @@ export function init() {
       sound: el.inputs.sound.checked,
       autoStartBreaks: el.inputs.autoStartBreaks.checked,
     });
+  }
+
+  function syncAmbientControls() {
+    if (el.inputs.ambientType) el.inputs.ambientType.value = ambient.type;
+    if (el.inputs.ambientVolume) {
+      el.inputs.ambientVolume.value = String(ambient.volume);
+    }
+  }
+
+  function readAmbientControls() {
+    return normalizeAmbient({
+      type: el.inputs.ambientType ? el.inputs.ambientType.value : ambient.type,
+      volume: el.inputs.ambientVolume
+        ? el.inputs.ambientVolume.value
+        : ambient.volume,
+    });
+  }
+
+  /** Persist under `focus-flow:ambient`; selecting `off` removes the key so a
+   * silent app leaves no trace. */
+  function persistAmbient() {
+    if (ambient.type === "off") {
+      try {
+        window.localStorage.removeItem(STORAGE_KEYS.ambient);
+      } catch (error) {
+        /* Storage may be unavailable; the in-memory value still applies. */
+      }
+      return;
+    }
+    writeStorage(STORAGE_KEYS.ambient, ambient);
+  }
+
+  function applyAmbient({ announceChange = false } = {}) {
+    const previousType = ambient.type;
+    ambient = readAmbientControls();
+    persistAmbient();
+    if (ambient.type !== previousType || ambient.type === "off") {
+      stopAmbient();
+    } else if (ambientPlaying && ambientGain) {
+      try {
+        ambientGain.gain.value = ambient.volume;
+      } catch (error) {
+        /* Non-fatal; the loop keeps its previous gain. */
+      }
+    }
+    syncAmbient(engine.snapshot());
+    if (announceChange) {
+      announce(
+        ambient.type === "off"
+          ? "Ambient sound off."
+          : `Ambient sound: ${AMBIENT_LABELS[ambient.type]}.`,
+      );
+    }
   }
 
   function announce(message) {
@@ -657,6 +826,7 @@ export function init() {
 
   engine.subscribe((state, meta) => {
     render(state, meta);
+    syncAmbient(state);
     if (meta.reason === "phase-complete") {
       writeStorage(STORAGE_KEYS.sessions, state.completedWorkSessions);
       if (meta.previousPhase === PHASES.WORK && meta.skipped === false) {
@@ -682,6 +852,7 @@ export function init() {
   });
 
   syncForm(engine.settings);
+  syncAmbientControls();
   renderStats();
 
   let intervalId = null;
@@ -718,6 +889,18 @@ export function init() {
       }, 2000);
     }
   });
+
+  if (el.inputs.ambientType) {
+    el.inputs.ambientType.addEventListener("change", () => {
+      applyAmbient({ announceChange: true });
+    });
+  }
+
+  if (el.inputs.ambientVolume) {
+    el.inputs.ambientVolume.addEventListener("input", () => {
+      applyAmbient();
+    });
+  }
 
   el.themeToggle.addEventListener("click", () => {
     const current =

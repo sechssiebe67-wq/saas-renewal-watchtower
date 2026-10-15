@@ -26,6 +26,7 @@ class AppAssetTests(unittest.TestCase):
             "main.js",
             "timer.js",
             "history.js",
+            "ambient.js",
             "healthz",
             "manifest.webmanifest",
             "service-worker.js",
@@ -136,6 +137,37 @@ class AppAssetTests(unittest.TestCase):
             self.assertIn(fragment, html, "missing %s (%s)" % (label, fragment))
         self.assertIn('maxlength="40"', html)
         self.assertIn("on this device", html)
+
+    def test_html_has_ambient_controls(self):
+        html = read_app_file("index.html")
+        expectations = {
+            "ambient type select": 'id="ambient-type"',
+            "ambient volume slider": 'id="ambient-volume"',
+        }
+        for label, fragment in expectations.items():
+            self.assertIn(fragment, html, "missing %s (%s)" % (label, fragment))
+        for option in ("off", "brown", "pink", "rain"):
+            self.assertRegex(html, r'value="%s"' % option)
+        self.assertIn('type="range"', html)
+        self.assertIn('min="0"', html)
+        self.assertIn('max="1"', html)
+        self.assertIn('step="0.05"', html)
+        self.assertIn('for="ambient-type"', html)
+        self.assertIn('for="ambient-volume"', html)
+        self.assertIn("stored only on this device", html)
+        self.assertIn("Web Audio API", html)
+
+    def test_main_js_references_ambient_module(self):
+        js = read_app_file("main.js")
+        self.assertIn("./ambient.js", js)
+        self.assertIn('"focus-flow:ambient"', js)
+        for symbol in (
+            "normalizeAmbient",
+            "createNoiseBuffer",
+            "shouldPlay",
+            "DEFAULT_AMBIENT",
+        ):
+            self.assertIn(symbol, js, "main.js does not use %s" % symbol)
 
     def test_main_js_references_history_module(self):
         js = read_app_file("main.js")

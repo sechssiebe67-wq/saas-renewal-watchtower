@@ -49,16 +49,40 @@ calls, no telemetry, and no secrets.
   focus session logged today yet."** hint appears. The streak increases the
   moment a work phase completes and the new value is announced once through the
   existing screen-reader live region.
-- Settings, session count, history, and the weekly goal persist across reloads.
+- **Optional ambient sound:** choose **brown noise**, **pink noise**, or **soft
+  rain** — or keep the default **Off** — and set the volume in Settings. The
+  loop plays during work sessions (and through breaks when they auto-start) and
+  is silenced whenever you pause or reset the timer. Every sound is
+  **synthesised in the browser with the Web Audio API**, so no audio files are
+  downloaded or shipped and no network request is made; your choice and volume
+  are stored only in `localStorage["focus-flow:ambient"]`.
+- Settings, session count, history, the weekly goal, and the ambient-sound
+  choice persist across reloads.
 - Accessible, responsive layout for mobile, tablet, and desktop.
 - Installable PWA with a web manifest and an offline-first service worker.
 
 Focus Flow is **privacy-first by construction**: the focus history, any session
-labels you type, and your weekly focus goal live only on your device. They are
-never uploaded, synced, or sent anywhere. The weekly review, the focus streaks,
-and the daily reminder hint are all **derived** from that existing local data
-only — they add no new storage key, no network request, and no third-party
-dependency. All data stays on the device.
+labels you type, your weekly focus goal, and your ambient-sound choice live only
+on your device. They are never uploaded, synced, or sent anywhere. The weekly
+review, the focus streaks, and the daily reminder hint are all **derived** from
+that existing local data only — they add no new storage key, no network request,
+and no third-party dependency. The ambient sound is generated locally and adds
+no audio file, no network request, and no third-party asset. All data stays on
+the device.
+
+### Storage keys
+
+All state lives in the browser's `localStorage`:
+
+- `focus-flow:settings` — work/break durations, long-break interval, chime and
+  auto-start-break toggles.
+- `focus-flow:sessions` — the running "sessions completed today" counter.
+- `focus-flow:theme` — the remembered light/dark choice.
+- `focus-flow:history` — the local session log (capped at 500 entries / 90
+  days).
+- `focus-flow:goal` — the optional weekly focus goal.
+- `focus-flow:ambient` — the optional ambient-sound `{ type, volume }`; removed
+  when the type is `off`.
 
 The full concept, audience, roadmap, and criteria mapping live in
 [`CONCEPT.md`](CONCEPT.md).

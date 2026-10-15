@@ -294,7 +294,8 @@ kbd {
 }
 
 .field input[type="number"],
-.field input[type="text"] {
+.field input[type="text"],
+.field select {
   padding: 0.6rem 0.7rem;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -302,6 +303,19 @@ kbd {
   color: var(--text);
   font: inherit;
   min-height: 44px;
+}
+
+.field input[type="range"] {
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.field input[type="range"]:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
 .session-label {
