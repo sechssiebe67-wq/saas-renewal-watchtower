@@ -56,6 +56,16 @@ after the first load.
   and per-day bars to that label (and the `(unlabelled)` chip to entries without
   one), and a **Recent sessions** list shows the newest five entries. Labels
   are stored only in `localStorage` and are never uploaded.
+- **Weekly focus goal:** a user can set a target number of focused minutes for
+  the current week (e.g. `300`), optionally scoped to a single session label so
+  the target can read "5 hours on Thesis chapter 3". The Stats panel renders a
+  goal row with the target, the minutes focused so far this week, a percentage,
+  and a `role="progressbar"` bar; once the target is met the row switches to a
+  clear, non-intrusive **"Goal reached"** state and the app announces it once
+  through the existing ARIA live region. The goal can be changed or cleared
+  (a `0`/empty value, or the **Clear goal** control) from the settings form.
+  The whole goal lives only in `localStorage` under `focus-flow:goal` and is
+  never uploaded.
 - **Audible and visual notifications** when a phase ends.
 - **Local persistence** of settings, the current session count, and the session
   history via `localStorage`.
@@ -79,7 +89,8 @@ after the first load.
   - `timer.js` — the pure timer state machine.
   - `history.js` — the pure session-history helpers (`recordSession`,
     `pruneHistory`, `summarise`, `labelSummary`, `recentSessions`,
-    `HISTORY_VERSION`) with no DOM access.
+    `normalizeGoal`, `weekWindow`, `goalProgress`, `HISTORY_VERSION`,
+    `GOAL_STORAGE_SHAPE_VERSION`) with no DOM access.
   - `main.js` — the DOM layer and the `registerServiceWorker()` helper.
   - `manifest.webmanifest` — the PWA manifest (name, icons, colours, scope).
   - `service-worker.js` — versioned cache, precache list, and offline handlers.
@@ -104,14 +115,16 @@ leaves the device. There is no backend, no account, and no sync.
 | `focus-flow:sessions` | integer | Running "sessions completed today" counter, kept for backwards compatibility. |
 | `focus-flow:theme` | `"light"` \| `"dark"` | Remembered theme choice. |
 | `focus-flow:history` | array of `{ endedAt, phase, durationSeconds, label? }` | Local session log. `endedAt` is an ISO timestamp, `phase` is `"work"`, and `durationSeconds` is the configured work duration. `label` is optional: a trimmed string of at most 40 characters, and it is absent when the user leaves the session-label field empty. Only completed work phases are appended; the log is pruned to the most recent 500 entries and 90 days. `HISTORY_VERSION` in `app/history.js` documents the entry schema version: **version 2** adds the optional `label` field, and version 1 entries (which have no `label`) remain valid and still count toward the 7-day totals. |
+| `focus-flow:goal` | `{ minutes, label? }` | Optional **weekly focus goal**. `minutes` is an integer clamped to `0..10080` (a full week; `0` means "no goal"), and `label` is an optional trimmed string of at most 40 characters that scopes the goal to a single session label. The goal is stored **only in `localStorage`** and is never uploaded; `GOAL_STORAGE_SHAPE_VERSION` in `app/history.js` documents the shape version, and `normalizeGoal` coerces older or malformed values. |
 
 ## Next direction
 
 - Optional **ambient sound** (e.g. brown noise / rain) using the Web Audio API.
 - **Internationalisation (i18n)** with a small message catalog.
-- **Focus streaks and goals**, derived locally from the session history.
-- A **weekly focus goal** derived from the labelled history, so users can set a
-  target (e.g. "5 hours on Thesis chapter 3") and see progress at a glance.
+- **Focus streaks and reminders**, derived locally from the session history,
+  building on the weekly goal row.
+- A **weekly review** view that lines the weekly goal up against the per-label
+  breakdown so users can see which labels carried the week.
 
 ## How the repository meets its own criteria
 
@@ -151,9 +164,9 @@ leaves the device. There is no backend, no account, and no sync.
 | Mobile Friendly | Responsive layout, touch-friendly controls, and an installable PWA that launches standalone. |
 | Accessibility | Semantic landmarks, ARIA live region, keyboard shortcuts, focus states, contrast. |
 | Minimal Dependencies | Zero runtime JS/CSS dependencies. |
-| Measurable Success | `/healthz` for reliability; the local session history, 7-day stats, and optional label breakdown give users a visible, measurable view of their focus habit, including what each block of time was spent on. |
+| Measurable Success | `/healthz` for reliability; the local session history, 7-day stats, optional label breakdown, and the weekly focus goal give users a visible, measurable view of their focus habit, including what each block of time was spent on and how close they are to their weekly target. |
 | Reusability | Reuses the standard static-container + Helm deployment template. |
-| Innovation Potential | Ambient sound, stats, and local focus goals are natural next steps. |
+| Innovation Potential | Ambient sound, focus streaks, and a weekly review are natural next steps. |
 
 ## Repository criteria (canonical definitions)
 

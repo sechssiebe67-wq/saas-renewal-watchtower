@@ -17,11 +17,14 @@ import {
 
 import {
   DEFAULT_RETENTION_DAYS,
+  DEFAULT_WEEK_START,
   recordSession,
   pruneHistory,
   summarise,
   labelSummary,
   recentSessions,
+  normalizeGoal,
+  goalProgress,
   UNLABELLED,
 } from "./history.js";
 
@@ -30,6 +33,7 @@ const STORAGE_KEYS = Object.freeze({
   sessions: "focus-flow:sessions",
   theme: "focus-flow:theme",
   history: "focus-flow:history",
+  goal: "focus-flow:goal",
 });
 
 const STATS_WINDOW_DAYS = 7;
@@ -110,6 +114,14 @@ function getElements() {
     statsDays: document.getElementById("stats-days"),
     statsRecent: document.getElementById("stats-recent"),
     statsEmpty: document.getElementById("stats-empty"),
+    statsGoal: document.getElementById("stats-goal"),
+    statsGoalTarget: document.getElementById("stats-goal-target"),
+    statsGoalFocused: document.getElementById("stats-goal-focused"),
+    statsGoalPercent: document.getElementById("stats-goal-percent"),
+    statsGoalBar: document.getElementById("stats-goal-bar"),
+    statsGoalFill: document.getElementById("stats-goal-fill"),
+    statsGoalReached: document.getElementById("stats-goal-reached"),
+    clearGoal: document.getElementById("clear-goal"),
     themeToggle: document.getElementById("theme-toggle"),
     themeToggleLabel: document.getElementById("theme-toggle-label"),
     themeToggleIcon: document.querySelector(".theme-toggle__icon"),
@@ -120,6 +132,7 @@ function getElements() {
       longBreakInterval: document.getElementById("long-break-interval"),
       sound: document.getElementById("sound-enabled"),
       autoStartBreaks: document.getElementById("auto-start-breaks"),
+      goal: document.getElementById("weekly-goal"),
     },
   };
 }
@@ -174,6 +187,9 @@ export function init() {
     ? Math.max(0, storedSessions)
     : 0;
 
+  let goal = normalizeGoal(readStorage(STORAGE_KEYS.goal, null));
+  let goalReached = null;
+
   const prefersDark =
     window.matchMedia &&
     window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -207,6 +223,9 @@ export function init() {
     if (el.inputs.sound) el.inputs.sound.checked = Boolean(settings.sound);
     if (el.inputs.autoStartBreaks) {
       el.inputs.autoStartBreaks.checked = Boolean(settings.autoStartBreaks);
+    }
+    if (el.inputs.goal) {
+      el.inputs.goal.value = goal.minutes > 0 ? String(goal.minutes) : "";
     }
   }
 
@@ -372,6 +391,101 @@ export function init() {
       labelSummary(history, { now: Date.now(), days: STATS_WINDOW_DAYS }),
     );
     renderRecentSessions();
+    renderGoal();
+  }
+
+  function currentGoalProgress() {
+    return goalProgress(history, {
+      now: Date.now(),
+      minutes: goal.minutes,
+      label: activeLabel === null ? goal.label : activeLabel,
+      weekStartsOn: DEFAULT_WEEK_START,
+    });
+  }
+
+  function renderGoal() {
+    const progress = currentGoalProgress();
+    const active = progress.targetMinutes > 0;
+
+    if (el.statsGoal) {
+      el.statsGoal.hidden = !active;
+    }
+    if (!active) {
+      goalReached = null;
+      return;
+    }
+
+    if (el.statsGoalTarget) {
+      el.statsGoalTarget.textContent = String(progress.targetMinutes);
+    }
+    if (el.statsGoalFocused) {
+      el.statsGoalFocused.textContent = String(progress.focusedMinutes);
+    }
+    if (el.statsGoalPercent) {
+      el.statsGoalPercent.textContent = String(progress.percent);
+    }
+    if (el.statsGoalBar) {
+      el.statsGoalBar.setAttribute("aria-valuenow", String(progress.percent));
+      el.statsGoalBar.setAttribute("aria-valuemin", "0");
+      el.statsGoalBar.setAttribute("aria-valuemax", "100");
+      el.statsGoalBar.classList.toggle("stats__goal-bar--reached", progress.reached);
+    }
+    if (el.statsGoalFill) {
+      el.statsGoalFill.style.width = `${progress.percent}%`;
+    }
+    if (el.statsGoalReached) {
+      el.statsGoalReached.hidden = !progress.reached;
+    }
+    if (el.statsGoal) {
+      el.statsGoal.classList.toggle("stats__goal--reached", progress.reached);
+    }
+
+    if (goalReached === null) {
+      goalReached = progress.reached;
+    } else if (progress.reached && !goalReached) {
+      goalReached = true;
+      announce("Weekly goal reached.");
+    } else if (!progress.reached) {
+      goalReached = false;
+    }
+  }
+
+  function persistGoal() {
+    if (goal.minutes > 0) {
+      writeStorage(STORAGE_KEYS.goal, goal);
+      return;
+    }
+    try {
+      window.localStorage.removeItem(STORAGE_KEYS.goal);
+    } catch (error) {
+      /* Storage may be unavailable; the in-memory goal still applies. */
+    }
+  }
+
+  function applyGoal(rawMinutes, { announceChange = false } = {}) {
+    const parsed = Number.parseInt(rawMinutes, 10);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      goal = normalizeGoal({ minutes: 0 });
+    } else {
+      goal = normalizeGoal({
+        minutes: parsed,
+        label: activeLabel === null ? goal.label : activeLabel,
+      });
+    }
+    persistGoal();
+    syncForm(engine.settings);
+    goalReached = null;
+    renderStats();
+    if (announceChange) {
+      const progress = currentGoalProgress();
+      if (progress.targetMinutes > 0 && progress.reached) {
+        announce("Weekly goal reached.");
+      } else if (progress.targetMinutes > 0) {
+        announce("Weekly goal saved.");
+      } else {
+        announce("Weekly goal cleared.");
+      }
+    }
   }
 
   function render(state, meta = {}) {
@@ -446,11 +560,20 @@ export function init() {
   el.reset.addEventListener("click", () => engine.reset());
   el.skip.addEventListener("click", () => engine.skip());
 
+  if (el.clearGoal) {
+    el.clearGoal.addEventListener("click", () => {
+      applyGoal(0, { announceChange: true });
+    });
+  }
+
   el.form.addEventListener("submit", (event) => {
     event.preventDefault();
     const settings = readForm();
     engine.setSettings(settings);
     writeStorage(STORAGE_KEYS.settings, settings);
+    applyGoal(el.inputs.goal ? el.inputs.goal.value : 0, {
+      announceChange: true,
+    });
     syncForm(engine.settings);
     if (el.settingsStatus) {
       el.settingsStatus.textContent = "Saved.";

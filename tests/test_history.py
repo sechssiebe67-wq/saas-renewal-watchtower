@@ -28,13 +28,20 @@ HARNESS = textwrap.dedent(
     """
     import {
       HISTORY_VERSION,
+      GOAL_STORAGE_SHAPE_VERSION,
+      MIN_GOAL_MINUTES,
+      MAX_GOAL_MINUTES,
       MAX_LABEL_LENGTH,
+      DEFAULT_WEEK_START,
       UNLABELLED,
       recordSession,
       pruneHistory,
       summarise,
       labelSummary,
       recentSessions,
+      normalizeGoal,
+      weekWindow,
+      goalProgress,
     } from "./history.mjs";
 
     const DAY = 24 * 60 * 60 * 1000;
@@ -263,6 +270,145 @@ HARNESS = textwrap.dedent(
       unlabelledRecent.length === 1 && unlabelledRecent[0].label === undefined,
     );
 
+    check(
+      "GOAL_STORAGE_SHAPE_VERSION is a positive integer",
+      Number.isInteger(GOAL_STORAGE_SHAPE_VERSION) && GOAL_STORAGE_SHAPE_VERSION > 0,
+    );
+    check("MIN_GOAL_MINUTES is zero", MIN_GOAL_MINUTES === 0);
+    check("MAX_GOAL_MINUTES is a full week", MAX_GOAL_MINUTES === 7 * 24 * 60);
+    check("DEFAULT_WEEK_START is Monday", DEFAULT_WEEK_START === 1);
+
+    check("normalizeGoal defaults null to zero minutes", normalizeGoal(null).minutes === 0);
+    check("normalizeGoal tolerates undefined", normalizeGoal(undefined).minutes === 0);
+    check(
+      "normalizeGoal tolerates a malformed value",
+      normalizeGoal("nonsense").minutes === 0,
+    );
+    check("normalizeGoal keeps a valid goal", normalizeGoal({ minutes: 300 }).minutes === 300);
+    check("normalizeGoal accepts a bare number", normalizeGoal(120).minutes === 120);
+    check(
+      "normalizeGoal clamps above a week",
+      normalizeGoal({ minutes: 99999 }).minutes === MAX_GOAL_MINUTES,
+    );
+    check(
+      "normalizeGoal clamps below zero",
+      normalizeGoal({ minutes: -50 }).minutes === 0,
+    );
+    check(
+      "normalizeGoal trims and keeps a label",
+      normalizeGoal({ minutes: 60, label: "  Thesis  " }).label === "Thesis",
+    );
+    check(
+      "normalizeGoal drops an empty label",
+      !("label" in normalizeGoal({ minutes: 60, label: "   " })),
+    );
+    check(
+      "normalizeGoal truncates a long label",
+      normalizeGoal({ minutes: 60, label: "x".repeat(120) }).label.length ===
+        MAX_LABEL_LENGTH,
+    );
+    const goalInput = { minutes: 60, label: "Thesis" };
+    normalizeGoal(goalInput);
+    check(
+      "normalizeGoal does not mutate its input",
+      goalInput.minutes === 60 && goalInput.label === "Thesis",
+    );
+
+    const wk = weekWindow({ now: NOW, weekStartsOn: 1 });
+    check("weekWindow spans seven days", wk.end - wk.start === 7 * DAY);
+    check("weekWindow start is not after now", wk.start <= NOW);
+    check("weekWindow end is after now", wk.end > NOW);
+    check(
+      "weekWindow starts at local midnight",
+      new Date(wk.start).getHours() === 0 &&
+        new Date(wk.start).getMinutes() === 0 &&
+        new Date(wk.start).getSeconds() === 0 &&
+        new Date(wk.start).getMilliseconds() === 0,
+    );
+    check("weekWindow defaults to Monday", weekWindow({ now: NOW }).start === wk.start);
+    const wkSunday = weekWindow({ now: NOW, weekStartsOn: 0 });
+    check(
+      "weekWindow honours a Sunday start",
+      wkSunday.end - wkSunday.start === 7 * DAY && wkSunday.start <= NOW,
+    );
+
+    const at = (offsetMs) => new Date(wk.start + offsetMs).toISOString();
+    const weekHistory = [
+      { endedAt: at(1 * 60 * 60 * 1000), phase: "work", durationSeconds: 1500, label: "Thesis" },
+      { endedAt: at(2 * 60 * 60 * 1000), phase: "work", durationSeconds: 600, label: "Admin" },
+      { endedAt: at(3 * 60 * 60 * 1000), phase: "work", durationSeconds: 900 },
+      { endedAt: at(-1000), phase: "work", durationSeconds: 1500, label: "Thesis" },
+      { endedAt: new Date(wk.end).toISOString(), phase: "work", durationSeconds: 1500, label: "Thesis" },
+    ];
+    const frozenWeek = JSON.stringify(weekHistory);
+
+    const goalWeek = goalProgress(weekHistory, { now: NOW, minutes: 60 });
+    check("goalProgress reports the target", goalWeek.targetMinutes === 60);
+    check("goalProgress sums focused minutes", goalWeek.focusedMinutes === 50);
+    check("goalProgress reports remaining minutes", goalWeek.remainingMinutes === 10);
+    check("goalProgress reports a clamped percentage", goalWeek.percent === 83);
+    check("goalProgress is not reached under target", goalWeek.reached === false);
+    check("goalProgress returns the week start", goalWeek.weekStart === wk.start);
+
+    const over = goalProgress(weekHistory, { now: NOW, minutes: 30 });
+    check("goalProgress flags an over-target week", over.reached === true);
+    check("goalProgress clamps percent at 100", over.percent === 100);
+    check("goalProgress reports no remaining when over", over.remainingMinutes === 0);
+
+    const none = goalProgress(weekHistory, { now: NOW, minutes: 0 });
+    check("goalProgress treats a zero target as not reached", none.reached === false);
+    check("goalProgress defines percent as 100 with no target", none.percent === 100);
+    check(
+      "goalProgress handles a missing target",
+      goalProgress(weekHistory, { now: NOW }).targetMinutes === 0,
+    );
+
+    const scoped = goalProgress(weekHistory, { now: NOW, minutes: 20, label: "Thesis" });
+    check("goalProgress scopes to a label", scoped.focusedMinutes === 25);
+    check("goalProgress reaches a label-scoped goal", scoped.reached === true);
+
+    const unlabelled = goalProgress(weekHistory, { now: NOW, minutes: 10, label: UNLABELLED });
+    check("goalProgress can scope to unlabelled entries", unlabelled.focusedMinutes === 15);
+
+    const malformed = goalProgress(
+      [
+        null,
+        42,
+        { phase: "work" },
+        { phase: "shortBreak", endedAt: new Date(NOW).toISOString(), durationSeconds: 300 },
+      ],
+      { now: NOW, minutes: 5 },
+    );
+    check("goalProgress ignores malformed entries", malformed.focusedMinutes === 0);
+    check(
+      "goalProgress tolerates a missing log",
+      goalProgress(null, { now: NOW, minutes: 5 }).focusedMinutes === 0,
+    );
+
+    check(
+      "goalProgress excludes entries before the week",
+      goalProgress(
+        [{ endedAt: new Date(wk.start - 1).toISOString(), phase: "work", durationSeconds: 600 }],
+        { now: NOW, minutes: 5 },
+      ).focusedMinutes === 0,
+    );
+    check(
+      "goalProgress includes the inclusive week start",
+      goalProgress(
+        [{ endedAt: new Date(wk.start).toISOString(), phase: "work", durationSeconds: 600 }],
+        { now: NOW, minutes: 5 },
+      ).focusedMinutes === 10,
+    );
+    check(
+      "goalProgress excludes the exclusive week end",
+      goalProgress(
+        [{ endedAt: new Date(wk.end).toISOString(), phase: "work", durationSeconds: 600 }],
+        { now: NOW, minutes: 5 },
+      ).focusedMinutes === 0,
+    );
+
+    check("goalProgress does not mutate its input", JSON.stringify(weekHistory) === frozenWeek);
+
     process.stdout.write(JSON.stringify({ failures }));
     """
 )
@@ -277,12 +423,18 @@ class HistoryStaticTests(unittest.TestCase):
             source = handle.read()
         self.assertRegex(source, r"export\s+const\s+HISTORY_VERSION\b")
         self.assertRegex(source, r"export\s+const\s+MAX_LABEL_LENGTH\b")
+        self.assertRegex(source, r"export\s+const\s+GOAL_STORAGE_SHAPE_VERSION\b")
+        self.assertRegex(source, r"export\s+const\s+MAX_GOAL_MINUTES\b")
+        self.assertRegex(source, r"export\s+const\s+MIN_GOAL_MINUTES\b")
         for function in (
             "recordSession",
             "pruneHistory",
             "summarise",
             "labelSummary",
             "recentSessions",
+            "normalizeGoal",
+            "weekWindow",
+            "goalProgress",
         ):
             self.assertRegex(
                 source,
