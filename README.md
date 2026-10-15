@@ -46,9 +46,10 @@ calls, no telemetry, and no secrets.
   suggestions, the weekly and daily goal scoping, the per-label goal breakdown,
   and the Weekly review all show the alias, and stored labels that share an
   alias are merged into one row. Each change is announced once through the
-  screen-reader live region, and the map is stored only in
-  `localStorage["focus-flow:session-tags"]` (removed when empty) and included in
-  backups. It is read by the pure `normalizeSessionTags` / `applyAliases`
+  screen-reader live region, an empty alias list shows a localised empty-state
+  message, and the rows re-render in the chosen language. The map is stored only
+  in `localStorage["focus-flow:session-tags"]` (removed when empty) and included
+  in backups. It is read by the pure `normalizeSessionTags` / `applyAliases`
   helpers in `app/history.js`, so it adds **no network request and no
   third-party dependency**; the stored history is never rewritten.
 - **Weekly focus goal:** set a target number of focused minutes per week in
@@ -334,7 +335,3 @@ git commit -m "chore: initialize empty development pipeline"
 
 See [`.github/README.md`](.github/README.md) for the required secrets and
 repository settings.
-
-## Review follow-up 5540975335
-
-Automated review of PR #36 produced no implementation changes. The findings remain pending re-evaluation; this is not an approval.

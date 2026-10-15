@@ -88,6 +88,7 @@ const EN_MESSAGES = {
   "settings.sessionTagsAdd": "Add alias",
   "settings.sessionTagsEntry": "{label} → {alias}",
   "settings.sessionTagsListLabel": "Current label aliases",
+  "settings.sessionTagsEmpty": "No label aliases yet.",
   "settings.sessionTagsRemove": "Remove",
   "settings.sessionTagsRemoveLabel": "Remove alias for {label}",
   "settings.save": "Save settings",
@@ -174,8 +175,9 @@ const EN_MESSAGES = {
   "announce.dailyGoalReached": "Daily goal reached.",
   "announce.dailyGoalSaved": "Daily goal saved.",
   "announce.dailyGoalCleared": "Daily goal cleared.",
-  "announce.sessionTagsAdded": "Alias added: {label} is now shown as {alias}.",
+  "announce.sessionTagsSaved": "Alias saved: {label} is now shown as {alias}.",
   "announce.sessionTagsRemoved": "Alias removed for {label}.",
+  "announce.sessionTagsCleared": "Alias cleared for {label}.",
   "announce.sessionTagsInvalid":
     "Enter both a label and a replacement to add an alias.",
   "announce.locale": "Language: {language}.",
@@ -248,6 +250,7 @@ const DE_MESSAGES = {
   "settings.sessionTagsAdd": "Alias hinzufügen",
   "settings.sessionTagsEntry": "{label} → {alias}",
   "settings.sessionTagsListLabel": "Aktuelle Bezeichnungs-Aliase",
+  "settings.sessionTagsEmpty": "Noch keine Bezeichnungs-Aliase.",
   "settings.sessionTagsRemove": "Entfernen",
   "settings.sessionTagsRemoveLabel": "Alias für {label} entfernen",
   "settings.save": "Einstellungen speichern",
@@ -336,9 +339,10 @@ const DE_MESSAGES = {
   "announce.dailyGoalReached": "Tagesziel erreicht.",
   "announce.dailyGoalSaved": "Tagesziel gespeichert.",
   "announce.dailyGoalCleared": "Tagesziel gelöscht.",
-  "announce.sessionTagsAdded":
-    "Alias hinzugefügt: {label} wird jetzt als {alias} angezeigt.",
+  "announce.sessionTagsSaved":
+    "Alias gespeichert: {label} wird jetzt als {alias} angezeigt.",
   "announce.sessionTagsRemoved": "Alias für {label} entfernt.",
+  "announce.sessionTagsCleared": "Alias für {label} gelöscht.",
   "announce.sessionTagsInvalid":
     "Gib sowohl eine Bezeichnung als auch eine Ersetzung ein, um einen Alias hinzuzufügen.",
   "announce.locale": "Sprache: {language}.",
@@ -411,6 +415,7 @@ const ES_MESSAGES = {
   "settings.sessionTagsAdd": "Añadir alias",
   "settings.sessionTagsEntry": "{label} → {alias}",
   "settings.sessionTagsListLabel": "Alias de etiquetas actuales",
+  "settings.sessionTagsEmpty": "Aún no hay alias de etiquetas.",
   "settings.sessionTagsRemove": "Quitar",
   "settings.sessionTagsRemoveLabel": "Quitar el alias de {label}",
   "settings.save": "Guardar ajustes",
@@ -499,9 +504,10 @@ const ES_MESSAGES = {
   "announce.dailyGoalReached": "Objetivo diario alcanzado.",
   "announce.dailyGoalSaved": "Objetivo diario guardado.",
   "announce.dailyGoalCleared": "Objetivo diario borrado.",
-  "announce.sessionTagsAdded":
-    "Alias añadido: {label} ahora se muestra como {alias}.",
+  "announce.sessionTagsSaved":
+    "Alias guardado: {label} ahora se muestra como {alias}.",
   "announce.sessionTagsRemoved": "Alias de {label} eliminado.",
+  "announce.sessionTagsCleared": "Alias de {label} borrado.",
   "announce.sessionTagsInvalid":
     "Introduce una etiqueta y un reemplazo para añadir un alias.",
   "announce.locale": "Idioma: {language}.",

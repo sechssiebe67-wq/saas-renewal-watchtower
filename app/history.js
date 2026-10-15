@@ -110,7 +110,7 @@ export const SESSION_TAGS_STORAGE_SHAPE_VERSION = 1;
 
 /** The most alias entries kept in one map. Extra entries are dropped so the
  * map can never grow unbounded. */
-export const SESSION_TAGS_MAX_ENTRIES = 100;
+export const SESSION_TAGS_MAX_ENTRIES = 50;
 
 /** The longest accepted alias (the display label). A longer value is truncated
  * so one alias can never bloat device storage. */

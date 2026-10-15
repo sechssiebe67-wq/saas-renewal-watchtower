@@ -92,8 +92,9 @@ after the first load.
   threads it into the derived views through a `tags` option that defaults to
   `undefined`, so omitting it keeps the previous behaviour byte-for-byte.
   Adding or removing an alias is announced once through the existing ARIA live
-  region, every row is rendered from the bundled catalog, and a default install
-  stores nothing. The map lives only in `localStorage` under
+  region, an empty list shows a localised empty-state message, every row is
+  re-rendered when the language changes, and a default install stores nothing.
+  The map lives only in `localStorage` under
   `focus-flow:session-tags` (the key is removed when the map is empty) and is
   included in the local backup; the pure module stays DOM-, storage-, and
   network-free.

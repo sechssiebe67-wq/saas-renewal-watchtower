@@ -194,6 +194,7 @@ function getElements() {
     sessionTagTo: document.getElementById("session-tag-to"),
     sessionTagAdd: document.getElementById("session-tag-add"),
     sessionTagsList: document.getElementById("session-tags-list"),
+    sessionTagsEmpty: document.getElementById("session-tags-empty"),
     locale: document.getElementById("locale"),
     themeToggle: document.getElementById("theme-toggle"),
     themeToggleLabel: document.getElementById("theme-toggle-label"),
@@ -476,6 +477,7 @@ export function init() {
     }
     applyStaticTranslations();
     updateThemeButton(currentTheme());
+    renderSessionTags();
     render(engine.snapshot(), { reason: "locale" });
     renderStats();
     if (announceChange) {
@@ -552,6 +554,9 @@ export function init() {
     }
     const entries = sessionTagEntries();
     el.sessionTagsList.hidden = entries.length === 0;
+    if (el.sessionTagsEmpty) {
+      el.sessionTagsEmpty.hidden = entries.length !== 0;
+    }
     const items = entries.map(({ from, to }) => {
       const item = document.createElement("li");
       item.className = "session-tag";
@@ -584,6 +589,9 @@ export function init() {
     sessionTags = normalizeSessionTags(raw);
     persistSessionTags();
     renderSessionTags();
+    if (el.sessionLabelSuggestions && !el.sessionLabelSuggestions.hidden) {
+      renderLabelSuggestions();
+    }
     renderStats();
   }
 
@@ -608,7 +616,7 @@ export function init() {
       el.sessionTagTo.value = "";
     }
     if (announceChange) {
-      announce(t("announce.sessionTagsAdded", { label, alias }));
+      announce(t("announce.sessionTagsSaved", { label, alias }));
     }
   }
 
@@ -616,7 +624,11 @@ export function init() {
   function removeSessionTag(from, announceChange = true) {
     applySessionTags(sessionTagEntries().filter((entry) => entry.from !== from));
     if (announceChange) {
-      announce(t("announce.sessionTagsRemoved", { label: from }));
+      announce(
+        Object.keys(sessionTags).length === 0
+          ? t("announce.sessionTagsCleared", { label: from })
+          : t("announce.sessionTagsRemoved", { label: from }),
+      );
     }
   }
 

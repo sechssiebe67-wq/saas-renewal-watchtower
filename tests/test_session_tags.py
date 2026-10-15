@@ -40,10 +40,12 @@ NEW_I18N_KEYS = (
     "settings.sessionTagsAdd",
     "settings.sessionTagsEntry",
     "settings.sessionTagsListLabel",
+    "settings.sessionTagsEmpty",
     "settings.sessionTagsRemove",
     "settings.sessionTagsRemoveLabel",
-    "announce.sessionTagsAdded",
+    "announce.sessionTagsSaved",
     "announce.sessionTagsRemoved",
+    "announce.sessionTagsCleared",
     "announce.sessionTagsInvalid",
 )
 
@@ -306,10 +308,12 @@ class SessionTagsStaticTests(unittest.TestCase):
             'id="session-tag-to"',
             'id="session-tag-add"',
             'id="session-tags-list"',
+            'id="session-tags-empty"',
             'data-i18n="settings.sessionTags"',
             'data-i18n="settings.sessionTagsFrom"',
             'data-i18n="settings.sessionTagsTo"',
             'data-i18n="settings.sessionTagsAdd"',
+            'data-i18n="settings.sessionTagsEmpty"',
             'data-i18n-attr="aria-label:settings.sessionTagsListLabel"',
         ):
             self.assertIn(fragment, html, "index.html missing %s" % fragment)
@@ -329,10 +333,23 @@ class SessionTagsStaticTests(unittest.TestCase):
             "addSessionTag",
             "removeSessionTag",
             "persistSessionTags",
-            "announce.sessionTagsAdded",
+            "renderLabelSuggestions",
+            "sessionTagsEmpty",
+            "announce.sessionTagsSaved",
             "announce.sessionTagsRemoved",
+            "announce.sessionTagsCleared",
         ):
             self.assertIn(symbol, js, "main.js does not use %s" % symbol)
+
+    def test_apply_locale_rerenders_session_tags(self):
+        js = read(MAIN_PATH)
+        match = re.search(r"function applyLocale\([\s\S]*?\n  \}", js)
+        self.assertIsNotNone(match, "main.js has no applyLocale")
+        self.assertIn(
+            "renderSessionTags()",
+            match.group(0),
+            "applyLocale must re-render the alias rows after a language change",
+        )
 
 
 class SessionTagsI18nTests(unittest.TestCase):
