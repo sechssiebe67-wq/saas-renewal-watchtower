@@ -185,6 +185,21 @@ after the first load.
   `focus-flow:history` and `focus-flow:goal` keys through `weeklyReview`, adds
   **no new `localStorage` key, no network request, and no new runtime
   dependency**, so nothing leaves the device.
+- **Backup & restore:** the Settings card has a **Backup & restore** group. An
+  **Export backup** button writes a single JSON file
+  (`focus-flow-backup-<YYYY-MM-DD>.json`) containing the settings, the session
+  history (with labels), the weekly goal, the daily goal, the ambient choice,
+  the locale, and the week-start preference; a **Restore backup** button reads a
+  file the user picks, validates and normalises it through the existing pure
+  helpers, and writes it back to `localStorage`. The file is produced by the
+  pure `exportBackup` / `backupToJson` helpers in `app/history.js` and handed to
+  the browser as a `Blob` object URL, exactly like the weekly-review CSV export;
+  restore reads the file with the browser's `FileReader` and applies it locally.
+  A malformed or truncated file shows a non-destructive inline error, is
+  announced through the ARIA live region, and leaves existing data untouched.
+  The capability stays inside the product's invariants: it adds **no new
+  `localStorage` key**, makes **no network request**, and adds **no third-party
+  dependency**, so the data never leaves the device.
 - **Audible and visual notifications** when a phase ends.
 - **Local persistence** of settings, the current session count, and the session
   history via `localStorage`.
@@ -216,9 +231,11 @@ after the first load.
     `pruneHistory`, `summarise`, `labelSummary`, `recentSessions`,
     `normalizeGoal`, `weekWindow`, `goalProgress`, `normalizeDailyGoal`,
     `dailyGoalProgress`, `weeklyReview`, `streaks`, `normalizeWeekStart`,
-    `weeklyReviewCsv`, `HISTORY_VERSION`, `GOAL_STORAGE_SHAPE_VERSION`,
+    `weeklyReviewCsv`, `exportBackup`, `backupToJson`, `parseBackup`,
+    `backupFileName`, `HISTORY_VERSION`, `GOAL_STORAGE_SHAPE_VERSION`,
     `DAILY_GOAL_STORAGE_SHAPE_VERSION`, `WEEK_START_OPTIONS`,
-    `WEEK_START_STORAGE_SHAPE_VERSION`) with no DOM access.
+    `WEEK_START_STORAGE_SHAPE_VERSION`, `BACKUP_FORMAT_VERSION`,
+    `BACKUP_KEYS`) with no DOM access.
     `dailyGoalProgress` measures the current local calendar day against the
     optional daily goal and returns `{ targetMinutes, focusedMinutes,
     remainingMinutes, percent, reached, dayStart }`, and `normalizeDailyGoal`
@@ -234,6 +251,12 @@ after the first load.
     totals row) without touching the DOM, storage, or the network, and `streaks`
     returns the derived consistency view (`{ current, longest, todayCount,
     todayMinutes, lastActiveDay }`).
+    `exportBackup` / `backupToJson` serialise already-read storage values to a
+    deterministic `{ version, exportedAt, data }` JSON envelope and
+    `parseBackup` validates and normalises a backup string back through the same
+    pure helpers (returning `null` for anything unusable, and rejecting a
+    `version` newer than `BACKUP_FORMAT_VERSION`), while `backupFileName`
+    derives the `focus-flow-backup-<YYYY-MM-DD>.json` download name.
   - `i18n.js` — the pure, bundled message catalog (`SUPPORTED_LOCALES`,
     `LOCALE_LABELS`, `DEFAULT_LOCALE`, `MESSAGES`, `normalizeLocale`,
     `translate`, `createTranslator`, `LOCALE_STORAGE_SHAPE_VERSION`) plus the
@@ -313,6 +336,29 @@ those values need no extra storage and no extra request either. Only the optiona
 `focus-flow:locale` preference is persisted, and it is removed when the default
 locale is selected.
 
+### Backup & restore
+
+Focus Flow can save and reload its local state as a single JSON file, which is
+**created and read entirely on the device**. The backup contains the settings,
+the session history (with labels), the weekly goal, the daily goal, the ambient
+choice, the locale, and the week-start preference; it contains **no secrets**
+and is handed to the browser as a `Blob` object URL, so it is never uploaded and
+no network request is made. `exportBackup` / `backupToJson` in `app/history.js`
+build the deterministic `{ version, exportedAt, data }` envelope, and
+`backupFileName` names the download
+`focus-flow-backup-<YYYY-MM-DD>.json`.
+
+A restored file is **validated and normalised before it is written**: the DOM
+layer reads it with the browser's `FileReader`, passes the text to the pure
+`parseBackup` helper, and only then writes the canonical values back to
+`localStorage` (removing any key whose normalised value is empty/default, so the
+restore keeps the "a default install leaves no trace" rule). A file that is not
+a usable backup — bad JSON, wrong types, a missing `data` envelope, or a
+`version` newer than `BACKUP_FORMAT_VERSION` — is rejected with a
+non-destructive inline error and an announcement through the live region, and
+the existing data is never overwritten. The feature adds **no new `localStorage`
+key**, makes **no network request**, and adds **no third-party dependency**.
+
 ## Next direction
 
 - [x] **Focus streaks and reminders**, derived locally from the session history
@@ -357,6 +403,15 @@ locale is selected.
   `focus-flow:daily-goal` (`{ minutes, label? }`, clamped to `0..1440`), and the
   key is removed when the goal is `0`/empty. It adds no new runtime dependency,
   no network request, and no third-party asset.
+- [x] **Local backup & restore**, the data-portability follow-up to the
+  export-only CSV: the pure `exportBackup` / `backupToJson` / `parseBackup` /
+  `backupFileName` helpers in `app/history.js` write the whole local state to a
+  `focus-flow-backup-<YYYY-MM-DD>.json` file and read it back, and the Settings
+  card gains **Export backup** and **Restore backup** controls. Restore
+  validates and normalises through the existing pure helpers before writing, and
+  a rejected file is announced and leaves the existing data untouched. The
+  feature adds no new `localStorage` key, makes no network request, and adds no
+  third-party dependency.
 
 ## How the repository meets its own criteria
 
@@ -373,7 +428,7 @@ locale is selected.
 | Autonomous Operation | No backend; nothing to administer after deployment, and the service worker keeps the app usable offline. |
 | Kubernetes Compatible | `Dockerfile` + `helm/` chart with `Deployment`, `Service`, `Ingress`, probes, and resource limits. |
 | Resource Efficient | Tiny nginx:alpine image, static files only, small CPU/RAM requests and limits in `helm/values.yaml`. |
-| Security | No secrets, no runtime external calls, no telemetry, no user input leaves the browser; the service worker ignores cross-origin and non-GET requests; container runs as non-root. The ambient sound layer is synthesised in-browser with the Web Audio API, so it adds **no network request and no third-party asset**. The i18n catalog is bundled in `app/i18n.js`, so localisation adds **no network request and no third-party library**, and the only new storage is the optional locale preference. The user-selectable first day of week is rendered from that same bundled catalog, so it too adds **no network request and no third-party dependency** — the only new storage is the optional `focus-flow:week-start` preference. The daily focus goal is measured from the existing history by a pure helper and stored only under the optional `focus-flow:daily-goal` key, so it adds **no network request, no third-party dependency, and no upload**. |
+| Security | No secrets, no runtime external calls, no telemetry, no user input leaves the browser; the service worker ignores cross-origin and non-GET requests; container runs as non-root. The ambient sound layer is synthesised in-browser with the Web Audio API, so it adds **no network request and no third-party asset**. The i18n catalog is bundled in `app/i18n.js`, so localisation adds **no network request and no third-party library**, and the only new storage is the optional locale preference. The user-selectable first day of week is rendered from that same bundled catalog, so it too adds **no network request and no third-party dependency** — the only new storage is the optional `focus-flow:week-start` preference. The daily focus goal is measured from the existing history by a pure helper and stored only under the optional `focus-flow:daily-goal` key, so it adds **no network request, no third-party dependency, and no upload**. The local backup/restore writes and reads a JSON file entirely on the device through pure helpers, so it adds **no new `localStorage` key, no network request, no third-party dependency, and no upload**. |
 | Testable | `tests/` verifies assets, structure, the PWA manifest and service worker, and Helm rendering via `unittest`. |
 | Maintainable | Plain HTML/CSS/JS with no build step and clear project structure. |
 | Legal Compliance | Original code, no third-party assets, no personal data collected. |

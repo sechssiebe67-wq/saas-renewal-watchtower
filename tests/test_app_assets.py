@@ -80,9 +80,11 @@ class AppAssetTests(unittest.TestCase):
 
     def test_controls_are_real_buttons(self):
         html = read_app_file("index.html")
-        self.assertEqual(html.count("<button"), 8)
+        self.assertEqual(html.count("<button"), 10)
         self.assertIn('type="button"', html)
         self.assertIn('id="review-export"', html)
+        self.assertIn('id="backup-export"', html)
+        self.assertIn('id="backup-restore"', html)
 
     def test_settings_expose_configurable_durations(self):
         html = read_app_file("index.html")

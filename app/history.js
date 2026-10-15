@@ -27,7 +27,19 @@
  * using the same label-matching rule as `goalProgress`, and
  * `normalizeDailyGoal` coerces arbitrary stored input into the canonical shape
  * (clamped to a single day). These are pure too: no DOM, no storage, no network.
+ *
+ * Finally it owns the pure maths for the local **backup / restore** capability:
+ * `exportBackup` / `backupToJson` turn already-read storage values into a
+ * deterministic JSON envelope and `parseBackup` validates and normalises a
+ * backup string back into canonical state through the existing pure helpers.
+ * `backupFileName` derives the download name. These read no storage of their
+ * own, make no network request, and never touch the DOM; the only sibling
+ * modules they lean on (`normalizeAmbient`, `normalizeLocale`) are themselves
+ * pure and dependency-free.
  */
+
+import { normalizeAmbient } from "./ambient.js";
+import { normalizeLocale } from "./i18n.js";
 
 export const HISTORY_VERSION = 2;
 export const MAX_ENTRIES = 500;
@@ -70,6 +82,26 @@ export const WEEK_START_STORAGE_SHAPE_VERSION = 1;
 export const WEEK_START_OPTIONS = Object.freeze([
   Object.freeze({ value: 1, labelKey: "settings.weekStartMonday" }),
   Object.freeze({ value: 0, labelKey: "settings.weekStartSunday" }),
+]);
+
+/** Format version for the local backup JSON produced by `exportBackup`. Starts
+ * at `1`; `parseBackup` refuses any version greater than this so a file written
+ * by a future Focus Flow is never silently misinterpreted. */
+export const BACKUP_FORMAT_VERSION = 1;
+
+/** The stored entries captured by a backup, in the canonical order used
+ * by the backup `data` object. Each name mirrors a `focus-flow:*` key owned by
+ * the DOM layer (`settings` → `focus-flow:settings`, `history` →
+ * `focus-flow:history`, and so on). Frozen so the contract cannot be reordered
+ * or extended by accident. */
+export const BACKUP_KEYS = Object.freeze([
+  "settings",
+  "history",
+  "goal",
+  "dailyGoal",
+  "ambient",
+  "locale",
+  "weekStart",
 ]);
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -751,6 +783,127 @@ export function weeklyReviewCsv(review, { locale, unlabelled } = {}) {
   ]);
 
   return `${lines.map((cells) => cells.map(csvField).join(",")).join("\n")}\n`;
+}
+
+/** True when `value` is a positive whole number, used to guard a backup's
+ * `version` field. */
+function isPositiveInteger(value) {
+  return typeof value === "number" && Number.isInteger(value) && value > 0;
+}
+
+/**
+ * Build the in-memory backup envelope from already-read storage values.
+ *
+ * `state` is a plain object keyed by `BACKUP_KEYS` — the values the DOM layer
+ * reads from device storage. Returns `{ version, exportedAt, data }`, where
+ * `data` carries the same keys in canonical `BACKUP_KEYS` order and
+ * `exportedAt` is an ISO timestamp. `options.now` is injectable so tests can
+ * pin the timestamp and assert byte-for-byte determinism. Pure: it touches no
+ * DOM, no storage, and no network, and it never mutates its input.
+ */
+export function exportBackup(state, { now = Date.now() } = {}) {
+  const source = state && typeof state === "object" ? state : {};
+  const data = {};
+  for (const key of BACKUP_KEYS) {
+    data[key] = source[key] === undefined ? null : source[key];
+  }
+  const resolved = toTimestamp(now);
+  return {
+    version: BACKUP_FORMAT_VERSION,
+    exportedAt: new Date(
+      resolved === null ? Date.now() : resolved,
+    ).toISOString(),
+    data,
+  };
+}
+
+/**
+ * Serialise `exportBackup(state)` to a deterministic, diff-friendly JSON string
+ * (2-space indent, stable key order). `options` is forwarded to `exportBackup`,
+ * so callers can pin `now`. Pure and non-mutating: the same input always
+ * produces the same bytes.
+ */
+export function backupToJson(state, options) {
+  return JSON.stringify(exportBackup(state, options), null, 2);
+}
+
+/**
+ * Parse a backup JSON string into a normalised state object, or `null` when the
+ * text is not a usable Focus Flow backup.
+ *
+ * Accepts both the full `{ version, exportedAt, data }` envelope produced by
+ * `exportBackup` and a bare, `data`-shaped object. A `version` that is not a
+ * positive integer, or is greater than `BACKUP_FORMAT_VERSION`, is rejected as
+ * a forward-compatibility guard. Every field is run through the existing pure
+ * normalisers (`pruneHistory`, `normalizeGoal`, `normalizeDailyGoal`,
+ * `normalizeAmbient`, `normalizeLocale`, `normalizeWeekStart`), so the result is
+ * canonical; `settings` is carried through untouched for the DOM layer to
+ * normalise. Total: bad JSON, wrong types, missing fields, and `null` all
+ * return `null` instead of throwing. `now` and `retentionDays` are injectable
+ * for tests.
+ */
+export function parseBackup(
+  text,
+  { now = Date.now(), retentionDays = DEFAULT_RETENTION_DAYS } = {},
+) {
+  if (typeof text !== "string" || text.length === 0) {
+    return null;
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch (error) {
+    return null;
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return null;
+  }
+
+  let data;
+  if (Object.prototype.hasOwnProperty.call(parsed, "data")) {
+    if (
+      !parsed.data ||
+      typeof parsed.data !== "object" ||
+      Array.isArray(parsed.data)
+    ) {
+      return null;
+    }
+    if (
+      !isPositiveInteger(parsed.version) ||
+      parsed.version > BACKUP_FORMAT_VERSION
+    ) {
+      return null;
+    }
+    data = parsed.data;
+  } else if (Object.prototype.hasOwnProperty.call(parsed, "version")) {
+    return null;
+  } else {
+    data = parsed;
+  }
+
+  return {
+    settings:
+      data.settings && typeof data.settings === "object"
+        ? data.settings
+        : null,
+    history: pruneHistory(data.history, { now, retentionDays }),
+    goal: normalizeGoal(data.goal),
+    dailyGoal: normalizeDailyGoal(data.dailyGoal),
+    ambient: normalizeAmbient(data.ambient),
+    locale: normalizeLocale(data.locale),
+    weekStart: normalizeWeekStart(data.weekStart),
+  };
+}
+
+/**
+ * The download name for a backup taken at `now`:
+ * `focus-flow-backup-<YYYY-MM-DD>.json`, using the same local-calendar date key
+ * as the rest of the module.
+ */
+export function backupFileName(now = Date.now()) {
+  const resolved = toTimestamp(now);
+  const date = new Date(resolved === null ? Date.now() : resolved);
+  return `focus-flow-backup-${dateKey(date)}.json`;
 }
 
 /**

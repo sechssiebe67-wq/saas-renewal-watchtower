@@ -20,6 +20,8 @@ import tempfile
 import textwrap
 import unittest
 
+from history_harness_support import copy_history_dependencies
+
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 APP_DIR = os.path.join(REPO_ROOT, "app")
 HISTORY_PATH = os.path.join(APP_DIR, "history.js")
@@ -282,6 +284,7 @@ class StreaksLogicTests(unittest.TestCase):
         module_path = os.path.join(cls.tmp_dir, "history.mjs")
         with open(module_path, "w", encoding="utf-8") as handle:
             handle.write(source)
+        copy_history_dependencies(cls.tmp_dir)
         harness_path = os.path.join(cls.tmp_dir, "harness.mjs")
         with open(harness_path, "w", encoding="utf-8") as handle:
             handle.write(HARNESS)
@@ -319,6 +322,7 @@ class StreaksDstTests(unittest.TestCase):
             source = handle.read()
         with open(os.path.join(cls.tmp_dir, "history.mjs"), "w", encoding="utf-8") as handle:
             handle.write(source)
+        copy_history_dependencies(cls.tmp_dir)
         with open(os.path.join(cls.tmp_dir, "harness.mjs"), "w", encoding="utf-8") as handle:
             handle.write(DST_HARNESS)
 

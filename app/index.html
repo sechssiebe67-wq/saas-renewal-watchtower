@@ -273,6 +273,57 @@
             </select>
           </div>
 
+          <fieldset class="field field--backup">
+            <legend class="field__legend" data-i18n="settings.backup">Backup &amp; restore</legend>
+            <p class="field__hint" data-i18n="settings.backupHint">
+              Export a local JSON copy of your settings, history, and goals, or
+              restore one. Files stay on this device.
+            </p>
+            <div class="backup-actions">
+              <button
+                id="backup-export"
+                class="control"
+                type="button"
+                data-i18n="settings.exportBackup"
+              >
+                Export backup
+              </button>
+              <span class="field__hint" data-i18n="settings.exportBackupHint">
+                Downloads a JSON file with your settings, history, and goals.
+                Nothing is uploaded.
+              </span>
+            </div>
+            <div class="backup-actions">
+              <button
+                id="backup-restore"
+                class="control"
+                type="button"
+                data-i18n="settings.restoreBackup"
+              >
+                Restore backup
+              </button>
+              <input
+                id="backup-restore-file"
+                name="backupFile"
+                class="visually-hidden"
+                type="file"
+                accept="application/json,.json"
+              />
+              <label
+                for="backup-restore-file"
+                class="visually-hidden"
+                data-i18n="settings.restoreBackupFile"
+              >
+                Backup file to restore
+              </label>
+              <span class="field__hint" data-i18n="settings.restoreBackupHint">
+                Replaces your local data with a backup file you choose. Nothing
+                is uploaded.
+              </span>
+            </div>
+            <p id="backup-status" class="settings-status" role="status"></p>
+          </fieldset>
+
           <p id="settings-status" class="settings-status" role="status"></p>
 
           <button id="save-settings" class="control control--primary" type="submit" data-i18n="settings.save">
