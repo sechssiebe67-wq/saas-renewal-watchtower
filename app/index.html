@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <meta
+      name="description"
+      content="Focus Flow is a distraction-free, offline-capable Pomodoro focus timer. No account, no tracking, no network."
+    />
+    <title>Focus Flow — Distraction-free focus timer</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="icon" href="data:," />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to main content</a>
+
+    <header class="app-header">
+      <p class="brand">
+        <span class="brand__mark" aria-hidden="true">⏳</span>
+        <span class="brand__name">Focus Flow</span>
+      </p>
+      <button
+        id="theme-toggle"
+        class="theme-toggle"
+        type="button"
+        aria-pressed="false"
+      >
+        <span class="theme-toggle__icon" aria-hidden="true">🌙</span>
+        <span id="theme-toggle-label">Dark theme</span>
+      </button>
+    </header>
+
+    <main id="main" class="app-main" tabindex="-1">
+      <section class="timer-card" aria-labelledby="timer-heading">
+        <h1 id="timer-heading" class="timer-card__title">Focus timer</h1>
+
+        <p id="phase-label" class="phase-label" data-phase="work">Work session</p>
+
+        <p
+          id="timer-display"
+          class="timer-display"
+          role="timer"
+          aria-atomic="true"
+        >
+          25:00
+        </p>
+
+        <p id="timer-announcer" class="visually-hidden" aria-live="polite" aria-atomic="true"></p>
+
+        <p class="session-counter">
+          Sessions completed today:
+          <strong id="session-count" aria-live="polite">0</strong>
+        </p>
+
+        <div class="controls" role="group" aria-label="Timer controls">
+          <button id="start-pause" class="control control--primary" type="button">
+            Start
+          </button>
+          <button id="reset" class="control" type="button">Reset</button>
+          <button id="skip" class="control" type="button">Skip</button>
+        </div>
+
+        <p class="shortcuts">
+          Shortcuts: <kbd>Space</kbd> start/pause · <kbd>R</kbd> reset ·
+          <kbd>S</kbd> skip
+        </p>
+      </section>
+
+      <section class="settings-card" aria-labelledby="settings-heading">
+        <h2 id="settings-heading" class="settings-card__title">Settings</h2>
+        <form id="settings-form" class="settings-form" novalidate>
+          <div class="field">
+            <label for="work-duration">Work (minutes)</label>
+            <input
+              id="work-duration"
+              name="work"
+              type="number"
+              min="1"
+              max="180"
+              step="1"
+              inputmode="numeric"
+              value="25"
+            />
+          </div>
+
+          <div class="field">
+            <label for="short-break-duration">Short break (minutes)</label>
+            <input
+              id="short-break-duration"
+              name="shortBreak"
+              type="number"
+              min="1"
+              max="60"
+              step="1"
+              inputmode="numeric"
+              value="5"
+            />
+          </div>
+
+          <div class="field">
+            <label for="long-break-duration">Long break (minutes)</label>
+            <input
+              id="long-break-duration"
+              name="longBreak"
+              type="number"
+              min="1"
+              max="120"
+              step="1"
+              inputmode="numeric"
+              value="15"
+            />
+          </div>
+
+          <div class="field">
+            <label for="long-break-interval">Long break after (work sessions)</label>
+            <input
+              id="long-break-interval"
+              name="longBreakInterval"
+              type="number"
+              min="2"
+              max="12"
+              step="1"
+              inputmode="numeric"
+              value="4"
+            />
+          </div>
+
+          <div class="field field--checkbox">
+            <input id="sound-enabled" name="sound" type="checkbox" checked />
+            <label for="sound-enabled">Play a sound when a phase ends</label>
+          </div>
+
+          <div class="field field--checkbox">
+            <input
+              id="auto-start-breaks"
+              name="autoStartBreaks"
+              type="checkbox"
+              checked
+            />
+            <label for="auto-start-breaks">Automatically start breaks</label>
+          </div>
+
+          <p id="settings-status" class="settings-status" role="status"></p>
+
+          <button id="save-settings" class="control control--primary" type="submit">
+            Save settings
+          </button>
+        </form>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <p>
+        Focus Flow runs entirely in your browser. Your settings and session count
+        stay on this device. No accounts, no tracking, no network.
+      </p>
+    </footer>
+
+    <script type="module" src="main.js"></script>
+  </body>
+</html>

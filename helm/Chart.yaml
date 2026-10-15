@@ -1,0 +1,14 @@
+apiVersion: v2
+name: focus-flow
+description: Focus Flow — a distraction-free, offline-capable focus timer.
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - pomodoro
+  - focus
+  - productivity
+  - timer
+home: https://github.com/example/saas-renewal-watchtower
+maintainers:
+  - name: Focus Flow maintainers

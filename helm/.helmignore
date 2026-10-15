@@ -1,0 +1,6 @@
+# Helm ignore patterns.
+.DS_Store
+.git/
+.gitignore
+*.tmproj
+tests/
