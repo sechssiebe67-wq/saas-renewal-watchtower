@@ -62,6 +62,7 @@ HARNESS = textwrap.dedent(
     check("empty log is not reached", empty.reached === false);
     check("empty log reports the remaining minutes", empty.remainingMinutes === 60);
     check("empty log returns the week start", empty.weekStart === wk.start);
+    check("empty week review is not scoped", empty.scoped === false);
 
     const none = weeklyReview(history, { now: NOW, minutes: 0 });
     check("no goal defines percent as 100", none.percent === 100);
@@ -71,6 +72,7 @@ HARNESS = textwrap.dedent(
       "no goal reports zero share of target",
       none.perLabel.every((row) => row.percentOfTarget === 0),
     );
+    check("unscoped review is not scoped", none.scoped === false);
 
     const under = weeklyReview(history, { now: NOW, minutes: 100 });
     check("under-target sums focused minutes", under.focusedMinutes === 75);
@@ -122,6 +124,7 @@ HARNESS = textwrap.dedent(
       "label scoping lists only the matching label",
       JSON.stringify(scoped.labels) === JSON.stringify(["Thesis"]),
     );
+    check("label scoping marks the review as scoped", scoped.scoped === true);
 
     const unlabelled = weeklyReview(history, {
       now: NOW,

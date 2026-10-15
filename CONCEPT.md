@@ -68,6 +68,21 @@ after the first load.
   (a `0`/empty value, or the **Clear goal** control) from the settings form.
   The whole goal lives only in `localStorage` under `focus-flow:goal` and is
   never uploaded.
+- **Per-label weekly goal breakdown in the Stats panel:** the **Weekly goal**
+  row in the Stats panel now shows a compact, per-label breakdown of the current
+  week's focused minutes, so a label-scoped goal (e.g. "5 hours on Thesis
+  chapter 3") is visible at a glance without opening the separate Weekly review
+  card. Each row shows the label, its focused minutes, and its share of the
+  target (including an `(unlabelled)` row when unlabelled sessions exist), ranked
+  by minutes descending then label ascending. The list respects the existing
+  label filter, so a filtered Stats view shows only the matching label, and it is
+  hidden when the week has no label rows. The breakdown is derived entirely from
+  the already-stored `focus-flow:history` and `focus-flow:goal` keys through the
+  existing pure `weeklyReview` helper in `app/history.js` — there is **no new
+  `localStorage` key, no network request, and no new runtime dependency**. Every
+  string (heading, accessible name, per-row stats, announcement) comes from the
+  bundled `app/i18n.js` catalog, and the list is announced once through the
+  existing ARIA live region when it first appears or the goal is reached.
 - **Weekly review:** a dedicated panel lines the weekly goal up against the
   per-label breakdown for the current week. It shows the focused minutes so far
   against the target, a percentage, and a `role="progressbar"` bar, plus a
@@ -189,11 +204,11 @@ after the first load.
     `WEEK_START_OPTIONS` pairs each value with its catalog label key.
     `weeklyReview` returns the current week's goal versus per-label breakdown
     (`{ weekStart, targetMinutes, focusedMinutes, remainingMinutes, percent,
-    reached, labels, perLabel }`), `weeklyReviewCsv` serialises that result to a
-    deterministic RFC 4180 CSV string (header, one row per label, totals row)
-    without touching the DOM, storage, or the network, and `streaks` returns the
-    derived consistency view (`{ current, longest, todayCount, todayMinutes,
-    lastActiveDay }`).
+    reached, scoped, labels, perLabel }`), `weeklyReviewCsv` serialises that
+    result to a deterministic RFC 4180 CSV string (header, one row per label,
+    totals row) without touching the DOM, storage, or the network, and `streaks`
+    returns the derived consistency view (`{ current, longest, todayCount,
+    todayMinutes, lastActiveDay }`).
   - `i18n.js` — the pure, bundled message catalog (`SUPPORTED_LOCALES`,
     `LOCALE_LABELS`, `DEFAULT_LOCALE`, `MESSAGES`, `normalizeLocale`,
     `translate`, `createTranslator`, `LOCALE_STORAGE_SHAPE_VERSION`) plus the
@@ -238,6 +253,13 @@ The **Weekly review** panel is derived, not stored: it reads only the existing
 `focus-flow:history` and `focus-flow:goal` keys through the pure `weeklyReview`
 helper and adds no new `localStorage` key and no network request.
 
+The **per-label weekly goal breakdown** in the Stats panel is derived the same
+way: the DOM layer renders `weeklyReview`'s `perLabel` rows (plus the derived
+`unlabelled` bucket) inside the existing **Weekly goal** row, so it reads only
+`focus-flow:history` and `focus-flow:goal`, adds **no new `localStorage` key, no
+network request, and no third-party dependency**, and keeps the app fully
+offline.
+
 The **weekly review CSV export** is derived the same way and stays entirely on
 the device: the pure `weeklyReviewCsv` helper turns the `weeklyReview` result
 into a CSV string, and the DOM layer hands that string to the browser as a
@@ -280,6 +302,16 @@ locale is selected.
   downloads it as `focus-flow-week-<YYYY-MM-DD>.csv` through a `Blob` object
   URL. The export is local-only — it makes no network request, adds no
   `localStorage` key, and adds no new runtime dependency.
+- [x] **Per-label weekly goal breakdown in the Stats panel**, the follow-up to
+  the weekly review and CSV export that surfaces the same `weeklyReview`
+  `perLabel` data inline in the Stats **Weekly goal** row. The DOM layer renders
+  each label's focused minutes and share of the target (plus an `(unlabelled)`
+  row when needed), routed through the bundled catalog and the shared
+  `formatNumber` / `formatDuration` / `pluralise` helpers, and announces the
+  breakdown once through the existing ARIA live region. It respects the active
+  label filter, hides itself when the week has no label rows, reads only
+  `focus-flow:history` and `focus-flow:goal`, adds no `localStorage` key, and
+  makes no network request.
 
 ## How the repository meets its own criteria
 
@@ -314,12 +346,12 @@ locale is selected.
 | Low Maintenance | No backend or data migrations to maintain. |
 | Market Differentiation | Privacy-first, offline, no-account, and packaged as a Kubernetes-native OSS app. |
 | Growth Potential | Serving more users costs effectively nothing. |
-| User Retention | Daily use pattern; persistent settings, session counts, and a 7-day focus-history panel that shows progress; optional per-session labels, a label filter, and a weekly review that ranks each label against the weekly goal let users see where their focus went; a derived current/longest focus streak and a gentle daily reminder hint encourage users to come back and keep the streak alive, plus one-tap install to the home screen or desktop. |
+| User Retention | Daily use pattern; persistent settings, session counts, and a 7-day focus-history panel that shows progress; optional per-session labels, a label filter, and a weekly review that ranks each label against the weekly goal let users see where their focus went, and the Stats **Weekly goal** row now carries an inline per-label breakdown so each label's contribution is visible at a glance; a derived current/longest focus streak and a gentle daily reminder hint encourage users to come back and keep the streak alive, plus one-tap install to the home screen or desktop. |
 | Discoverability | Clear name, description, and docs; shareable as a URL. Ships English, German, and Spanish from a bundled catalog with an accessible language switcher, and the derived weekday/month names, plural forms, and number grouping come from that same bundled catalog. |
 | Mobile Friendly | Responsive layout, touch-friendly controls, and an installable PWA that launches standalone. |
 | Accessibility | Semantic landmarks, ARIA live region, keyboard shortcuts, focus states, contrast. The locale switcher and the **Week starts on** control are labelled `<select>`s with accessible names, every string (including live-region announcements) is routed through the catalog, derived weekday/month names and numbers are localised from the same bundled catalog, and `<html lang>` follows the active locale. |
 | Minimal Dependencies | Zero runtime JS/CSS dependencies; the i18n catalog and its `LOCALE_DATA` (weekday/month names, separators, plural rules) are a dependency-free local module with no network request, no `Intl` dependency, and no third-party library. |
-| Measurable Success | `/healthz` for reliability; the local session history, 7-day stats, optional label breakdown, the weekly focus goal, and the weekly review give users a visible, measurable view of their focus habit, including what each block of time was spent on and how close each label came to their weekly target; the derived current/longest focus streak and today's totals make consistency itself measurable. |
+| Measurable Success | `/healthz` for reliability; the local session history, 7-day stats, optional label breakdown, the weekly focus goal, and the weekly review give users a visible, measurable view of their focus habit, including what each block of time was spent on and how close each label came to their weekly target; the Stats **Weekly goal** row shows that per-label goal share inline; the derived current/longest focus streak and today's totals make consistency itself measurable. |
 | Reusability | Reuses the standard static-container + Helm deployment template. |
 | Innovation Potential | The shipped ambient sound layer shows the in-browser synthesis approach can be extended to more generated soundscapes, and the shipped bundled catalog with bundled locale data shows how the product can add locales, weekday/month names, and plural rules without a build step, a backend, or a third-party dependency; a shipped user-selectable first day of week shows how further local conventions (a fiscal week start, custom week windows) can reuse the same catalogue-and-storage pattern. |
 

@@ -149,6 +149,10 @@ function getElements() {
     statsGoalBar: document.getElementById("stats-goal-bar"),
     statsGoalFill: document.getElementById("stats-goal-fill"),
     statsGoalReached: document.getElementById("stats-goal-reached"),
+    statsGoalBreakdownTitle: document.getElementById(
+      "stats-goal-breakdown-title",
+    ),
+    statsGoalBreakdown: document.getElementById("stats-goal-breakdown"),
     weeklyReviewEmpty: document.getElementById("weekly-review-empty"),
     weeklyReviewSummary: document.getElementById("weekly-review-summary"),
     weeklyReviewFocused: document.getElementById("weekly-review-focused"),
@@ -578,6 +582,7 @@ export function init() {
 
   let activeLabel = null;
   let announcedStreak = null;
+  let announcedBreakdown = false;
 
   function labelDisplay(label) {
     return label === UNLABELLED ? t("label.unlabelled") : label;
@@ -810,6 +815,7 @@ export function init() {
     }
     if (!active) {
       goalReached = null;
+      hideGoalBreakdown();
       return;
     }
 
@@ -838,7 +844,96 @@ export function init() {
       el.statsGoal.classList.toggle("stats__goal--reached", progress.reached);
     }
 
+    renderGoalBreakdown();
     noteGoalReached(progress.reached);
+  }
+
+  /** Hide the per-label breakdown and let it announce again when it returns. */
+  function hideGoalBreakdown() {
+    if (el.statsGoalBreakdown) {
+      el.statsGoalBreakdown.hidden = true;
+      el.statsGoalBreakdown.replaceChildren();
+    }
+    if (el.statsGoalBreakdownTitle) {
+      el.statsGoalBreakdownTitle.hidden = true;
+    }
+    announcedBreakdown = false;
+  }
+
+  /**
+   * Render the current week's per-label breakdown inside the existing Weekly
+   * goal row. The rows come from the pure `weeklyReview` helper (already sorted
+   * by minutes descending then label ascending), so no new storage or network
+   * access is involved. Labelled and `(unlabelled)` entries are both shown, the
+   * existing label filter scopes the list, and the breakdown is hidden — and
+   * reset so it can announce again — when the week has no label rows.
+   */
+  function renderGoalBreakdown() {
+    if (!el.statsGoalBreakdown) {
+      return;
+    }
+
+    const review = currentWeeklyReview();
+    const rows = review.perLabel;
+    const visible = rows.length > 0;
+
+    el.statsGoalBreakdown.hidden = !visible;
+    if (el.statsGoalBreakdownTitle) {
+      el.statsGoalBreakdownTitle.hidden = !visible;
+    }
+
+    if (!visible) {
+      el.statsGoalBreakdown.replaceChildren();
+      announcedBreakdown = false;
+      return;
+    }
+
+    const items = rows.map((row) => {
+      const item = document.createElement("li");
+      item.className = "stats__goal-label";
+
+      const name = document.createElement("span");
+      name.className = "stats__goal-label-name";
+      name.textContent = labelDisplay(row.label);
+
+      const stats = document.createElement("span");
+      stats.className = "stats__goal-label-stats";
+      stats.textContent = t("stats.goalLabelStats", {
+        minutes: formatDuration(row.minutes, locale),
+        percent: formatNumber(row.percentOfTarget, locale),
+      });
+
+      item.append(name, stats);
+      return item;
+    });
+    el.statsGoalBreakdown.replaceChildren(...items);
+
+    if (!announcedBreakdown) {
+      announcedBreakdown = true;
+      if (review.scoped) {
+        const row = rows[0];
+        announce(
+          t("announce.goalBreakdownScoped", {
+            label: labelDisplay(row.label),
+            minutes: formatDuration(row.minutes, locale),
+          }),
+        );
+      } else {
+        const summaryTemplate = pluralise(
+          rows.length,
+          {
+            one: t("stats.goalBreakdownOne"),
+            other: t("stats.goalBreakdownMany"),
+          },
+          locale,
+        );
+        const summary = summaryTemplate.replace(
+          "{count}",
+          formatNumber(rows.length, locale),
+        );
+        announce(t("announce.goalBreakdown", { summary }));
+      }
+    }
   }
 
   /** The current week's review for the active goal / label / week-start. */

@@ -33,6 +33,15 @@ calls, no telemetry, and no secrets.
   this week, a percentage, and a progress bar, and switches to a "Goal reached"
   state once you hit the target. Set it to `0` or use **Clear goal** to remove
   it.
+- **Per-label goal breakdown in Stats:** the Stats **Weekly goal** row also
+  shows a compact breakdown of the current week by session label — each label's
+  focused minutes and its share of the target, ranked by minutes, with an
+  `(unlabelled)` row when unlabelled sessions exist. It respects the active
+  label filter (a filtered Stats view shows only the matching label) and stays
+  hidden when the week has no label rows. The breakdown is derived from the same
+  pure `weeklyReview` helper as the Weekly review panel, so it reads only the
+  existing `focus-flow:history` and `focus-flow:goal` keys and adds **no new
+  `localStorage` key, no network request, and no third-party dependency**.
 - **Weekly review:** a dedicated panel compares the current week's focused
   minutes against the goal and ranks every session label seen this week by
   focused minutes, with its session count and its share of the target (including
@@ -93,9 +102,10 @@ Focus Flow is **privacy-first by construction**: the focus history, any session
 labels you type, your weekly focus goal, your ambient-sound choice, your
 language preference, and your week-start preference live only
 on your device. They are never uploaded, synced, or sent anywhere. The weekly
-review, the **weekly review CSV export**, the focus streaks, and the daily
-reminder hint are all **derived** from that existing local data only — they add
-no new storage key, no network request, and no third-party dependency. The CSV
+review, the **weekly review CSV export**, the **per-label goal breakdown in the
+Stats panel**, the focus streaks, and the daily reminder hint are all **derived**
+from that existing local data only — they add no new storage key, no network
+request, and no third-party dependency. The CSV
 is written by a pure helper and handed to the browser as a local `Blob` URL, so
 it is created and saved entirely on your device and never leaves it. The ambient
 sound is generated locally and adds no audio file, no network request, and no
@@ -120,6 +130,12 @@ All state lives in the browser's `localStorage`:
 - `focus-flow:week-start` — the optional first-day-of-week preference (`0` =
   Sunday, `1` = Monday), rendered through the bundled catalog; removed when the
   default Monday is selected.
+
+The Stats **Weekly goal** per-label breakdown, the Weekly review panel, the CSV
+export, the focus streaks, and the daily reminder hint are all **derived** from
+`focus-flow:history` and `focus-flow:goal` and add **no new storage key**. The
+breakdown in particular is rendered by the same pure `weeklyReview` helper, so it
+makes no network request and adds no third-party dependency.
 
 The full concept, audience, roadmap, and criteria mapping live in
 [`CONCEPT.md`](CONCEPT.md).
