@@ -167,6 +167,38 @@
           </div>
 
           <div class="field">
+            <label for="ambient-type">Ambient sound</label>
+            <select id="ambient-type" name="ambientType">
+              <option value="off">Off</option>
+              <option value="brown">Brown noise</option>
+              <option value="pink">Pink noise</option>
+              <option value="rain">Soft rain</option>
+            </select>
+            <p class="field__hint">
+              Generated in your browser with the Web Audio API. No audio files
+              are downloaded, and your choice is stored only on this device.
+            </p>
+          </div>
+
+          <div class="field">
+            <label for="ambient-volume">Ambient volume</label>
+            <input
+              id="ambient-volume"
+              name="ambientVolume"
+              type="range"
+              min="0"
+              max="1"
+              step="0.05"
+              value="0.3"
+              aria-describedby="ambient-volume-hint"
+            />
+            <p id="ambient-volume-hint" class="field__hint">
+              Plays during work sessions (and breaks when they auto-start).
+              Stored only on this device.
+            </p>
+          </div>
+
+          <div class="field">
             <label for="weekly-goal">Weekly focus goal (minutes)</label>
             <input
               id="weekly-goal"

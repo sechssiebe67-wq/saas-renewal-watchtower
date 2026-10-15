@@ -28,13 +28,14 @@ EXPECTED_PRECACHE = [
     "./main.js",
     "./timer.js",
     "./history.js",
+    "./ambient.js",
     "./manifest.webmanifest",
     "./healthz",
     "./icons/icon-192.png",
     "./icons/icon-512.png",
     "./icons/icon-maskable-512.png",
 ]
-EXPECTED_CACHE_NAME = "focus-flow-v6"
+EXPECTED_CACHE_NAME = "focus-flow-v7"
 
 
 def read_text(path):
@@ -149,6 +150,9 @@ class ServiceWorkerTests(unittest.TestCase):
 
     def test_history_module_is_precached(self):
         self.assertIn('"./history.js"', self.source)
+
+    def test_ambient_module_is_precached(self):
+        self.assertIn('"./ambient.js"', self.source)
 
     def _cache_name(self):
         match = re.search(r'CACHE_NAME\s*=\s*"([^"]+)"', self.source)
