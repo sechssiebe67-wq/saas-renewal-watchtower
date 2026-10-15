@@ -332,14 +332,14 @@ after the first load.
     `pruneHistory`, `summarise`, `labelSummary`, `recentSessions`,
     `recentLabels`, `normalizeGoal`, `weekWindow`, `goalProgress`,
     `normalizeDailyGoal`, `dailyGoalProgress`, `dailyReview`, `badgeState`,
-    `weeklyReview`, `goalPace`, `streaks`,
+    `weeklyReview`, `goalPace`, `weeklyTrend`, `streaks`,
     `normalizeWeekStart`, `normalizeSessionTags`, `applyAliases`,
     `weeklyReviewCsv`, `exportBackup`, `backupToJson`, `parseBackup`,
     `backupFileName`, `HISTORY_VERSION`, `GOAL_STORAGE_SHAPE_VERSION`,
     `DAILY_GOAL_STORAGE_SHAPE_VERSION`, `WEEK_START_OPTIONS`,
     `WEEK_START_STORAGE_SHAPE_VERSION`, `SESSION_TAGS_MAX_ENTRIES`,
     `SESSION_TAGS_MAX_ALIAS_LENGTH`, `SESSION_TAGS_STORAGE_SHAPE_VERSION`,
-    `BACKUP_FORMAT_VERSION`, `BACKUP_KEYS`) with no DOM access.
+    `BACKUP_FORMAT_VERSION`, `BACKUP_KEYS`, `TREND_WEEKS`) with no DOM access.
     `recentLabels` returns the newest distinct labels from the log (trimmed,
     non-empty, case-insensitively de-duplicated, newest first by `endedAt`,
     capped at a requested `limit`) for the session-label autocomplete, without
@@ -375,6 +375,13 @@ after the first load.
     with calendar arithmetic and reusing `weekWindow` / `normalizeWeekStart`, and
     returns `null` when no goal is set. It reads no storage of its own, makes no
     network request, and never throws on malformed input.
+    `weeklyTrend` derives the **weekly focus trend** sparkline from the same
+    log (`{ weeks, points, min, max, direction, empty }`), one
+    `{ weekStart, minutes }` point per week over the trailing `TREND_WEEKS`
+    weeks (the current, partial week included), computed with the same
+    calendar arithmetic and the same `normalizeWeekStart` / `applyAliases`
+    handling as `weeklyReview`, so it too reads no storage, makes no network
+    request, and never throws on malformed input.
     `exportBackup` / `backupToJson` serialise already-read storage values to a
     deterministic `{ version, exportedAt, data }` JSON envelope and
     `parseBackup` validates and normalises a backup string back through the same
@@ -464,6 +471,15 @@ localised line under the **Weekly goal** row's per-label breakdown. It reads onl
 `focus-flow:history` and `focus-flow:goal`, adds **no new `localStorage` key, no
 network request, and no third-party dependency**, and keeps the app fully
 offline.
+
+The **weekly focus trend sparkline** is derived the same way: the pure
+`weeklyTrend` helper turns `focus-flow:history` into one `{ weekStart, minutes }`
+point per week (plus the `min`/`max` range, a least-squares `direction`, and an
+`empty` flag), and the DOM layer draws it as a single inline-SVG `role="img"`
+chart with a direction + range caption. It respects the active label filter and
+the **Week starts on** preference and reads only `focus-flow:history`, so it adds
+**no new `localStorage` key, no network request, and no third-party dependency**,
+and keeps the app fully offline.
 
 The **weekly review CSV export** is derived the same way and stays entirely on
 the device: the pure `weeklyReviewCsv` helper turns the `weeklyReview` result
@@ -625,6 +641,17 @@ key**, makes **no network request**, and adds **no third-party dependency**.
   active label filter and the **Week starts on** preference, reads only
   `focus-flow:history` and `focus-flow:goal`, and adds no `localStorage` key, no
   network request, and no third-party dependency.
+- [x] **Weekly focus trend sparkline**, the at-a-glance follow-up to the weekly
+  review: the pure `weeklyTrend` helper in `app/history.js` returns one
+  `{ weekStart, minutes }` point per week over the trailing `TREND_WEEKS`
+  weeks (the current, partial week included) plus the `min`/`max` range, a
+  least-squares `direction` (`"up"`, `"down"`, or `"flat"`), and an `empty`
+  flag. The Stats panel draws it as a single inline-SVG `role="img"` sparkline
+  with a direction + range caption, respects the active label filter and the
+  **Week starts on** preference, applies the alias map, shows a localised empty
+  state, and announces itself once through the existing ARIA live region. It
+  reads only `focus-flow:history`, makes no network request, and adds no
+  `localStorage` key and no third-party dependency.
 
 ## How the repository meets its own criteria
 
