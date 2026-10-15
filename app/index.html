@@ -236,7 +236,27 @@
             </p>
           </div>
 
+          <div class="field">
+            <label for="daily-goal" data-i18n="settings.dailyGoal">Daily focus goal (minutes)</label>
+            <input
+              id="daily-goal"
+              name="dailyGoal"
+              type="number"
+              min="0"
+              max="1440"
+              step="5"
+              inputmode="numeric"
+              placeholder="0 = no goal"
+              data-i18n-attr="placeholder:settings.dailyGoalPlaceholder"
+            />
+            <p class="field__hint" data-i18n="settings.dailyGoalHint">
+              Minutes for today, optionally scoped to the selected label.
+              Stored only on this device. Set 0 to clear.
+            </p>
+          </div>
+
           <button id="clear-goal" class="control" type="button" data-i18n="settings.clearGoal">Clear goal</button>
+          <button id="clear-daily-goal" class="control" type="button" data-i18n="settings.clearDailyGoal">Clear daily goal</button>
 
           <div class="field">
             <label for="locale" data-i18n="settings.language">Language</label>
@@ -347,6 +367,31 @@
                 data-i18n-attr="aria-label:stats.goalBreakdownLabel"
                 hidden
               ></ul>
+            </div>
+            <div id="stats-daily-goal" class="stats__goal" hidden>
+              <div class="stats__goal-head">
+                <span class="stats__goal-title" data-i18n="stats.dailyGoal">Daily goal</span>
+                <span class="stats__goal-summary">
+                  <strong id="stats-daily-goal-focused">0</strong> /
+                  <strong id="stats-daily-goal-target">0</strong> min ·
+                  <strong id="stats-daily-goal-percent">0</strong>%
+                </span>
+              </div>
+              <div
+                id="stats-daily-goal-bar"
+                class="stats__goal-bar"
+                role="progressbar"
+                aria-label="Daily focus goal progress"
+                data-i18n-attr="aria-label:stats.dailyGoalBarLabel"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                aria-valuenow="0"
+              >
+                <span id="stats-daily-goal-fill" class="stats__goal-fill"></span>
+              </div>
+              <p id="stats-daily-goal-reached" class="stats__goal-reached" hidden data-i18n="stats.dailyGoalReached">
+                ✓ Daily goal reached
+              </p>
             </div>
             <ul
               id="stats-labels"

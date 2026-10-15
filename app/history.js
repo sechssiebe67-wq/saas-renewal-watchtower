@@ -20,6 +20,13 @@
  * `weeklyReviewCsv` serialises a `weeklyReview` result to an RFC 4180 CSV
  * string for the local, offline **weekly review export**. None of these touch
  * the DOM, the storage layer, or the network.
+ *
+ * It additionally owns the pure maths for the optional **daily focus goal**: a
+ * `{ minutes, label? }` target for the current local calendar day.
+ * `dailyGoalProgress` measures today's logged focus time against that target
+ * using the same label-matching rule as `goalProgress`, and
+ * `normalizeDailyGoal` coerces arbitrary stored input into the canonical shape
+ * (clamped to a single day). These are pure too: no DOM, no storage, no network.
  */
 
 export const HISTORY_VERSION = 2;
@@ -37,6 +44,16 @@ export const GOAL_STORAGE_SHAPE_VERSION = 1;
  * week; the ceiling is a full week (7 × 24 × 60). */
 export const MIN_GOAL_MINUTES = 0;
 export const MAX_GOAL_MINUTES = 7 * 24 * 60;
+
+/** Shape version for the `focus-flow:daily-goal` storage entry. Version 1 is
+ * the initial `{ minutes, label? }` object; older or malformed values are
+ * coerced by `normalizeDailyGoal`. */
+export const DAILY_GOAL_STORAGE_SHAPE_VERSION = 1;
+
+/** Lowest / highest meaningful daily goal. A goal is minutes focused per day;
+ * the ceiling is a full day (24 × 60). */
+export const MIN_DAILY_GOAL_MINUTES = 0;
+export const MAX_DAILY_GOAL_MINUTES = 24 * 60;
 
 /** Default first day of the week (Monday), matching `Date#getDay` numbering
  * where Sunday is `0`. */
@@ -318,16 +335,26 @@ export function recentSessions(history, { limit = 5 } = {}) {
     }));
 }
 
-/** Clamp an arbitrary value to the goal bounds, rounding to whole minutes. */
-function clampGoalMinutes(value) {
+/** Clamp an arbitrary value to `0..max`, rounding to whole minutes. Malformed
+ * or non-finite input becomes `0`. */
+function clampMinutes(value, max) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) {
-    return MIN_GOAL_MINUTES;
+    return 0;
   }
-  return Math.min(
-    MAX_GOAL_MINUTES,
-    Math.max(MIN_GOAL_MINUTES, Math.round(parsed)),
-  );
+  return Math.min(max, Math.max(0, Math.round(parsed)));
+}
+
+/** Clamp an arbitrary value to the weekly goal bounds, rounding to whole
+ * minutes. */
+function clampGoalMinutes(value) {
+  return clampMinutes(value, MAX_GOAL_MINUTES);
+}
+
+/** Clamp an arbitrary value to the daily goal bounds (a single day),
+ * rounding to whole minutes. */
+function clampDailyGoalMinutes(value) {
+  return clampMinutes(value, MAX_DAILY_GOAL_MINUTES);
 }
 
 /**
@@ -346,6 +373,29 @@ export function normalizeGoal(raw) {
     source = {};
   }
   const goal = { minutes: clampGoalMinutes(source.minutes) };
+  const label = normalizeLabel(source.label);
+  if (label.length > 0) {
+    goal.label = label;
+  }
+  return goal;
+}
+
+/**
+ * Coerce arbitrary stored input into a canonical daily `{ minutes, label? }`
+ * goal. `minutes` is clamped to `0..MAX_DAILY_GOAL_MINUTES` (a full day) and
+ * rounded to a whole number; `label` is trimmed to `MAX_LABEL_LENGTH` and
+ * dropped when it is empty. Never throws and never mutates its input.
+ */
+export function normalizeDailyGoal(raw) {
+  let source;
+  if (typeof raw === "number") {
+    source = { minutes: raw };
+  } else if (raw && typeof raw === "object") {
+    source = raw;
+  } else {
+    source = {};
+  }
+  const goal = { minutes: clampDailyGoalMinutes(source.minutes) };
   const label = normalizeLabel(source.label);
   if (label.length > 0) {
     goal.label = label;
@@ -455,6 +505,85 @@ export function goalProgress(
     percent,
     reached,
     weekStart: start,
+  };
+}
+
+/**
+ * Measure today's focus time against a **daily** goal. Returns
+ * `{ targetMinutes, focusedMinutes, remainingMinutes, percent, reached,
+ * dayStart }`:
+ *
+ * - `targetMinutes` is the goal clamped to `0..MAX_DAILY_GOAL_MINUTES`.
+ * - `focusedMinutes` sums completed work entries whose `endedAt` falls on the
+ *   current **local calendar day**, using the same label-matching rule as
+ *   `goalProgress` (`UNLABELLED` counts entries without a label).
+ * - `percent` is clamped to `0..100`; with no goal (`0`) it is `100` by
+ *   definition rather than through division by zero.
+ * - `reached` is only `true` when the target is positive and met.
+ * - `dayStart` is the inclusive start of today (local midnight).
+ *
+ * The day span is computed with local calendar arithmetic, so a 23h/25h
+ * daylight-saving transition never drops or duplicates entries. Pure: the input
+ * log is never mutated, malformed entries and non-work phases are ignored, and
+ * there is no DOM, storage, or network access.
+ */
+export function dailyGoalProgress(
+  history,
+  { now = Date.now(), minutes = 0, label } = {},
+) {
+  const resolved = toTimestamp(now);
+  const base = resolved === null ? Date.now() : resolved;
+  const baseDate = new Date(base);
+  const dayStart = new Date(
+    baseDate.getFullYear(),
+    baseDate.getMonth(),
+    baseDate.getDate(),
+  ).getTime();
+  const dayEnd = new Date(
+    baseDate.getFullYear(),
+    baseDate.getMonth(),
+    baseDate.getDate() + 1,
+  ).getTime();
+  const targetMinutes = clampDailyGoalMinutes(minutes);
+  const filter = label === undefined || label === null ? null : String(label);
+  const log = Array.isArray(history) ? history : [];
+
+  let focusedMinutes = 0;
+  for (const entry of log) {
+    const normalized = normalizeEntry(entry);
+    if (!normalized) {
+      continue;
+    }
+    const timestamp = toTimestamp(normalized.endedAt);
+    if (
+      timestamp === null ||
+      timestamp < dayStart ||
+      timestamp >= dayEnd
+    ) {
+      continue;
+    }
+    if (filter !== null && (normalized.label || UNLABELLED) !== filter) {
+      continue;
+    }
+    focusedMinutes += Math.round(normalized.durationSeconds / 60);
+  }
+
+  const reached = targetMinutes > 0 && focusedMinutes >= targetMinutes;
+  const percent =
+    targetMinutes <= 0
+      ? 100
+      : Math.min(
+          100,
+          Math.max(0, Math.round((focusedMinutes / targetMinutes) * 100)),
+        );
+
+  return {
+    targetMinutes,
+    focusedMinutes,
+    remainingMinutes: Math.max(0, targetMinutes - focusedMinutes),
+    percent,
+    reached,
+    dayStart,
   };
 }
 

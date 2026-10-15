@@ -33,6 +33,15 @@ calls, no telemetry, and no secrets.
   this week, a percentage, and a progress bar, and switches to a "Goal reached"
   state once you hit the target. Set it to `0` or use **Clear goal** to remove
   it.
+- **Daily focus goal:** set a target number of focused minutes for **today**
+  (optionally scoped to the currently selected label). The Stats panel adds a
+  **Daily goal** row with the target, today's focused minutes, a percentage, and
+  a progress bar, and switches to a "Daily goal reached" state once you hit the
+  target — announced once through the screen-reader live region. The row is
+  hidden until a daily goal is set. The goal is derived from today's slice of the
+  existing session history and stored only in
+  `localStorage["focus-flow:daily-goal"]`; set it to `0` or use **Clear daily
+  goal** to remove the key so a default install leaves no trace.
 - **Per-label goal breakdown in Stats:** the Stats **Weekly goal** row also
   shows a compact breakdown of the current week by session label — each label's
   focused minutes and its share of the target, ranked by minutes, with an
@@ -93,19 +102,22 @@ calls, no telemetry, and no secrets.
   through the screen-reader live region, and stored only on the device in
   `localStorage["focus-flow:week-start"]` (the key is removed when you pick the
   default).
-- Settings, session count, history, the weekly goal, the ambient-sound choice,
-  the language, and the week-start choice persist across reloads.
+- Settings, session count, history, the weekly goal, the daily goal, the
+  ambient-sound choice, the language, and the week-start choice persist across
+  reloads.
 - Accessible, responsive layout for mobile, tablet, and desktop.
 - Installable PWA with a web manifest and an offline-first service worker.
 
 Focus Flow is **privacy-first by construction**: the focus history, any session
-labels you type, your weekly focus goal, your ambient-sound choice, your
-language preference, and your week-start preference live only
-on your device. They are never uploaded, synced, or sent anywhere. The weekly
-review, the **weekly review CSV export**, the **per-label goal breakdown in the
-Stats panel**, the focus streaks, and the daily reminder hint are all **derived**
-from that existing local data only — they add no new storage key, no network
-request, and no third-party dependency. The CSV
+labels you type, your weekly focus goal, your daily focus goal, your
+ambient-sound choice, your language preference, and your week-start preference
+live only on your device. They are never uploaded, synced, or sent anywhere. The
+**Daily goal** row in the Stats panel is derived from today's slice of the
+existing session history, so it adds no history key and no upload of its own. The
+weekly review, the **weekly review CSV export**, the **per-label goal breakdown
+in the Stats panel**, the focus streaks, and the daily reminder hint are all
+**derived** from that existing local data only — they add no new storage key, no
+network request, and no third-party dependency. The CSV
 is written by a pure helper and handed to the browser as a local `Blob` URL, so
 it is created and saved entirely on your device and never leaves it. The ambient
 sound is generated locally and adds no audio file, no network request, and no
@@ -123,6 +135,9 @@ All state lives in the browser's `localStorage`:
 - `focus-flow:history` — the local session log (capped at 500 entries / 90
   days).
 - `focus-flow:goal` — the optional weekly focus goal.
+- `focus-flow:daily-goal` — the optional daily focus goal, shaped `{ minutes,
+  label? }` (minutes for today, optionally scoped to a session label); removed
+  when the goal is `0`/empty.
 - `focus-flow:ambient` — the optional ambient-sound `{ type, volume }`; removed
   when the type is `off`.
 - `focus-flow:locale` — the canonical locale id for the chosen language;
@@ -136,6 +151,11 @@ export, the focus streaks, and the daily reminder hint are all **derived** from
 `focus-flow:history` and `focus-flow:goal` and add **no new storage key**. The
 breakdown in particular is rendered by the same pure `weeklyReview` helper, so it
 makes no network request and adds no third-party dependency.
+
+The Stats **Daily goal** row is derived from the same `focus-flow:history` log by
+the pure `dailyGoalProgress` helper in `app/history.js`, which sums only
+completed work entries whose `endedAt` falls on the current local calendar day.
+It reads no storage of its own and makes no network request.
 
 The full concept, audience, roadmap, and criteria mapping live in
 [`CONCEPT.md`](CONCEPT.md).

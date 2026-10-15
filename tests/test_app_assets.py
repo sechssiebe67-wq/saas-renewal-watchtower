@@ -80,7 +80,7 @@ class AppAssetTests(unittest.TestCase):
 
     def test_controls_are_real_buttons(self):
         html = read_app_file("index.html")
-        self.assertEqual(html.count("<button"), 7)
+        self.assertEqual(html.count("<button"), 8)
         self.assertIn('type="button"', html)
         self.assertIn('id="review-export"', html)
 
@@ -207,6 +207,35 @@ class AppAssetTests(unittest.TestCase):
         self.assertIn("goalProgress", js)
         self.assertIn("normalizeGoal", js)
         self.assertIn("announce.goalReached", js)
+
+    def test_html_has_daily_goal_field_and_progressbar(self):
+        html = read_app_file("index.html")
+        expectations = {
+            "daily goal field": 'id="daily-goal"',
+            "clear daily goal control": 'id="clear-daily-goal"',
+            "stats daily goal region": 'id="stats-daily-goal"',
+            "stats daily goal bar": 'id="stats-daily-goal-bar"',
+            "stats daily goal reached": 'id="stats-daily-goal-reached"',
+        }
+        for label, fragment in expectations.items():
+            self.assertIn(fragment, html, "missing %s (%s)" % (label, fragment))
+        self.assertIn('name="dailyGoal"', html)
+        self.assertIn('max="1440"', html)
+        self.assertIn('role="progressbar"', html)
+        self.assertIn("aria-valuenow", html)
+        self.assertRegex(
+            html,
+            r'<div\s+id="stats-daily-goal"[\s\S]*?hidden',
+            "the stats daily goal row must start hidden",
+        )
+
+    def test_main_js_uses_daily_goal_helpers_and_storage(self):
+        js = read_app_file("main.js")
+        self.assertIn('"focus-flow:daily-goal"', js)
+        self.assertIn("dailyGoalProgress", js)
+        self.assertIn("normalizeDailyGoal", js)
+        self.assertIn("renderDailyGoal", js)
+        self.assertIn("announce.dailyGoalReached", js)
 
     def test_html_has_stats_goal_breakdown(self):
         html = read_app_file("index.html")
