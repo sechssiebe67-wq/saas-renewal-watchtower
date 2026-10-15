@@ -40,6 +40,19 @@ export const MAX_GOAL_MINUTES = 7 * 24 * 60;
  * where Sunday is `0`. */
 export const DEFAULT_WEEK_START = 1;
 
+/** Shape version for the `focus-flow:week-start` storage entry. Version 1
+ * stores the first day of the week as a bare integer (`0` = Sunday,
+ * `1` = Monday); arbitrary input is coerced by `normalizeWeekStart`. */
+export const WEEK_START_STORAGE_SHAPE_VERSION = 1;
+
+/** The selectable first days of the week, in display order, each paired with
+ * the catalog key for its label. The DOM layer renders these through the
+ * bundled `app/i18n.js` catalog, so no label is hard-coded in English. */
+export const WEEK_START_OPTIONS = Object.freeze([
+  Object.freeze({ value: 1, labelKey: "settings.weekStartMonday" }),
+  Object.freeze({ value: 0, labelKey: "settings.weekStartSunday" }),
+]);
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WORK_PHASE = "work";
 
@@ -336,6 +349,30 @@ export function normalizeGoal(raw) {
     goal.label = label;
   }
   return goal;
+}
+
+/**
+ * Coerce arbitrary stored input into a supported first day of the week.
+ *
+ * Accepts a bare number (`0` = Sunday, `1` = Monday), a numeric string, a
+ * `{ weekStartsOn }` object, or anything else. Values outside `{0, 1}` and
+ * malformed input fall back to `DEFAULT_WEEK_START` (Monday), and this function
+ * never throws and never mutates its input.
+ */
+export function normalizeWeekStart(raw) {
+  let candidate = raw;
+  if (raw && typeof raw === "object") {
+    candidate = raw.weekStartsOn;
+  }
+  let parsed;
+  if (typeof candidate === "number") {
+    parsed = candidate;
+  } else if (typeof candidate === "string" && candidate.trim() !== "") {
+    parsed = Number(candidate.trim());
+  } else {
+    return DEFAULT_WEEK_START;
+  }
+  return parsed === 0 || parsed === 1 ? parsed : DEFAULT_WEEK_START;
 }
 
 /**
