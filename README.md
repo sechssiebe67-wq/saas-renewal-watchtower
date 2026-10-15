@@ -67,6 +67,23 @@ calls, no telemetry, and no secrets.
   existing session history and stored only in
   `localStorage["focus-flow:daily-goal"]`; set it to `0` or use **Clear daily
   goal** to remove the key so a default install leaves no trace.
+- **PWA app badge:** when the app is installed and a daily goal is set, the
+  home-screen / desktop badge shows today's **remaining focused minutes** and is
+  cleared once the goal is reached or removed. The value is decided by the pure
+  `badgeState` helper, and the on-device platform badge call is
+  **feature-detected**, so a browser without it is a no-op that never throws. It
+  adds **no new `localStorage` key, no network request, and no third-party
+  dependency**, and it is derived only from the existing `focus-flow:history`
+  and `focus-flow:daily-goal` keys.
+- **Per-label daily breakdown in Stats:** the Stats **Daily goal** row also
+  shows a compact breakdown of today by session label — each label's focused
+  minutes and its share of the target, ranked by minutes, with an `(unlabelled)`
+  row when unlabelled sessions exist. It respects the active label filter (a
+  filtered Stats view shows only the matching label) and stays hidden when today
+  has no label rows. It is derived from the pure `dailyReview` helper in
+  `app/history.js`, so it reads only the existing `focus-flow:history` and
+  `focus-flow:daily-goal` keys and adds **no new `localStorage` key, no network
+  request, and no third-party dependency**.
 - **Per-label goal breakdown in Stats:** the Stats **Weekly goal** row also
   shows a compact breakdown of the current week by session label — each label's
   focused minutes and its share of the target, ranked by minutes, with an
@@ -152,7 +169,13 @@ ambient-sound choice, your language preference, your week-start preference, and
 your label aliases
 live only on your device. They are never uploaded, synced, or sent anywhere. The
 **Daily goal** row in the Stats panel is derived from today's slice of the
-existing session history, so it adds no history key and no upload of its own. The
+existing session history, so it adds no history key and no upload of its own. Its
+**per-label daily breakdown** is derived from the same history and daily-goal
+keys by the pure `dailyReview` helper, so it too adds no new `localStorage` key,
+no network request, and no third-party dependency, and the **PWA app badge** is
+decided by the pure `badgeState` helper and pushed through a
+**feature-detected, on-device** platform call, adding no new key, no network
+request, and no third-party dependency either. The
 weekly review, the **weekly review CSV export**, the **per-label goal breakdown
 in the Stats panel**, the focus streaks, the daily reminder hint, and the
 **session-label autocomplete** are all **derived** from that existing local data
@@ -207,6 +230,13 @@ The Stats **Daily goal** row is derived from the same `focus-flow:history` log b
 the pure `dailyGoalProgress` helper in `app/history.js`, which sums only
 completed work entries whose `endedAt` falls on the current local calendar day.
 It reads no storage of its own and makes no network request.
+
+The Stats **per-label daily breakdown** and the **PWA app badge** are derived
+from the same `focus-flow:history` and `focus-flow:daily-goal` keys by the pure
+`dailyReview` and `badgeState` helpers, so they add **no new `localStorage`
+key**, make no network request, and add no third-party dependency. A default
+install still stores nothing new, and the badge call is feature-detected so
+browsers without it are unaffected.
 
 The **session-label autocomplete** is derived from the same `focus-flow:history`
 log by the pure `recentLabels` helper in `app/history.js`, which returns the
