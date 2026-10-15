@@ -478,6 +478,8 @@ export function goalProgress(
  *   descending then label ascending. `percentOfTarget` is clamped to `0..100`
  *   and is `0` when there is no target.
  * - `labels` is the list of label names in `perLabel` order.
+ * - `scoped` is `true` when a `label` filter was supplied, so the DOM layer can
+ *   label the breakdown as a single-label view without inspecting `perLabel`.
  *
  * Pure: the input log is never mutated, and malformed entries are ignored.
  */
@@ -545,6 +547,7 @@ export function weeklyReview(
     remainingMinutes: Math.max(0, targetMinutes - focusedMinutes),
     percent,
     reached,
+    scoped: filter !== null,
     labels: perLabel.map((item) => item.label),
     perLabel,
   };

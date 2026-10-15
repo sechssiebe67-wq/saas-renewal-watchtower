@@ -208,6 +208,35 @@ class AppAssetTests(unittest.TestCase):
         self.assertIn("normalizeGoal", js)
         self.assertIn("announce.goalReached", js)
 
+    def test_html_has_stats_goal_breakdown(self):
+        html = read_app_file("index.html")
+        expectations = {
+            "goal breakdown title": 'id="stats-goal-breakdown-title"',
+            "goal breakdown list": 'id="stats-goal-breakdown"',
+            "goal breakdown heading hook": 'data-i18n="stats.goalBreakdown"',
+        }
+        for label, fragment in expectations.items():
+            self.assertIn(fragment, html, "missing %s (%s)" % (label, fragment))
+        self.assertIn('data-i18n-attr="aria-label:stats.goalBreakdownLabel"', html)
+        self.assertIn('id="stats-goal"', html)
+        self.assertRegex(
+            html,
+            r'<ul\s+id="stats-goal-breakdown"[\s\S]*?hidden',
+            "the goal breakdown list must start hidden",
+        )
+
+    def test_main_js_renders_goal_breakdown(self):
+        js = read_app_file("main.js")
+        for symbol in (
+            "renderGoalBreakdown",
+            "hideGoalBreakdown",
+            "stats-goal-breakdown",
+            "stats.goalLabelStats",
+            "announce.goalBreakdown",
+            "announce.goalBreakdownScoped",
+        ):
+            self.assertIn(symbol, js, "main.js does not use %s" % symbol)
+
     def test_html_has_weekly_review_section(self):
         html = read_app_file("index.html")
         expectations = {

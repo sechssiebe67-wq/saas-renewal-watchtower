@@ -372,6 +372,29 @@ class I18nStaticTests(unittest.TestCase):
         ):
             self.assertIn(symbol, js, "main.js does not use %s" % symbol)
 
+    def test_goal_breakdown_keys_present_in_every_locale(self):
+        with open(I18N_PATH, encoding="utf-8") as handle:
+            source = handle.read()
+        keys = (
+            "stats.goalBreakdown",
+            "stats.goalBreakdownLabel",
+            "stats.goalBreakdownOne",
+            "stats.goalBreakdownMany",
+            "stats.goalLabelStats",
+            "announce.goalBreakdown",
+            "announce.goalBreakdownScoped",
+        )
+        for name in ("EN_MESSAGES", "DE_MESSAGES", "ES_MESSAGES"):
+            match = re.search(r"const %s = \{(.*?)\n\};" % name, source, re.S)
+            self.assertIsNotNone(match, "could not find %s" % name)
+            block = match.group(1)
+            for key in keys:
+                self.assertIn(
+                    '"%s":' % key,
+                    block,
+                    "%s is missing message key %s" % (name, key),
+                )
+
     def test_service_worker_precaches_i18n_with_bumped_cache(self):
         with open(SERVICE_WORKER_PATH, encoding="utf-8") as handle:
             source = handle.read()
