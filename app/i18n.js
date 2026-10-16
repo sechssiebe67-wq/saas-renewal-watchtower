@@ -176,6 +176,9 @@ const EN_MESSAGES = {
   "stats.shareSlice": "{label}: {minutes} · {percent}%",
   "stats.shareEmpty":
     "No focus sessions yet this week — the focus share fills in as you work.",
+  "stats.shareLegendLabel": "This week's focus share by label",
+  "stats.shareLegendRow": "{minutes} · {percent}%",
+  "stats.shareLegendEmpty": "No focus sessions yet this week.",
   "stats.dailyBreakdown": "By label today",
   "stats.dailyBreakdownLabel":
     "Focused minutes by session label against the daily goal",
@@ -403,6 +406,9 @@ const DE_MESSAGES = {
   "stats.shareSlice": "{label}: {minutes} · {percent} %",
   "stats.shareEmpty":
     "Diese Woche noch keine Fokussitzungen — die Fokusverteilung füllt sich, während du arbeitest.",
+  "stats.shareLegendLabel": "Fokusverteilung dieser Woche nach Bezeichnung",
+  "stats.shareLegendRow": "{minutes} · {percent} %",
+  "stats.shareLegendEmpty": "Diese Woche noch keine Fokussitzungen.",
   "stats.dailyBreakdown": "Nach Bezeichnung heute",
   "stats.dailyBreakdownLabel":
     "Fokussierte Minuten nach Sitzungsbezeichnung im Verhältnis zum Tagesziel",
@@ -633,6 +639,9 @@ const ES_MESSAGES = {
   "stats.shareSlice": "{label}: {minutes} · {percent} %",
   "stats.shareEmpty":
     "Aún no hay sesiones de concentración esta semana: la distribución se irá completando mientras trabajas.",
+  "stats.shareLegendLabel": "Distribución del foco de esta semana por etiqueta",
+  "stats.shareLegendRow": "{minutes} · {percent} %",
+  "stats.shareLegendEmpty": "Aún no hay sesiones de concentración esta semana.",
   "stats.dailyBreakdown": "Por etiqueta hoy",
   "stats.dailyBreakdownLabel":
     "Minutos concentrados por etiqueta de sesión frente al objetivo diario",

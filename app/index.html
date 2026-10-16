@@ -541,8 +541,18 @@
                 viewBox="0 0 42 42"
                 focusable="false"
               ></svg>
+              <ul
+                id="stats-share-legend"
+                class="stats__share-legend"
+                aria-label="This week's focus share by label"
+                data-i18n-attr="aria-label:stats.shareLegendLabel"
+                hidden
+              ></ul>
               <p id="stats-share-empty" class="stats__share-empty" hidden data-i18n="stats.shareEmpty">
                 No focus sessions yet this week — the focus share fills in as you work.
+              </p>
+              <p id="stats-share-legend-empty" class="stats__share-legend-empty" hidden data-i18n="stats.shareLegendEmpty">
+                No focus sessions yet this week.
               </p>
             </figure>
             <div id="stats-goal" class="stats__goal" hidden>

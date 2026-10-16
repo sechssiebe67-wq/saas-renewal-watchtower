@@ -41,6 +41,9 @@ NEW_I18N_KEYS = (
     "stats.shareLabelsMany",
     "stats.shareSlice",
     "stats.shareEmpty",
+    "stats.shareLegendLabel",
+    "stats.shareLegendRow",
+    "stats.shareLegendEmpty",
     "announce.share",
 )
 
@@ -120,6 +123,14 @@ HARNESS = textwrap.dedent(
       ranking.slices.reduce((sum, slice) => sum + slice.percent, 0) === 100,
     );
     check("a ranked review is not empty", ranking.empty === false);
+    check(
+      "index is the stable 0..n-1 ranked position",
+      ranking.slices.every((slice, position) => slice.index === position),
+    );
+    check(
+      "the busiest label gets index 0",
+      ranking.slices[0].label === "Alpha" && ranking.slices[0].index === 0,
+    );
 
     // --- rounding -----------------------------------------------------------
     const thirds = labelShare({
@@ -172,10 +183,10 @@ HARNESS = textwrap.dedent(
     const out = labelShare(input);
     check("the input is not mutated", JSON.stringify(input) === snapshot);
     check(
-      "slices expose exactly label/minutes/percent",
+      "slices expose exactly label/minutes/percent/index",
       out.slices.every(
         (slice) =>
-          Object.keys(slice).sort().join(",") === "label,minutes,percent",
+          Object.keys(slice).sort().join(",") === "index,label,minutes,percent",
       ),
     );
 
@@ -198,6 +209,10 @@ HARNESS = textwrap.dedent(
     );
     check("percent matches the week", share.slices[0].percent === 83);
     check("a real week is not empty", share.empty === false);
+    check(
+      "integration slices carry stable indices",
+      share.slices.every((slice, position) => slice.index === position),
+    );
 
     const filtered = weeklyReview(
       [entry(now - HOUR, 40, "Thesis"), entry(now - HOUR, 10, "Admin")],
@@ -267,6 +282,10 @@ class LabelShareStaticTests(unittest.TestCase):
         self.assertIn('data-i18n-attr="aria-label:stats.shareChartLabel"', html)
         self.assertIn('data-i18n="stats.shareEmpty"', html)
         self.assertIn('data-i18n="stats.shareHeading"', html)
+        self.assertIn('id="stats-share-legend"', html)
+        self.assertIn('data-i18n-attr="aria-label:stats.shareLegendLabel"', html)
+        self.assertIn('id="stats-share-legend-empty"', html)
+        self.assertIn('data-i18n="stats.shareLegendEmpty"', html)
 
     def test_main_js_renders_the_share(self):
         js = read(MAIN_PATH)
@@ -276,12 +295,18 @@ class LabelShareStaticTests(unittest.TestCase):
         self.assertIn("stats-share-chart", js)
         self.assertIn("announce.share", js)
         self.assertIn("lastAnnouncedShareSignature", js)
+        self.assertIn("renderShareLegend", js)
+        self.assertIn("stats-share-legend", js)
+        self.assertIn("stats.shareLegendRow", js)
 
     def test_styles_define_the_donut(self):
         css = read(STYLES_PATH)
         self.assertIn(".stats__share-chart", css)
         self.assertIn(".stats__share-slice", css)
         self.assertIn(".stats__share-empty", css)
+        self.assertIn(".stats__share-legend", css)
+        self.assertIn(".stats__share-swatch", css)
+        self.assertIn(".stats__share-legend-item[data-index=\"0\"]", css)
 
 
 class LabelShareI18nTests(unittest.TestCase):
