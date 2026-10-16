@@ -28,8 +28,11 @@
  * projection** (remaining minutes, remaining calendar days, per-day pace, and
  * an on-track flag). `weeklyTrend` derives the **weekly focus trend
  * sparkline** — one total-minute point per week over the trailing `weeks`
- * weeks — from the same log. None of these touch the DOM, the storage layer,
- * or the network.
+ * weeks — from the same log. `labelShare` turns a `weeklyReview` result into
+ * the **focus share** donut data (`{ total, slices, empty }`), one
+ * `{ label, minutes, percent }` segment per label ranked by minutes descending
+ * then label ascending. None of these touch the DOM, the storage layer, or the
+ * network.
  *
  * It additionally owns the pure maths for the optional **daily focus goal**: a
  * `{ minutes, label? }` target for the current local calendar day.
@@ -1475,6 +1478,66 @@ export function focusHeatmap(
     maxMinutes,
     empty: maxMinutes === 0,
   };
+}
+
+/** Compare two labels for the minutes-descending / label-ascending ranking used
+ * by the per-label views. Non-string labels are coerced so a malformed row can
+ * never throw. */
+function compareLabels(a, b) {
+  return String(a).localeCompare(String(b));
+}
+
+/**
+ * Derive the **focus share** donut from a `weeklyReview` result.
+ *
+ * The Stats panel uses this to answer *"where did my focused time go this
+ * week?"* at a glance: one ring segment per session label seen in the current
+ * week (plus the `UNLABELLED` bucket when unlabelled sessions exist), sized by
+ * each label's share of the week's total focused minutes.
+ *
+ * Returns `{ total, slices, empty }`:
+ *
+ * - `total` is the summed focused minutes across every slice (identical to the
+ *   review's `focusedMinutes`).
+ * - `slices` is one `{ label, minutes, percent }` entry per `perLabel` row,
+ *   ranked by minutes descending then label ascending. `percent` is the rounded
+ *   share of `total` (clamped to `0..100`) and is `0` when `total` is `0`.
+ * - `empty` is `true` when there are no label rows, so the DOM layer can show
+ *   the localised empty state instead of an empty ring.
+ *
+ * It reads the already-computed `weeklyReview` result only — so the label
+ * filter and the alias map are already applied — and touches no DOM, no
+ * storage, and no network. Total: `null`, `undefined`, and malformed rows
+ * degrade to `{ total: 0, slices: [], empty: true }` instead of throwing, the
+ * input is never mutated, and missing or non-finite minutes are treated as `0`.
+ */
+export function labelShare(review) {
+  const source = review && typeof review === "object" ? review : {};
+  const rows = Array.isArray(source.perLabel)
+    ? source.perLabel.filter((row) => row && typeof row === "object")
+    : [];
+
+  const slices = [];
+  let total = 0;
+  for (const row of rows) {
+    const parsed = Number(row.minutes);
+    const minutes = Number.isFinite(parsed) ? Math.max(0, Math.round(parsed)) : 0;
+    total += minutes;
+    slices.push({ label: row.label, minutes });
+  }
+
+  const ranked = slices
+    .map((slice) => ({
+      label: slice.label,
+      minutes: slice.minutes,
+      percent:
+        total > 0
+          ? Math.min(100, Math.max(0, Math.round((slice.minutes / total) * 100)))
+          : 0,
+    }))
+    .sort((a, b) => b.minutes - a.minutes || compareLabels(a.label, b.label));
+
+  return { total, slices: ranked, empty: ranked.length === 0 };
 }
 
 /** Quote a single CSV field per RFC 4180. A field containing a comma, a double

@@ -58,6 +58,7 @@ import {
   TREND_WEEKS,
   focusHeatmap,
   HEATMAP_WEEKS,
+  labelShare,
   weeklyReviewCsv,
   streaks,
   normalizeSessionTags,
@@ -184,6 +185,10 @@ function getElements() {
     statsHeatmapRange: document.getElementById("stats-heatmap-range"),
     statsHeatmapGrid: document.getElementById("stats-heatmap-grid"),
     statsHeatmapEmpty: document.getElementById("stats-heatmap-empty"),
+    statsShare: document.getElementById("stats-share"),
+    statsShareSummary: document.getElementById("stats-share-summary"),
+    statsShareChart: document.getElementById("stats-share-chart"),
+    statsShareEmpty: document.getElementById("stats-share-empty"),
     statsDailyGoal: document.getElementById("stats-daily-goal"),
     statsDailyGoalTarget: document.getElementById("stats-daily-goal-target"),
     statsDailyGoalFocused: document.getElementById("stats-daily-goal-focused"),
@@ -756,6 +761,7 @@ export function init() {
   let announcedGoalPaceReached = false;
   let lastAnnouncedTrendDirection = null;
   let lastAnnouncedHeatmapRange = null;
+  let lastAnnouncedShareSignature = null;
   let lastBadgeValue;
 
   function labelDisplay(label) {
@@ -1112,6 +1118,7 @@ export function init() {
     renderStreak();
     renderTrend();
     renderHeatmap();
+    renderShare();
     renderGoal();
     renderDailyGoal();
     renderWeeklyReview();
@@ -1731,6 +1738,136 @@ export function init() {
   }
 
   /**
+   * Draw the focus-share donut: one stroked ring segment per label, sized by
+   * that label's share of the week's focused minutes. Each segment carries a
+   * localised `title` and `aria-label`; the geometry uses a normalised
+   * `pathLength` of `100`, so the rounded `percent` values map straight onto
+   * the circumference and the `stroke-dashoffset` accumulates clockwise.
+   */
+  function renderShareChart(share) {
+    const chart = el.statsShareChart;
+    if (!chart) {
+      return;
+    }
+
+    const namespace = "http://www.w3.org/2000/svg";
+    const center = 21;
+    const radius = 15.9155;
+    let start = 0;
+
+    const slices = share.slices.map((slice) => {
+      const circle = document.createElementNS(namespace, "circle");
+      circle.setAttribute("class", "stats__share-slice");
+      circle.setAttribute("cx", String(center));
+      circle.setAttribute("cy", String(center));
+      circle.setAttribute("r", String(radius));
+      circle.setAttribute("fill", "none");
+      circle.setAttribute("pathLength", "100");
+      circle.setAttribute(
+        "stroke-dasharray",
+        `${slice.percent} ${100 - slice.percent}`,
+      );
+      circle.setAttribute("stroke-dashoffset", String(-start));
+      circle.setAttribute("transform", `rotate(-90 ${center} ${center})`);
+
+      const detail = t("stats.shareSlice", {
+        label: labelDisplay(slice.label),
+        minutes: formatDuration(slice.minutes, locale),
+        percent: formatNumber(slice.percent, locale),
+      });
+      circle.setAttribute("aria-label", detail);
+      const title = document.createElementNS(namespace, "title");
+      title.textContent = detail;
+      circle.append(title);
+
+      start += slice.percent;
+      return circle;
+    });
+
+    chart.replaceChildren(...slices);
+  }
+
+  /**
+   * Render the **focus share** donut in the Stats panel from the pure
+   * `labelShare` helper. It answers *"where did my focused time go this week?"*
+   * with one ring segment per session label seen in the current week (plus the
+   * `(unlabelled)` bucket), ranked by minutes descending then label ascending
+   * and sized by each label's share of the week's total focused minutes. It
+   * respects the active label filter and the label aliases through the same
+   * `currentWeeklyReview` result the other week-scoped views use, and reads only
+   * `focus-flow:history`. The ring is a single `role="img"` region with a
+   * localised accessible name and total caption; every segment carries a
+   * localised `title`/`aria-label`, and an empty state is shown when the week
+   * has no labels. It announces itself once through the live region when it
+   * first appears or its slices change. It adds no new `localStorage` key and
+   * makes no network request.
+   */
+  function renderShare() {
+    if (!el.statsShare) {
+      return;
+    }
+
+    const share = labelShare(currentWeeklyReview());
+
+    if (share.empty) {
+      el.statsShare.hidden = false;
+      if (el.statsShareChart) {
+        el.statsShareChart.hidden = true;
+        el.statsShareChart.replaceChildren();
+      }
+      if (el.statsShareSummary) {
+        el.statsShareSummary.textContent = "";
+      }
+      if (el.statsShareEmpty) {
+        el.statsShareEmpty.hidden = false;
+      }
+      lastAnnouncedShareSignature = null;
+      return;
+    }
+
+    const labelsTemplate = pluralise(
+      share.slices.length,
+      {
+        one: t("stats.shareLabelsOne"),
+        other: t("stats.shareLabelsMany"),
+      },
+      locale,
+    );
+    const labels = labelsTemplate.replace(
+      "{count}",
+      formatNumber(share.slices.length, locale),
+    );
+    const summary = t("stats.shareSummary", {
+      minutes: formatDuration(share.total, locale),
+      labels,
+    });
+
+    el.statsShare.hidden = false;
+    if (el.statsShareEmpty) {
+      el.statsShareEmpty.hidden = true;
+    }
+    if (el.statsShareChart) {
+      el.statsShareChart.hidden = false;
+      el.statsShareChart.setAttribute(
+        "aria-label",
+        `${t("stats.shareChartLabel")}: ${summary}`,
+      );
+      renderShareChart(share);
+    }
+    if (el.statsShareSummary) {
+      el.statsShareSummary.textContent = summary;
+    }
+
+    const signature = share.slices
+      .map((slice) => `${slice.label}:${slice.minutes}`)
+      .join("|");
+    if (lastAnnouncedShareSignature !== signature) {
+      lastAnnouncedShareSignature = signature;
+      announce(t("announce.share", { summary }));
+    }
+  }
+
+  /**
    * Render the current week's per-label breakdown inside the existing Weekly
    * goal row. The rows come from the pure `weeklyReview` helper (already sorted
    * by minutes descending then label ascending), so no new storage or network
@@ -2048,6 +2185,7 @@ export function init() {
     announcedGoalPaceReached = false;
     lastAnnouncedTrendDirection = null;
     lastAnnouncedHeatmapRange = null;
+    lastAnnouncedShareSignature = null;
     lastBadgeValue = undefined;
 
     applyStaticTranslations();

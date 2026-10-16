@@ -155,6 +155,14 @@ const EN_MESSAGES = {
   "stats.heatmapMore": "More",
   "stats.heatmapEmpty":
     "No focus sessions yet — the heatmap fills in as you work.",
+  "stats.shareHeading": "Focus share",
+  "stats.shareChartLabel": "Share of this week's focused minutes by label",
+  "stats.shareSummary": "{minutes} · {labels}",
+  "stats.shareLabelsOne": "{count} label",
+  "stats.shareLabelsMany": "{count} labels",
+  "stats.shareSlice": "{label}: {minutes} · {percent}%",
+  "stats.shareEmpty":
+    "No focus sessions yet this week — the focus share fills in as you work.",
   "stats.dailyBreakdown": "By label today",
   "stats.dailyBreakdownLabel":
     "Focused minutes by session label against the daily goal",
@@ -197,6 +205,7 @@ const EN_MESSAGES = {
   "announce.goalPace": "Weekly goal pace: {summary}.",
   "announce.trend": "Focus trend: {summary}.",
   "announce.heatmap": "Focus heatmap: {summary}.",
+  "announce.share": "Focus share: {summary}.",
   "announce.goalBreakdownScoped": "Weekly goal for {label}: {minutes}.",
   "announce.dailyBreakdown": "Daily goal by label: {summary}.",
   "announce.dailyBreakdownScoped": "Daily goal for {label}: {minutes}.",
@@ -348,6 +357,15 @@ const DE_MESSAGES = {
   "stats.heatmapMore": "Mehr",
   "stats.heatmapEmpty":
     "Noch keine Fokussitzungen — die Heatmap füllt sich, während du arbeitest.",
+  "stats.shareHeading": "Fokusverteilung",
+  "stats.shareChartLabel":
+    "Anteil der Fokusminuten dieser Woche nach Bezeichnung",
+  "stats.shareSummary": "{minutes} · {labels}",
+  "stats.shareLabelsOne": "{count} Bezeichnung",
+  "stats.shareLabelsMany": "{count} Bezeichnungen",
+  "stats.shareSlice": "{label}: {minutes} · {percent} %",
+  "stats.shareEmpty":
+    "Diese Woche noch keine Fokussitzungen — die Fokusverteilung füllt sich, während du arbeitest.",
   "stats.dailyBreakdown": "Nach Bezeichnung heute",
   "stats.dailyBreakdownLabel":
     "Fokussierte Minuten nach Sitzungsbezeichnung im Verhältnis zum Tagesziel",
@@ -392,6 +410,7 @@ const DE_MESSAGES = {
   "announce.goalPace": "Tempo des Wochenziels: {summary}.",
   "announce.trend": "Fokustrend: {summary}.",
   "announce.heatmap": "Fokus-Heatmap: {summary}.",
+  "announce.share": "Fokusverteilung: {summary}.",
   "announce.goalBreakdownScoped": "Wochenziel für {label}: {minutes}.",
   "announce.dailyBreakdown": "Tagesziel nach Bezeichnung: {summary}.",
   "announce.dailyBreakdownScoped": "Tagesziel für {label}: {minutes}.",
@@ -544,6 +563,15 @@ const ES_MESSAGES = {
   "stats.heatmapMore": "Más",
   "stats.heatmapEmpty":
     "Aún no hay sesiones de concentración: el mapa se irá completando mientras trabajas.",
+  "stats.shareHeading": "Distribución del foco",
+  "stats.shareChartLabel":
+    "Proporción de los minutos de concentración de esta semana por etiqueta",
+  "stats.shareSummary": "{minutes} · {labels}",
+  "stats.shareLabelsOne": "{count} etiqueta",
+  "stats.shareLabelsMany": "{count} etiquetas",
+  "stats.shareSlice": "{label}: {minutes} · {percent} %",
+  "stats.shareEmpty":
+    "Aún no hay sesiones de concentración esta semana: la distribución se irá completando mientras trabajas.",
   "stats.dailyBreakdown": "Por etiqueta hoy",
   "stats.dailyBreakdownLabel":
     "Minutos concentrados por etiqueta de sesión frente al objetivo diario",
@@ -588,6 +616,7 @@ const ES_MESSAGES = {
   "announce.goalPace": "Ritmo del objetivo semanal: {summary}.",
   "announce.trend": "Tendencia de concentración: {summary}.",
   "announce.heatmap": "Mapa de concentración: {summary}.",
+  "announce.share": "Distribución del foco: {summary}.",
   "announce.goalBreakdownScoped": "Objetivo semanal para {label}: {minutes}.",
   "announce.dailyBreakdown": "Objetivo diario por etiqueta: {summary}.",
   "announce.dailyBreakdownScoped": "Objetivo diario para {label}: {minutes}.",
