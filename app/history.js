@@ -1764,7 +1764,10 @@ export function focusHeatmap(
  *
  * The active label filter and the optional alias map are honoured exactly as
  * `summarise` / `weeklyReview` do (`UNLABELLED` matches unlabelled entries), so
- * a filtered Stats view shows the summary for the matching label only. The
+ * a caller that passes `label` gets the summary for the matching label only.
+ * The Stats panel's *base* block deliberately calls this helper without a
+ * label (the all-labels baseline); its extra label-scoped line comes from
+ * `focusSummaryComparison` instead. The
  * window day set and the all-time day count use local calendar arithmetic
  * (`dateKey` / `shiftDayKey`, via `collectCalendarWindow`), so a 23h/25h
  * daylight-saving transition never shifts, drops, or duplicates a day. Pure: it

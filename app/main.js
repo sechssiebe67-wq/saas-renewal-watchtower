@@ -2226,8 +2226,10 @@ export function init() {
    * baseline rather than duplicating it. It honours the active label filter and
    * the alias map when deriving that scoped line, exactly as `dailyTrend` /
    * `weeklyReview` do. The empty state is shown when the log has no entries, and
-   * the summary announces itself once through the live region when it first
-   * appears or its `trend` value (or the active label's scoped trend) changes.
+   * also when a label filter is active but no session matches it, so a filtered
+   * view never falls back to the global totals; the summary announces itself
+   * once through the live region when it first appears or its `trend` value (or
+   * the active label's scoped trend) changes.
    * It reads only `focus-flow:history` (plus the existing label filter / alias
    * state) and adds no new `localStorage` key and no network request.
    */
@@ -2242,7 +2244,20 @@ export function init() {
       days: SUMMARY_DAYS,
     });
 
-    const hasSessions = summary.allTime.sessions > 0;
+    const scoped = focusSummaryComparison(history, {
+      label: activeLabel === null ? undefined : activeLabel,
+      tags: sessionTags,
+      now,
+      days: SUMMARY_DAYS,
+    });
+
+    // The base totals stay global (the all-labels baseline), but a filtered
+    // view with no session for the selected label must fall back to the
+    // existing empty state instead of silently showing the global totals.
+    const hasSessions =
+      activeLabel === null
+        ? summary.allTime.sessions > 0
+        : scoped !== null && scoped.allTime.sessions > 0;
 
     const windowLine = t("stats.summaryWindow", {
       days: formatNumber(summary.window.days, locale),
@@ -2264,12 +2279,6 @@ export function init() {
       allTime: formatNumber(summary.allTime.perDayMinutes, locale),
     });
 
-    const scoped = focusSummaryComparison(history, {
-      label: activeLabel === null ? undefined : activeLabel,
-      tags: sessionTags,
-      now,
-      days: SUMMARY_DAYS,
-    });
     const hasScoped =
       hasSessions &&
       scoped !== null &&

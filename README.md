@@ -219,7 +219,9 @@ calls, no telemetry, and no secrets.
   label-filter
   changes and after each completed work phase, and is announced once through the
   screen-reader live region when it first appears or its trend value changes — an
-  empty state is shown before the first session. It is derived by the pure
+  empty state is shown before the first session, and also when a label filter is
+  active but no session matches it, so a filtered view never falls back to the
+  global totals. It is derived by the pure
   `focusSummary` and `focusSummaryComparison` helpers in `app/history.js` from
   the existing `focus-flow:history` log only, so it adds **no new `localStorage`
   key, no network request, and no third-party dependency**.

@@ -291,7 +291,9 @@ after the first load.
   all-labels baseline — while the extra per-label line applies the active
   **label filter** and the **label aliases** map exactly as the other derived
   views do. The empty state is
-  shown when the log has no entries, it re-renders on language, label-filter
+  shown when the log has no entries, or when a label filter is active but no
+  session matches it (so a filtered view never falls back to the global totals),
+  it re-renders on language, label-filter
   changes, and after each completed work phase, and it is announced once through
   the existing ARIA live region when it first appears or its trend value changes.
   It is derived entirely from the already-stored `focus-flow:history` key (and,
@@ -983,7 +985,9 @@ key**, makes **no network request**, and adds **no third-party dependency**.
   so the label's own trend is contrasted against the global baseline instead of
   duplicating it, reusing the existing above / below / in-line phrasings, and
   announces it once through the existing ARIA live region when it first appears
-  or its trend value changes. The unfiltered summary is unchanged, the line
+  or its trend value changes. The unfiltered summary is unchanged, a filtered
+  view with no matching session shows the existing empty state instead of the
+  global totals, the line
   re-renders on language, label-filter, and completed-work-phase changes, every
   string comes from the bundled `app/i18n.js` catalog, and it reads only
   `focus-flow:history` (plus the existing label filter and

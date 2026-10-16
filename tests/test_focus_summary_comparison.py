@@ -317,6 +317,27 @@ class FocusSummaryComparisonStaticTests(unittest.TestCase):
             "main.js must not pass an already-scoped summary to the helper",
         )
 
+    def test_main_js_filtered_empty_state_follows_the_filter(self):
+        js = read(MAIN_PATH)
+        start = js.index("function renderSummary()")
+        end = js.index("function renderGoalBreakdown()", start)
+        body = js[start:end]
+        match = re.search(r"const hasSessions\s*=\s*(.*?);", body, re.S)
+        self.assertIsNotNone(
+            match, "renderSummary does not derive a hasSessions decision"
+        )
+        expression = match.group(1)
+        self.assertIn(
+            "activeLabel",
+            expression,
+            "the 30-day summary empty decision must branch on the active label",
+        )
+        self.assertIn(
+            "scoped",
+            expression,
+            "a filtered 30-day summary must base its empty state on scoped data",
+        )
+
     def test_styles_define_the_scoped_line(self):
         css = read(STYLES_PATH)
         self.assertIn(".stats__summary-scoped", css)
