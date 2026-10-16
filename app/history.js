@@ -41,7 +41,10 @@
  * same label filter, alias map, and local-calendar arithmetic.
  * `focusSummaryComparison` extracts the per-label `{ window, allTime, trend }`
  * from a `focusSummary` result so the Stats panel can add a label-named
- * comparison line when a label filter is active. None of these touch the DOM,
+ * comparison line when a label filter is active. `monthlySummary` derives the
+ * **monthly focus comparison** — `{ window, allTime, trend }` for the current
+ * local calendar month against the whole retained log — with the same label
+ * filter, alias map, and calendar arithmetic. None of these touch the DOM,
  * the storage layer, or the network.
  *
  * It additionally owns the pure maths for the optional **daily focus goal**: a
@@ -1932,6 +1935,129 @@ export function focusSummaryComparison(
     window: normalizeSummaryScope(source.window),
     allTime: normalizeSummaryScope(source.allTime),
     trend: normalizeSummaryTrend(source.trend),
+  };
+}
+
+/**
+ * Summarise total focused time for the current local calendar month and across
+ * the whole retained log.
+ *
+ * Returns `{ window, allTime, trend }`:
+ *
+ * - `window` covers the **current local calendar month** — day 1 through today,
+ *   inclusive — and is shaped `{ sessions, minutes, days }`: `sessions` is the
+ *   number of completed work entries in the month, `minutes` the summed focused
+ *   minutes, and `days` the number of local calendar days from the first of the
+ *   month through today (today included).
+ * - `allTime` covers the whole retained log and is shaped
+ *   `{ sessions, minutes, months, perMonthMinutes }`: the same totals across the
+ *   log, the number of distinct active months (months with at least one
+ *   qualifying session, floored at `1`), and the rounded average focused minutes
+ *   per active month.
+ * - `trend` is `"up"`, `"steady"`, or `"down"`, comparing the month's daily
+ *   average against the all-time daily average. A small tolerance — the larger
+ *   of `SUMMARY_TREND_TOLERANCE_MINUTES` and
+ *   `SUMMARY_TREND_TOLERANCE_RATIO × all-time daily average` — keeps tiny
+ *   fluctuations from flipping the label.
+ *
+ * The active label filter and the optional alias map are honoured exactly as
+ * `focusSummary` / `summarise` do (`UNLABELLED` matches unlabelled entries). The
+ * month day set and the all-time day count use local calendar arithmetic
+ * (`dateKey` / `shiftDayKey`, via `countCalendarDays`), so a 23h/25h
+ * daylight-saving transition never shifts, drops, or duplicates a day. Pure: it
+ * reads no storage, makes no network request, never mutates its input, and never
+ * throws on malformed input — an empty or unusable log yields zeros and
+ * `"steady"`.
+ */
+export function monthlySummary(
+  history,
+  { now = Date.now(), label, tags } = {},
+) {
+  const filter = label === undefined || label === null ? null : String(label);
+  const log = Array.isArray(history) ? history : [];
+
+  const resolvedNow = toTimestamp(now);
+  const base = resolvedNow === null ? Date.now() : resolvedNow;
+  const baseDate = new Date(base);
+  const todayKey = dateKey(new Date(startOfDay(base)));
+  const monthStartKey = dateKey(
+    new Date(baseDate.getFullYear(), baseDate.getMonth(), 1),
+  );
+  const windowDays = countCalendarDays(monthStartKey, todayKey);
+
+  let windowSessions = 0;
+  let windowMinutes = 0;
+  let allSessions = 0;
+  let allMinutes = 0;
+  let oldestTimestamp = null;
+  const activeMonths = new Set();
+
+  for (const entry of log) {
+    const normalized = normalizeEntry(entry);
+    if (!normalized) {
+      continue;
+    }
+    const timestamp = toTimestamp(normalized.endedAt);
+    if (timestamp === null) {
+      continue;
+    }
+    if (
+      filter !== null &&
+      (applyAliases(normalized.label, tags) || UNLABELLED) !== filter
+    ) {
+      continue;
+    }
+    const minutes = Math.round(normalized.durationSeconds / 60);
+    allSessions += 1;
+    allMinutes += minutes;
+    if (oldestTimestamp === null || timestamp < oldestTimestamp) {
+      oldestTimestamp = timestamp;
+    }
+    const entryDate = new Date(timestamp);
+    activeMonths.add(
+      `${entryDate.getFullYear()}-${String(entryDate.getMonth() + 1).padStart(2, "0")}`,
+    );
+    const entryKey = dateKey(entryDate);
+    if (entryKey >= monthStartKey && entryKey <= todayKey) {
+      windowSessions += 1;
+      windowMinutes += minutes;
+    }
+  }
+
+  const allDays =
+    oldestTimestamp === null
+      ? 1
+      : countCalendarDays(dateKey(new Date(oldestTimestamp)), todayKey);
+  const months = Math.max(1, activeMonths.size);
+
+  const windowPerDay = Math.round(windowMinutes / windowDays);
+  const allPerDay = Math.round(allMinutes / allDays);
+  const perMonthMinutes = Math.round(allMinutes / months);
+
+  const tolerance = Math.max(
+    SUMMARY_TREND_TOLERANCE_MINUTES,
+    Math.abs(allPerDay) * SUMMARY_TREND_TOLERANCE_RATIO,
+  );
+  let trend = "steady";
+  if (windowPerDay > allPerDay + tolerance) {
+    trend = "up";
+  } else if (windowPerDay < allPerDay - tolerance) {
+    trend = "down";
+  }
+
+  return {
+    window: {
+      sessions: windowSessions,
+      minutes: windowMinutes,
+      days: windowDays,
+    },
+    allTime: {
+      sessions: allSessions,
+      minutes: allMinutes,
+      months,
+      perMonthMinutes,
+    },
+    trend,
   };
 }
 
