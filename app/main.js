@@ -56,6 +56,7 @@ import {
   goalPace,
   weeklyReviewCsv,
   streaks,
+  focusTrend,
   normalizeSessionTags,
   applyAliases,
   backupFileName,
@@ -151,6 +152,10 @@ function getElements() {
     statsTotalMinutes: document.getElementById("stats-total-minutes"),
     statsLabels: document.getElementById("stats-labels"),
     statsDays: document.getElementById("stats-days"),
+    statsTrend: document.getElementById("stats-trend"),
+    statsTrendSvg: document.getElementById("stats-trend-svg"),
+    statsTrendLine: document.getElementById("stats-trend-line"),
+    statsTrendSummary: document.getElementById("stats-trend-summary"),
     statsRecent: document.getElementById("stats-recent"),
     statsEmpty: document.getElementById("stats-empty"),
     statsStreak: document.getElementById("stats-streak"),
@@ -489,6 +494,7 @@ export function init() {
     updateThemeButton(currentTheme());
     renderSessionTags();
     render(engine.snapshot(), { reason: "locale" });
+    announcedTrend = false;
     renderStats();
     if (announceChange) {
       announce(t("announce.locale", { language: LOCALE_LABELS[locale] }));
@@ -528,6 +534,7 @@ export function init() {
     weekStartsOn = normalizeWeekStart(raw);
     persistWeekStart();
     syncWeekStartControl();
+    announcedTrend = false;
     renderStats();
     if (announceChange) {
       announce(
@@ -602,6 +609,7 @@ export function init() {
     if (el.sessionLabelSuggestions && !el.sessionLabelSuggestions.hidden) {
       renderLabelSuggestions();
     }
+    announcedTrend = false;
     renderStats();
   }
 
@@ -742,6 +750,7 @@ export function init() {
   let announcedDailyBreakdown = false;
   let announcedGoalPace = false;
   let announcedGoalPaceReached = false;
+  let announcedTrend = false;
   let lastBadgeValue;
 
   function labelDisplay(label) {
@@ -930,6 +939,7 @@ export function init() {
       button.append(name, count);
       button.addEventListener("click", () => {
         activeLabel = activeLabel === label ? null : label;
+        announcedTrend = false;
         renderStats();
         announce(
           activeLabel === null
@@ -1028,6 +1038,110 @@ export function init() {
     }
   }
 
+  const TREND_VIEW_WIDTH = 280;
+  const TREND_VIEW_HEIGHT = 60;
+  const TREND_VIEW_PADDING = 4;
+
+  /**
+   * Build the SVG `points` attribute for the trend sparkline from the pure
+   * `focusTrend` result. The x-axis spaces the days evenly and the y-axis maps
+   * each day's minutes into the view box, so the shape of the week is visible
+   * at a glance. A `0`-minute day sits on the baseline and an all-zero window
+   * is a flat line. Pure geometry: no storage and no network access.
+   */
+  function trendPointsAttribute(points, max) {
+    const count = points.length;
+    if (count === 0) {
+      return "";
+    }
+    const usableWidth = TREND_VIEW_WIDTH - TREND_VIEW_PADDING * 2;
+    const usableHeight = TREND_VIEW_HEIGHT - TREND_VIEW_PADDING * 2;
+    const peak = max > 0 ? max : 1;
+    const step = count > 1 ? usableWidth / (count - 1) : 0;
+    return points
+      .map((point, index) => {
+        const x =
+          count > 1
+            ? TREND_VIEW_PADDING + index * step
+            : TREND_VIEW_PADDING + usableWidth / 2;
+        const ratio = Math.max(0, Math.min(1, point.minutes / peak));
+        const y = TREND_VIEW_PADDING + usableHeight - ratio * usableHeight;
+        return `${x.toFixed(2)},${y.toFixed(2)}`;
+      })
+      .join(" ");
+  }
+
+  /**
+   * Render the **7-day focus trend sparkline** inside the Stats panel from the
+   * pure `focusTrend` helper. It draws the daily focused minutes as an inline
+   * SVG polyline, sets the accessible name and the `visually-hidden` summary
+   * (highest day, lowest day, and total) from the bundled catalog, and
+   * announces the trend once through the existing live region on first render
+   * or after a filter / language / week-start change. The section is hidden
+   * (matching the `stats.empty` behaviour) when the trailing window has no
+   * completed work sessions. It respects the active label filter and the
+   * `tags` alias map, reads only the existing `focus-flow:history` key, and
+   * adds no new storage key, no network request, and no third-party dependency.
+   */
+  function renderFocusTrend() {
+    if (
+      !el.statsTrend ||
+      !el.statsTrendSvg ||
+      !el.statsTrendLine ||
+      !el.statsTrendSummary
+    ) {
+      return;
+    }
+
+    const trend = focusTrend(history, {
+      now: Date.now(),
+      days: STATS_WINDOW_DAYS,
+      label: activeLabel === null ? undefined : activeLabel,
+      tags: sessionTags,
+    });
+
+    if (trend.empty) {
+      el.statsTrend.hidden = true;
+      el.statsTrendLine.setAttribute("points", "");
+      el.statsTrendSummary.textContent = t("stats.trendEmpty");
+      announcedTrend = false;
+      return;
+    }
+
+    el.statsTrend.hidden = false;
+    el.statsTrendSvg.setAttribute("aria-label", t("stats.trendLabel"));
+    el.statsTrendLine.setAttribute(
+      "points",
+      trendPointsAttribute(trend.points, trend.max),
+    );
+
+    const highest =
+      trend.points.find((point) => point.minutes === trend.max) ||
+      trend.points[0];
+    const lowest =
+      trend.points.find((point) => point.minutes === trend.min) ||
+      trend.points[0];
+    const highestText = t("stats.trendHighest", {
+      minutes: formatDuration(trend.max, locale),
+      day: formatWeekday(highest.date, locale),
+    });
+    const lowestText = t("stats.trendLowest", {
+      minutes: formatDuration(trend.min, locale),
+      day: formatWeekday(lowest.date, locale),
+    });
+    const summary = t("stats.trendSummary", {
+      highest: highestText,
+      lowest: lowestText,
+      total: formatDuration(trend.totalMinutes, locale),
+    });
+    el.statsTrendSummary.textContent = summary;
+
+    if (!announcedTrend) {
+      announcedTrend = true;
+      announce(t("announce.trend", { summary }));
+    }
+  }
+
   function renderStats() {
     const summary = summarise(history, {
       now: Date.now(),
@@ -1096,6 +1210,7 @@ export function init() {
     );
     renderRecentSessions();
     renderStreak();
+    renderFocusTrend();
     renderGoal();
     renderDailyGoal();
     renderWeeklyReview();

@@ -134,6 +134,19 @@ calls, no telemetry, and no secrets.
   focus session logged today yet."** hint appears. The streak increases the
   moment a work phase completes and the new value is announced once through the
   existing screen-reader live region.
+- **7-day focus trend sparkline:** the Stats panel draws the last 7 days' focused
+  minutes as a small inline `<svg role="img">` line, so you can see the shape of
+  your week at a glance instead of reading each bar. The points come from the
+  pure `focusTrend` helper in `app/history.js`, which reuses the existing
+  `summarise` range and follows the active **label filter** (including the
+  `(unlabelled)` chip) and the **Label aliases** map, and also reports the
+  highest and lowest day and the weekly total. The heading, the SVG's accessible
+  name, and the `visually-hidden` summary are localised from the bundled
+  catalog, the section re-renders when you change the **Language** or **Week
+  starts on** preference, and it hides itself when the trailing week has no
+  completed sessions. It adds **no new `localStorage` key, no network request,
+  and no third-party dependency** — it is derived only from the existing
+  `focus-flow:history` key.
 - **Optional ambient sound:** choose **brown noise**, **pink noise**, or **soft
   rain** — or keep the default **Off** — and set the volume in Settings. The
   loop plays during work sessions (and through breaks when they auto-start) and
@@ -198,7 +211,10 @@ only — they add no new storage key, no network request, and no third-party
 dependency. The weekly goal pace projection in particular is derived from the
 same `weeklyReview` result by the pure `goalPace` helper, so it reads only the
 existing `focus-flow:history` and `focus-flow:goal` keys, adds no new key, makes
-no network request, and adds no third-party dependency. The autocomplete in
+no network request, and adds no third-party dependency. The **7-day focus trend
+sparkline** is likewise derived from the existing `focus-flow:history` key by
+the pure `focusTrend` helper, so it adds no new key, no network request, and no
+third-party dependency. The autocomplete in
 particular reads only the labels already in
 `focus-flow:history` and never uploads, adds, or reorders anything. The label
 aliases are read by pure helpers and stored only under the optional
@@ -264,6 +280,13 @@ log by the pure `recentLabels` helper in `app/history.js`, which returns the
 newest distinct labels for the suggestion list. It reads **only the existing
 history key**, adds no new `localStorage` key, makes no network request, and
 adds no third-party dependency, so the labels stay on the device.
+
+The **7-day focus trend sparkline** is derived from the same `focus-flow:history`
+log by the pure `focusTrend` helper in `app/history.js`, which returns the
+trailing seven-day points, the highest and lowest day, and the total. It reads
+**only the existing history key** (respecting the active label filter and the
+label alias map), adds no new `localStorage` key, makes no network request, and
+adds no third-party dependency.
 
 **Backup & restore** adds **no new `localStorage` key** and makes no network
 request: the exported JSON mirrors the existing keys listed above (settings,

@@ -56,6 +56,23 @@ after the first load.
   minutes, and a per-day list that pairs each bar with its numeric count.
   Skipped phases are not recorded. The log is capped at 500 entries and 90 days
   so `localStorage` cannot grow unbounded.
+- **7-day focus trend sparkline:** the Stats panel renders a compact, purely
+  derived sparkline of the last 7 days' focused minutes as an inline SVG line so
+  the shape of the week is visible at a glance without reading each bar. The
+  points come from the pure `focusTrend` helper in `app/history.js`, which reuses
+  `summarise` semantics — the same trailing 7-day range, the same `label` filter
+  (including the `(unlabelled)` chip), and the same `tags` alias resolution via
+  `applyAliases` — and returns the chronological `{ date, minutes }` points plus
+  the highest / lowest day and the total. The section respects the active label
+  filter and the user's **Week starts on** preference (the trailing range is
+  unaffected; only the weekday names it renders come from `LOCALE_DATA`), every
+  visible string (heading, accessible name, `visually-hidden` summary, empty
+  state) comes from the bundled `app/i18n.js` catalog in `en`, `de`, and `es`,
+  and it is announced once through the existing ARIA live region when the Stats
+  panel first renders or the label filter, language, or week-start preference
+  changes. It is hidden when the trailing range has no completed work sessions,
+  matching the `stats.empty` behaviour. It adds **no new `localStorage` key, no
+  network request, and no third-party dependency**.
 - **Optional session labels:** a user can type a short label (e.g. "Thesis
   chapter 3") on the timer card before or during a work phase, and the label is
   attached to the next completed work entry. The Stats panel lists the labels
@@ -309,7 +326,7 @@ after the first load.
     phase.
   - `history.js` — the pure session-history helpers (`recordSession`,
     `pruneHistory`, `summarise`, `labelSummary`, `recentSessions`,
-    `recentLabels`, `normalizeGoal`, `weekWindow`, `goalProgress`,
+    `recentLabels`, `focusTrend`, `normalizeGoal`, `weekWindow`, `goalProgress`,
     `normalizeDailyGoal`, `dailyGoalProgress`, `dailyReview`, `badgeState`,
     `weeklyReview`, `goalPace`, `streaks`,
     `normalizeWeekStart`, `normalizeSessionTags`, `applyAliases`,
@@ -323,6 +340,10 @@ after the first load.
     non-empty, case-insensitively de-duplicated, newest first by `endedAt`,
     capped at a requested `limit`) for the session-label autocomplete, without
     touching the DOM, storage, or the network.
+    `focusTrend` derives the **7-day focus trend sparkline** points (a
+    chronological list of `{ date, minutes }`) plus the highest / lowest day and
+    the rounded total from the same `summarise` range and label / alias
+    semantics, touching no DOM, storage, or network.
     `normalizeSessionTags` coerces arbitrary stored input into the canonical
     `{ label: alias }` display map and `applyAliases` resolves a stored label
     through it; the derived views accept an optional `tags` map so they can
@@ -454,6 +475,15 @@ The **focus streaks** and the daily reminder hint are derived the same way: the
 pure `streaks` helper turns `focus-flow:history` into a current/longest streak
 and today's totals, the reminder compares `todayCount` against the presence of a
 `focus-flow:goal`, and nothing new is persisted or transmitted.
+
+The **7-day focus trend sparkline** is derived the same way: the pure
+`focusTrend` helper turns `focus-flow:history` into the trailing seven-day
+`{ date, minutes }` points (respecting the active label filter and the label
+alias map) plus the highest / lowest day and total, and the DOM layer renders
+them as an inline SVG line with a localised accessible name and a
+`visually-hidden` summary. It reads only the existing history key, adds **no new
+`localStorage` key, no network request, and no third-party dependency**, and
+keeps the app fully offline.
 
 The **session-label autocomplete** is derived the same way: the pure
 `recentLabels` helper reads only the existing `focus-flow:history` log to list
@@ -604,6 +634,16 @@ key**, makes **no network request**, and adds **no third-party dependency**.
   active label filter and the **Week starts on** preference, reads only
   `focus-flow:history` and `focus-flow:goal`, and adds no `localStorage` key, no
   network request, and no third-party dependency.
+- [x] **7-day focus trend sparkline**, the visual follow-up to the per-day Stats
+  bars: a pure `focusTrend` helper in `app/history.js` returns the trailing
+  7-day `{ date, minutes }` points (reusing `summarise`'s range, label filter,
+  and `tags` aliases) plus the highest / lowest day and total, and the Stats
+  panel draws them as an inline `<svg role="img">` line with a localised
+  accessible name and a `visually-hidden` summary. It respects the active label
+  filter and the **Week starts on** preference, announces once through the
+  existing live region on first render and on filter / language / week-start
+  change, hides itself when the range is empty, and adds no `localStorage` key,
+  no network request, and no third-party dependency.
 
 ## How the repository meets its own criteria
 
@@ -620,7 +660,7 @@ key**, makes **no network request**, and adds **no third-party dependency**.
 | Autonomous Operation | No backend; nothing to administer after deployment, and the service worker keeps the app usable offline. |
 | Kubernetes Compatible | `Dockerfile` + `helm/` chart with `Deployment`, `Service`, `Ingress`, probes, and resource limits. |
 | Resource Efficient | Tiny nginx:alpine image, static files only, small CPU/RAM requests and limits in `helm/values.yaml`. |
-| Security | No secrets, no runtime external calls, no telemetry, no user input leaves the browser; the service worker ignores cross-origin and non-GET requests; container runs as non-root. The ambient sound layer is synthesised in-browser with the Web Audio API, so it adds **no network request and no third-party asset**. The i18n catalog is bundled in `app/i18n.js`, so localisation adds **no network request and no third-party library**, and the only new storage is the optional locale preference. The user-selectable first day of week is rendered from that same bundled catalog, so it too adds **no network request and no third-party dependency** — the only new storage is the optional `focus-flow:week-start` preference. The daily focus goal is measured from the existing history by a pure helper and stored only under the optional `focus-flow:daily-goal` key, so it adds **no network request, no third-party dependency, and no upload**. The per-label daily goal breakdown is derived from that same history and daily-goal key by the pure `dailyReview` helper, and the PWA app badge is decided by the pure `badgeState` helper and pushed through a feature-detected, on-device platform call, so both add **no new `localStorage` key, no network request, no third-party dependency, and no upload**, and unsupported browsers throw nothing. The local backup/restore writes and reads a JSON file entirely on the device through pure helpers, so it adds **no new `localStorage` key, no network request, no third-party dependency, and no upload**. The session-label autocomplete is derived from the existing history key by the pure `recentLabels` helper, so it adds **no new `localStorage` key, no network request, no third-party dependency, and no upload**. The label aliases are coerced and read by the pure `normalizeSessionTags` / `applyAliases` helpers and stored only under the optional `focus-flow:session-tags` key (removed when empty), so they add **no network request, no third-party dependency, and no upload**. The weekly goal pace projection is derived from the existing history and goal keys by the pure `goalPace` helper, so it adds **no new `localStorage` key, no network request, no third-party dependency, and no upload**. |
+| Security | No secrets, no runtime external calls, no telemetry, no user input leaves the browser; the service worker ignores cross-origin and non-GET requests; container runs as non-root. The ambient sound layer is synthesised in-browser with the Web Audio API, so it adds **no network request and no third-party asset**. The i18n catalog is bundled in `app/i18n.js`, so localisation adds **no network request and no third-party library**, and the only new storage is the optional locale preference. The user-selectable first day of week is rendered from that same bundled catalog, so it too adds **no network request and no third-party dependency** — the only new storage is the optional `focus-flow:week-start` preference. The daily focus goal is measured from the existing history by a pure helper and stored only under the optional `focus-flow:daily-goal` key, so it adds **no network request, no third-party dependency, and no upload**. The per-label daily goal breakdown is derived from that same history and daily-goal key by the pure `dailyReview` helper, and the PWA app badge is decided by the pure `badgeState` helper and pushed through a feature-detected, on-device platform call, so both add **no new `localStorage` key, no network request, no third-party dependency, and no upload**, and unsupported browsers throw nothing. The local backup/restore writes and reads a JSON file entirely on the device through pure helpers, so it adds **no new `localStorage` key, no network request, no third-party dependency, and no upload**. The session-label autocomplete is derived from the existing history key by the pure `recentLabels` helper, so it adds **no new `localStorage` key, no network request, no third-party dependency, and no upload**. The label aliases are coerced and read by the pure `normalizeSessionTags` / `applyAliases` helpers and stored only under the optional `focus-flow:session-tags` key (removed when empty), so they add **no network request, no third-party dependency, and no upload**. The weekly goal pace projection is derived from the existing history and goal keys by the pure `goalPace` helper, so it adds **no new `localStorage` key, no network request, no third-party dependency, and no upload**. The 7-day focus trend sparkline is derived from the existing history key by the pure `focusTrend` helper, so it adds **no new `localStorage` key, no network request, no third-party dependency, and no upload**. |
 | Testable | `tests/` verifies assets, structure, the PWA manifest and service worker, and Helm rendering via `unittest`. |
 | Maintainable | Plain HTML/CSS/JS with no build step and clear project structure. |
 | Legal Compliance | Original code, no third-party assets, no personal data collected. |
@@ -643,7 +683,7 @@ key**, makes **no network request**, and adds **no third-party dependency**.
 | Mobile Friendly | Responsive layout, touch-friendly controls, and an installable PWA that launches standalone. |
 | Accessibility | Semantic landmarks, ARIA live region, keyboard shortcuts, focus states, contrast. The locale switcher and the **Week starts on** control are labelled `<select>`s with accessible names, every string (including live-region announcements) is routed through the catalog, derived weekday/month names and numbers are localised from the same bundled catalog, and `<html lang>` follows the active locale. The session-label autocomplete is a real `role="listbox"`/`role="option"` combobox that is fully operable by keyboard (`ArrowDown`/`ArrowUp` to move, `Enter`/`Tab` to accept, `Escape` to dismiss) with a visible active-option state. |
 | Minimal Dependencies | Zero runtime JS/CSS dependencies; the i18n catalog and its `LOCALE_DATA` (weekday/month names, separators, plural rules) are a dependency-free local module with no network request, no `Intl` dependency, and no third-party library. |
-| Measurable Success | `/healthz` for reliability; the local session history, 7-day stats, optional label breakdown, the weekly focus goal, and the weekly review give users a visible, measurable view of their focus habit, including what each block of time was spent on and how close each label came to their weekly target; the Stats **Weekly goal** row shows that per-label goal share inline; a derived pace projection line under that breakdown makes the remaining per-day requirement measurable at a glance; the **Daily goal** row makes daily output directly measurable against a per-day target and shows today's per-label breakdown; the derived current/longest focus streak and today's totals make consistency itself measurable; and the on-device app badge surfaces today's remaining focused minutes at a glance from the home screen. |
+| Measurable Success | `/healthz` for reliability; the local session history, 7-day stats, optional label breakdown, the weekly focus goal, and the weekly review give users a visible, measurable view of their focus habit, including what each block of time was spent on and how close each label came to their weekly target; the Stats **Weekly goal** row shows that per-label goal share inline; a derived pace projection line under that breakdown makes the remaining per-day requirement measurable at a glance; the **Daily goal** row makes daily output directly measurable against a per-day target and shows today's per-label breakdown; the derived current/longest focus streak and today's totals make consistency itself measurable; a derived 7-day focus trend sparkline makes the shape of the week readable at a glance; and the on-device app badge surfaces today's remaining focused minutes at a glance from the home screen. |
 | Reusability | Reuses the standard static-container + Helm deployment template. |
 | Innovation Potential | The shipped ambient sound layer shows the in-browser synthesis approach can be extended to more generated soundscapes, and the shipped bundled catalog with bundled locale data shows how the product can add locales, weekday/month names, and plural rules without a build step, a backend, or a third-party dependency; a shipped user-selectable first day of week shows how further local conventions (a fiscal week start, custom week windows) can reuse the same catalogue-and-storage pattern. |
 

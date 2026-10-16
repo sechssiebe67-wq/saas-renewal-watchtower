@@ -17,6 +17,12 @@
  * accessible session-label autocomplete; it reads no storage of its own and
  * makes no network request.
  *
+ * `focusTrend` derives the **7-day focus trend** for the Stats sparkline: a
+ * chronological `{ date, minutes }` list for the trailing range plus the
+ * highest / lowest daily minutes and the rounded total, built on the same
+ * `summarise` semantics (label filter, `tags` aliases, local calendar keys). It
+ * is pure too: no DOM, no storage, no network.
+ *
  * The module also owns the pure maths for the optional **weekly focus goal**: a
  * locally stored `{ minutes, label? }` target. `weekWindow` finds the current
  * week, `goalProgress` measures the logged focus time against the target,
@@ -446,6 +452,58 @@ export function summarise(
     totalMinutes: Math.round(totalSeconds / 60),
     perDay: Array.from(buckets.values()),
     empty: totalSessions === 0,
+  };
+}
+
+/**
+ * Derive the **7-day focus trend** from the local session log.
+ *
+ * Returns `{ days, points, max, min, totalMinutes, empty }`, where `points` is a
+ * chronological list of `{ date, minutes }` for the trailing `days`-day range
+ * (`date` is the local `YYYY-MM-DD` calendar key and `minutes` is that day's
+ * rounded focused minutes, zero-filled for days with no session). It shares the
+ * exact range, label-filter, and alias semantics of `summarise`: pass `label`
+ * to count only that label (`UNLABELLED` counts entries without one) and `tags`
+ * (a `normalizeSessionTags` map) to resolve display aliases before matching.
+ * `max` / `min` are the highest / lowest daily minutes across the range,
+ * `totalMinutes` is the rounded range total, and `empty` is `true` when no
+ * completed work sessions fall in the range so the DOM layer can hide the
+ * sparkline. Purely data in, data out: it reads no storage of its own, makes no
+ * network request, never touches the DOM, never mutates its input, and never
+ * throws on malformed input.
+ */
+export function focusTrend(
+  history,
+  { now = Date.now(), days = 7, label, tags } = {},
+) {
+  const summary = summarise(history, { now, days, label, tags });
+  const points = summary.perDay.map((day) => ({
+    date: day.date,
+    minutes: day.minutes,
+  }));
+
+  let max = 0;
+  let min = 0;
+  if (points.length > 0) {
+    max = points[0].minutes;
+    min = points[0].minutes;
+    for (const point of points) {
+      if (point.minutes > max) {
+        max = point.minutes;
+      }
+      if (point.minutes < min) {
+        min = point.minutes;
+      }
+    }
+  }
+
+  return {
+    days: summary.days,
+    points,
+    max,
+    min,
+    totalMinutes: summary.totalMinutes,
+    empty: summary.empty,
   };
 }
 

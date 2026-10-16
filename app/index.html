@@ -552,6 +552,36 @@
               data-i18n-attr="aria-label:stats.daysLabel"
               hidden
             ></ul>
+            <figure id="stats-trend" class="stats__trend" hidden>
+              <h3
+                id="stats-trend-heading"
+                class="stats__trend-title"
+                data-i18n="stats.trendHeading"
+              >
+                7-day focus trend
+              </h3>
+              <svg
+                id="stats-trend-svg"
+                class="stats__trend-svg"
+                role="img"
+                viewBox="0 0 280 60"
+                preserveAspectRatio="none"
+                aria-labelledby="stats-trend-heading"
+                data-i18n-attr="aria-label:stats.trendLabel"
+                focusable="false"
+              >
+                <polyline
+                  id="stats-trend-line"
+                  class="stats__trend-line"
+                  points=""
+                  fill="none"
+                ></polyline>
+              </svg>
+              <p
+                id="stats-trend-summary"
+                class="stats__trend-summary visually-hidden"
+              ></p>
+            </figure>
             <ul
               id="stats-recent"
               class="stats__recent"
