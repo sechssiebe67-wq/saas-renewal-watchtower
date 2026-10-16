@@ -175,6 +175,29 @@ HARNESS = textwrap.dedent(
       aliased.window.sessions === 1 && aliased.allTime.sessions === 2,
     );
 
+    // --- a label whose only session is outside the trailing window ---------
+    // This is the reachable case behind the Stats panel's filtered empty state:
+    // the label has an all-time session but none in the trailing window, so the
+    // filtered view must fall back to the empty state (its gate is the scoped
+    // *window* count) instead of rendering the global all-labels baseline.
+    const stale = [
+      entry(now - 60 * DAY, 60, "Thesis"),
+      entry(now - HOUR, 30, "Admin"),
+    ];
+    const staleScoped = focusSummaryComparison(stale, { label: "Thesis", now });
+    check(
+      "a stale label has no window sessions",
+      staleScoped.window.sessions === 0,
+    );
+    check(
+      "a stale label keeps its all-time session",
+      staleScoped.allTime.sessions === 1,
+    );
+    check(
+      "a stale label's window/all-time counts diverge",
+      staleScoped.window.sessions === 0 && staleScoped.allTime.sessions > 0,
+    );
+
     // --- a rising label trends up ------------------------------------------
     const rising = focusSummary(
       [entry(now - 60 * DAY, 1, "Thesis"), entry(now - HOUR, 900, "Thesis")],
@@ -336,6 +359,31 @@ class FocusSummaryComparisonStaticTests(unittest.TestCase):
             "scoped",
             expression,
             "a filtered 30-day summary must base its empty state on scoped data",
+        )
+
+        # Split the ternary into its unfiltered (true) and filtered (false)
+        # branches so the filtered gate is pinned to the scoped *window* count.
+        # Gating on the all-time count instead would keep the global baseline
+        # visible when the label has only old sessions outside the window.
+        self.assertIn("?", expression, "hasSessions is expected to be a ternary")
+        _head, _mark, rest = expression.partition("?")
+        unfiltered_branch, _mark, filtered_branch = rest.partition(":")
+        self.assertIn(
+            "scoped.window.sessions",
+            filtered_branch,
+            "a filtered 30-day summary must base its empty state on the scoped "
+            "*window* session count",
+        )
+        self.assertNotIn(
+            "scoped.allTime.sessions",
+            filtered_branch,
+            "an old session outside the trailing window must not keep the "
+            "global baseline visible for a filtered view",
+        )
+        self.assertIn(
+            "summary.allTime.sessions",
+            unfiltered_branch,
+            "the unfiltered summary must keep its all-time empty decision",
         )
 
     def test_styles_define_the_scoped_line(self):

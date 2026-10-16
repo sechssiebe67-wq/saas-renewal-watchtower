@@ -292,7 +292,8 @@ after the first load.
   **label filter** and the **label aliases** map exactly as the other derived
   views do. The empty state is
   shown when the log has no entries, or when a label filter is active but no
-  session matches it (so a filtered view never falls back to the global totals),
+  session in the trailing window matches it (so a filtered view never falls back
+  to the global totals),
   it re-renders on language, label-filter
   changes, and after each completed work phase, and it is announced once through
   the existing ARIA live region when it first appears or its trend value changes.
