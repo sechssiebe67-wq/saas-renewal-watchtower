@@ -56,6 +56,8 @@ import {
   goalPace,
   weeklyTrend,
   TREND_WEEKS,
+  focusHeatmap,
+  HEATMAP_WEEKS,
   weeklyReviewCsv,
   streaks,
   normalizeSessionTags,
@@ -178,6 +180,10 @@ function getElements() {
     statsTrendSummary: document.getElementById("stats-trend-summary"),
     statsTrendChart: document.getElementById("stats-trend-chart"),
     statsTrendEmpty: document.getElementById("stats-trend-empty"),
+    statsHeatmap: document.getElementById("stats-heatmap"),
+    statsHeatmapRange: document.getElementById("stats-heatmap-range"),
+    statsHeatmapGrid: document.getElementById("stats-heatmap-grid"),
+    statsHeatmapEmpty: document.getElementById("stats-heatmap-empty"),
     statsDailyGoal: document.getElementById("stats-daily-goal"),
     statsDailyGoalTarget: document.getElementById("stats-daily-goal-target"),
     statsDailyGoalFocused: document.getElementById("stats-daily-goal-focused"),
@@ -749,6 +755,7 @@ export function init() {
   let announcedGoalPace = false;
   let announcedGoalPaceReached = false;
   let lastAnnouncedTrendDirection = null;
+  let lastAnnouncedHeatmapRange = null;
   let lastBadgeValue;
 
   function labelDisplay(label) {
@@ -1104,6 +1111,7 @@ export function init() {
     renderRecentSessions();
     renderStreak();
     renderTrend();
+    renderHeatmap();
     renderGoal();
     renderDailyGoal();
     renderWeeklyReview();
@@ -1591,6 +1599,137 @@ export function init() {
     }
   }
 
+  /** Parse a `YYYY-MM-DD` local calendar key back into a local `Date`. */
+  function parseLocalDate(key) {
+    const [year, month, day] = String(key).split("-").map(Number);
+    return new Date(year, month - 1, day);
+  }
+
+  /**
+   * Draw the heatmap grid: one shaded `span` per local calendar day, in
+   * chronological order, preceded by blank spacers so the first day lines up
+   * with its weekday row under the user's **Week starts on** preference. Each
+   * day cell carries a localised `{weekday} {month} {day}: {minutes} min`
+   * `title`/`aria-label`; the shading comes from the pure helper's `level`.
+   */
+  function renderHeatmapGrid(heatmap) {
+    const grid = el.statsHeatmapGrid;
+    if (!grid) {
+      return;
+    }
+
+    const requested = Number(weekStartsOn);
+    const startDay = Number.isFinite(requested)
+      ? ((Math.floor(requested) % 7) + 7) % 7
+      : DEFAULT_WEEK_START;
+
+    const cells = [];
+    if (heatmap.days.length > 0) {
+      const first = parseLocalDate(heatmap.days[0].date);
+      const offset = (((first.getDay() - startDay) % 7) + 7) % 7;
+      for (let blank = 0; blank < offset; blank += 1) {
+        const spacer = document.createElement("span");
+        spacer.className = "stats__heatmap-spacer";
+        spacer.setAttribute("aria-hidden", "true");
+        cells.push(spacer);
+      }
+    }
+
+    for (const day of heatmap.days) {
+      const cell = document.createElement("span");
+      cell.className = "stats__heatmap-cell";
+      cell.dataset.level = String(day.level);
+      cell.dataset.date = day.date;
+      cell.dataset.minutes = String(day.minutes);
+      const label = t("stats.heatmapDay", {
+        weekday: formatWeekday(day.date, locale),
+        month: formatMonth(day.date, locale),
+        day: formatNumber(parseLocalDate(day.date).getDate(), locale),
+        minutes: formatNumber(day.minutes, locale),
+      });
+      cell.setAttribute("title", label);
+      cell.setAttribute("aria-label", label);
+      cells.push(cell);
+    }
+
+    grid.replaceChildren(...cells);
+  }
+
+  /**
+   * Render the **focus heatmap** in the Stats panel from the pure
+   * `focusHeatmap` helper. It shows one shaded cell per local calendar day over
+   * the last `HEATMAP_WEEKS` weeks (the current, partial week included), shaded
+   * relative to the window's best day, so the user can see whether they are
+   * building a focus habit. It respects the active label filter, the **Week
+   * starts on** preference, and the alias map exactly as `weeklyReview` does,
+   * and reads only `focus-flow:history`. The grid is a single `role="img"`
+   * region with a localised accessible name and a min–max range caption, every
+   * cell carries a localised label, and the heatmap announces itself once
+   * through the live region when it first appears or its range changes. It
+   * adds no new `localStorage` key and makes no network request.
+   */
+  function renderHeatmap() {
+    if (!el.statsHeatmap) {
+      return;
+    }
+
+    const heatmap = focusHeatmap(history, {
+      now: Date.now(),
+      weeks: HEATMAP_WEEKS,
+      weekStartsOn,
+      label: activeLabel === null ? undefined : activeLabel,
+      tags: sessionTags,
+    });
+
+    if (heatmap.empty) {
+      el.statsHeatmap.hidden = false;
+      if (el.statsHeatmapGrid) {
+        el.statsHeatmapGrid.hidden = true;
+        el.statsHeatmapGrid.replaceChildren();
+      }
+      if (el.statsHeatmapRange) {
+        el.statsHeatmapRange.textContent = "";
+      }
+      if (el.statsHeatmapEmpty) {
+        el.statsHeatmapEmpty.hidden = false;
+      }
+      lastAnnouncedHeatmapRange = null;
+      return;
+    }
+
+    const values = heatmap.days.map((day) => day.minutes);
+    const min = values.reduce(
+      (low, value) => Math.min(low, value),
+      heatmap.maxMinutes,
+    );
+    const range = t("stats.heatmapRange", {
+      min: formatNumber(min, locale),
+      max: formatNumber(heatmap.maxMinutes, locale),
+    });
+
+    el.statsHeatmap.hidden = false;
+    if (el.statsHeatmapEmpty) {
+      el.statsHeatmapEmpty.hidden = true;
+    }
+    if (el.statsHeatmapRange) {
+      el.statsHeatmapRange.textContent = range;
+    }
+    if (el.statsHeatmapGrid) {
+      el.statsHeatmapGrid.hidden = false;
+      el.statsHeatmapGrid.setAttribute(
+        "aria-label",
+        `${t("stats.heatmapLabel")}: ${range}`,
+      );
+      renderHeatmapGrid(heatmap);
+    }
+
+    const signature = `${min}:${heatmap.maxMinutes}`;
+    if (lastAnnouncedHeatmapRange !== signature) {
+      lastAnnouncedHeatmapRange = signature;
+      announce(t("announce.heatmap", { summary: range }));
+    }
+  }
+
   /**
    * Render the current week's per-label breakdown inside the existing Weekly
    * goal row. The rows come from the pure `weeklyReview` helper (already sorted
@@ -1908,6 +2047,7 @@ export function init() {
     announcedGoalPace = false;
     announcedGoalPaceReached = false;
     lastAnnouncedTrendDirection = null;
+    lastAnnouncedHeatmapRange = null;
     lastBadgeValue = undefined;
 
     applyStaticTranslations();

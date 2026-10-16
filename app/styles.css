@@ -711,6 +711,120 @@ kbd {
   display: none;
 }
 
+.stats__heatmap {
+  --heatmap-cell: clamp(0.55rem, 2.2vw, 0.8rem);
+  margin: 1rem 0 0;
+  padding: 0;
+}
+
+.stats__heatmap[hidden] {
+  display: none;
+}
+
+.stats__heatmap-caption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.stats__heatmap-range {
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.stats__heatmap-grid {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(7, var(--heatmap-cell));
+  grid-auto-columns: var(--heatmap-cell);
+  gap: 3px;
+  margin-top: 0.5rem;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.stats__heatmap-grid[hidden] {
+  display: none;
+}
+
+.stats__heatmap-cell,
+.stats__heatmap-spacer,
+.stats__heatmap-legend-cell {
+  width: var(--heatmap-cell);
+  height: var(--heatmap-cell);
+  border-radius: 3px;
+}
+
+.stats__heatmap-spacer {
+  background: transparent;
+}
+
+.stats__heatmap-cell,
+.stats__heatmap-legend-cell {
+  background: var(--work);
+  border: 1px solid transparent;
+}
+
+.stats__heatmap-cell[data-level="0"],
+.stats__heatmap-legend-cell[data-level="0"] {
+  background: var(--surface-muted);
+  border-color: var(--border);
+}
+
+.stats__heatmap-cell[data-level="1"],
+.stats__heatmap-legend-cell[data-level="1"] {
+  opacity: 0.3;
+}
+
+.stats__heatmap-cell[data-level="2"],
+.stats__heatmap-legend-cell[data-level="2"] {
+  opacity: 0.5;
+}
+
+.stats__heatmap-cell[data-level="3"],
+.stats__heatmap-legend-cell[data-level="3"] {
+  opacity: 0.75;
+}
+
+.stats__heatmap-cell[data-level="4"],
+.stats__heatmap-legend-cell[data-level="4"] {
+  opacity: 1;
+}
+
+.stats__heatmap-empty {
+  margin: 0.5rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.stats__heatmap-empty[hidden] {
+  display: none;
+}
+
+.stats__heatmap-legend {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.3rem;
+  margin: 0.5rem 0 0;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.stats__heatmap-legend-label {
+  line-height: 1;
+}
+
 .stats__labels {
   list-style: none;
   margin: 1rem 0 0;
