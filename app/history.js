@@ -104,6 +104,14 @@ export const DEFAULT_WEEK_START = 1;
  * `weeklyTrend` sparkline. */
 export const TREND_WEEKS = 8;
 
+/** Default number of trailing weeks (including the current, partial week)
+ * covered by the `focusHeatmap`. */
+export const HEATMAP_WEEKS = 12;
+
+/** Number of shading levels a heatmap day can use: `0` (no focused minutes)
+ * through `4` (the range's current best day). */
+export const HEATMAP_MAX_LEVEL = 4;
+
 /** Shape version for the `focus-flow:week-start` storage entry. Version 1
  * stores the first day of the week as a bare integer (`0` = Sunday,
  * `1` = Monday); arbitrary input is coerced by `normalizeWeekStart`. */
@@ -1355,6 +1363,117 @@ export function weeklyTrend(
     max,
     direction: trendDirection(values),
     empty: values.every((value) => value === 0),
+  };
+}
+
+/** Map a day's focused minutes onto a `0..HEATMAP_MAX_LEVEL` shade. A day with
+ * no minutes (or a range whose best day is `0`) is always level `0`; every
+ * positive day gets at least level `1` and the best day gets the top level. */
+function heatmapLevel(minutes, maxMinutes) {
+  if (maxMinutes <= 0 || minutes <= 0) {
+    return 0;
+  }
+  const ratio = minutes / maxMinutes;
+  return Math.min(
+    HEATMAP_MAX_LEVEL,
+    Math.max(1, Math.ceil(ratio * HEATMAP_MAX_LEVEL)),
+  );
+}
+
+/**
+ * Build the **focus heatmap** view over the trailing `weeks` weeks (including
+ * the current, partial week).
+ *
+ * Returns `{ weeks, days, maxMinutes, empty }`:
+ *
+ * - `days` is one `{ date, minutes, sessions, level }` bucket per **local
+ *   calendar day** in chronological order (oldest first, today last), exactly
+ *   `weeks * 7` buckets. `date` is the `YYYY-MM-DD` calendar key, `minutes` is
+ *   the rounded total focused minutes and `sessions` the number of completed
+ *   work entries on that day; both are zero-filled. `level` is an integer
+ *   `0..HEATMAP_MAX_LEVEL` derived from `minutes / maxMinutes`, so the range's
+ *   best day gets the top shade.
+ * - `maxMinutes` is the largest daily total in the range (`0` when there are
+ *   none), i.e. the user's current best day.
+ * - `empty` is `true` when `maxMinutes` is `0`, so the DOM layer can show the
+ *   localised empty-state message instead of an all-zero grid. With
+ *   `maxMinutes === 0` every day is `level: 0`.
+ *
+ * The day buckets are built with local calendar arithmetic (`dateKey` /
+ * `shiftDayKey`), so daylight-saving transitions never shift, drop, or
+ * duplicate a bucket. The active label filter is honoured and labels are
+ * resolved through the optional `tags` map exactly as `weeklyReview` does
+ * (`UNLABELLED` matches unlabelled entries). `weeks` is clamped to `1..26`, so
+ * a caller can never force an unbounded bucket array; `weekStartsOn` is
+ * accepted for symmetry with the week-scoped views and reserved for the DOM
+ * grid alignment. `now` is injectable for tests. Pure: it reads no storage,
+ * makes no network request, never mutates its input, and never throws on
+ * malformed input.
+ */
+export function focusHeatmap(
+  history,
+  { now = Date.now(), weeks = HEATMAP_WEEKS, weekStartsOn, label, tags } = {},
+) {
+  void weekStartsOn;
+
+  const resolvedNow = toTimestamp(now);
+  const base = resolvedNow === null ? Date.now() : resolvedNow;
+
+  const requested = Number(weeks);
+  const count = Number.isFinite(requested)
+    ? Math.min(26, Math.max(1, Math.floor(requested)))
+    : HEATMAP_WEEKS;
+  const totalDays = count * 7;
+
+  const todayKey = dateKey(new Date(startOfDay(base)));
+  const keys = [];
+  for (let offset = totalDays - 1; offset >= 0; offset -= 1) {
+    keys.push(shiftDayKey(todayKey, -offset));
+  }
+
+  const filter = label === undefined || label === null ? null : String(label);
+  const log = Array.isArray(history) ? history : [];
+  const buckets = new Map();
+  for (const key of keys) {
+    buckets.set(key, { date: key, minutes: 0, sessions: 0 });
+  }
+
+  for (const entry of log) {
+    const normalized = normalizeEntry(entry);
+    if (!normalized) {
+      continue;
+    }
+    const timestamp = toTimestamp(normalized.endedAt);
+    if (timestamp === null) {
+      continue;
+    }
+    const key = dateKey(new Date(timestamp));
+    const bucket = buckets.get(key);
+    if (!bucket) {
+      continue;
+    }
+    const entryLabel = applyAliases(normalized.label, tags) || UNLABELLED;
+    if (filter !== null && entryLabel !== filter) {
+      continue;
+    }
+    bucket.sessions += 1;
+    bucket.minutes += Math.round(normalized.durationSeconds / 60);
+  }
+
+  const days = keys.map((key) => buckets.get(key));
+  const maxMinutes = days.reduce(
+    (max, day) => Math.max(max, day.minutes),
+    0,
+  );
+  for (const day of days) {
+    day.level = heatmapLevel(day.minutes, maxMinutes);
+  }
+
+  return {
+    weeks: count,
+    days,
+    maxMinutes,
+    empty: maxMinutes === 0,
   };
 }
 

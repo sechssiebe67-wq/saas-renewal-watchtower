@@ -461,6 +461,31 @@
                 No focus sessions in the last few weeks.
               </p>
             </figure>
+            <figure id="stats-heatmap" class="stats__heatmap" hidden>
+              <figcaption class="stats__heatmap-caption">
+                <span class="stats__heatmap-title" data-i18n="stats.heatmapHeading">Focus heatmap</span>
+                <span id="stats-heatmap-range" class="stats__heatmap-range"></span>
+              </figcaption>
+              <div
+                id="stats-heatmap-grid"
+                class="stats__heatmap-grid"
+                role="img"
+                aria-label="Daily focused minutes over the last 12 weeks"
+                data-i18n-attr="aria-label:stats.heatmapLabel"
+              ></div>
+              <p id="stats-heatmap-empty" class="stats__heatmap-empty" hidden data-i18n="stats.heatmapEmpty">
+                No focus sessions yet — the heatmap fills in as you work.
+              </p>
+              <p class="stats__heatmap-legend">
+                <span class="stats__heatmap-legend-label" data-i18n="stats.heatmapLess">Less</span>
+                <span class="stats__heatmap-legend-cell" data-level="0"></span>
+                <span class="stats__heatmap-legend-cell" data-level="1"></span>
+                <span class="stats__heatmap-legend-cell" data-level="2"></span>
+                <span class="stats__heatmap-legend-cell" data-level="3"></span>
+                <span class="stats__heatmap-legend-cell" data-level="4"></span>
+                <span class="stats__heatmap-legend-label" data-i18n="stats.heatmapMore">More</span>
+              </p>
+            </figure>
             <div id="stats-goal" class="stats__goal" hidden>
               <div class="stats__goal-head">
                 <span class="stats__goal-title" data-i18n="stats.weeklyGoal">Weekly goal</span>

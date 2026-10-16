@@ -123,6 +123,26 @@ calls, no telemetry, and no secrets.
   `app/history.js` from the existing `focus-flow:history` log only, so it adds
   **no new `localStorage` key, no network request, and no third-party
   dependency**.
+- **Focus heatmap:** the Stats panel adds a compact **Focus heatmap** — a small
+  grid with one cell per **local calendar day** over the trailing **12 weeks**
+  (including the current, partial week), shaded from level `0` (no focused
+  minutes) to level `4` (your current best day in the range). Each day is shaded
+  by its total focused minutes relative to the best day, so you can see at a
+  glance whether you are building a habit rather than only today or this week.
+  The whole grid is a single accessible `role="img"` region with a localised
+  accessible name and a min–max focused-minutes-per-day caption, every day cell
+  exposes a localised `{weekday} {month} {day}: {minutes} min` `title`/`aria-label`,
+  a short localised **Less … More** legend explains the shading, and an empty
+  state is shown before the first session. It respects the active label filter
+  (a filtered Stats view shows only the matching days), the **Week starts on**
+  preference, and the label aliases, using the same local-calendar arithmetic as
+  the weekly review so daylight-saving transitions never shift, drop, or
+  duplicate a day. It re-renders on language, label-filter, and week-start
+  changes and after each completed work phase, and it is announced once through
+  the screen-reader live region when it first appears or its range changes. It
+  is derived by the pure `focusHeatmap` helper in `app/history.js` from the
+  existing `focus-flow:history` log only, so it adds **no new `localStorage`
+  key, no network request, and no third-party dependency**.
 - **Weekly review:** a dedicated panel compares the current week's focused
   minutes against the goal and ranks every session label seen this week by
   focused minutes, with its session count and its share of the target (including
@@ -164,7 +184,8 @@ calls, no telemetry, and no secrets.
   device in `localStorage["focus-flow:locale"]`. The *derived* values are
   localised too: the catalogue also carries weekday and month names, plural
   forms, and number grouping, so the Stats per-day bars, the **Recent sessions**
-  timestamps, the streak text, and the weekly-review label stats render in the
+  timestamps, the streak text, the weekly-review label stats, and the focus
+  heatmap day labels render in the
   selected language (for example `1.234,5` and `Montag` in German).
 - **User-selectable first day of week:** a **Week starts on** control in
   Settings lets you start the week on **Monday** (the default) or **Sunday**. The
@@ -208,12 +229,15 @@ decided by the pure `badgeState` helper and pushed through a
 request, and no third-party dependency either. The
 weekly review, the **weekly review CSV export**, the **per-label goal breakdown
 in the Stats panel**, the **weekly goal pace projection**, the **weekly focus
-trend sparkline**, the focus streaks,
+trend sparkline**, the **focus heatmap**, the focus streaks,
 the daily reminder hint, and the
 **session-label autocomplete** are all **derived** from that existing local data
 only — they add no new storage key, no network request, and no third-party
 dependency. The weekly focus trend sparkline in particular is derived from the
 same `focus-flow:history` log by the pure `weeklyTrend` helper, so it reads no
+storage of its own, adds no new key, makes no network request, and adds no
+third-party dependency. The focus heatmap in particular is derived from the
+same `focus-flow:history` log by the pure `focusHeatmap` helper, so it reads no
 storage of its own, adds no new key, makes no network request, and adds no
 third-party dependency. The weekly goal pace projection in particular is derived from the
 same `weeklyReview` result by the pure `goalPace` helper, so it reads only the
@@ -260,15 +284,16 @@ All state lives in the browser's `localStorage`:
   when the map is empty, and included in backups.
 
 The Stats **Weekly goal** per-label breakdown, its **pace projection**, the
-**weekly focus trend sparkline**, the
+**weekly focus trend sparkline**, the **focus heatmap**, the
 Weekly review panel, the CSV
 export, the focus streaks, and the daily reminder hint are all **derived** from
 `focus-flow:history` and `focus-flow:goal` and add **no new storage key**. The
 breakdown is rendered by the same pure `weeklyReview` helper and the pace line by
 the pure `goalPace` helper, so they
 make no network request and add no third-party dependency. The trend sparkline is
-derived by the pure `weeklyTrend` helper straight from the `focus-flow:history`
-log, so it too adds no key, makes no network request, and adds no third-party
+derived by the pure `weeklyTrend` helper and the heatmap by the pure
+`focusHeatmap` helper, both straight from the `focus-flow:history`
+log, so they too add no key, make no network request, and add no third-party
 dependency.
 
 The Stats **Daily goal** row is derived from the same `focus-flow:history` log by
