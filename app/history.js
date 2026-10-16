@@ -38,8 +38,11 @@
  * `{ window, allTime, trend }`, where each scope carries
  * `{ sessions, minutes, days, perDayMinutes }` for the trailing window and the
  * whole retained log, and `trend` compares the two daily averages — with the
- * same label filter, alias map, and local-calendar arithmetic. None of these
- * touch the DOM, the storage layer, or the network.
+ * same label filter, alias map, and local-calendar arithmetic.
+ * `focusSummaryComparison` extracts the per-label `{ window, allTime, trend }`
+ * from a `focusSummary` result so the Stats panel can add a label-named
+ * comparison line when a label filter is active. None of these touch the DOM,
+ * the storage layer, or the network.
  *
  * It additionally owns the pure maths for the optional **daily focus goal**: a
  * `{ minutes, label? }` target for the current local calendar day.
@@ -1761,7 +1764,10 @@ export function focusHeatmap(
  *
  * The active label filter and the optional alias map are honoured exactly as
  * `summarise` / `weeklyReview` do (`UNLABELLED` matches unlabelled entries), so
- * a filtered Stats view shows the summary for the matching label only. The
+ * a caller that passes `label` gets the summary for the matching label only.
+ * The Stats panel's *base* block deliberately calls this helper without a
+ * label (the all-labels baseline); its extra label-scoped line comes from
+ * `focusSummaryComparison` instead. The
  * window day set and the all-time day count use local calendar arithmetic
  * (`dateKey` / `shiftDayKey`, via `collectCalendarWindow`), so a 23h/25h
  * daylight-saving transition never shifts, drops, or duplicates a day. Pure: it
@@ -1857,6 +1863,75 @@ export function focusSummary(
       perDayMinutes: allPerDay,
     },
     trend,
+  };
+}
+
+/** Coerce one `focusSummary` scope into `{ sessions, minutes, days,
+ * perDayMinutes }`, defaulting every field to `0` so a malformed scope can
+ * never throw. */
+function normalizeSummaryScope(scope) {
+  const source = scope && typeof scope === "object" ? scope : {};
+  const toInt = (value) => {
+    const number = Number(value);
+    return Number.isFinite(number) ? Math.round(number) : 0;
+  };
+  return {
+    sessions: toInt(source.sessions),
+    minutes: toInt(source.minutes),
+    days: toInt(source.days),
+    perDayMinutes: toInt(source.perDayMinutes),
+  };
+}
+
+/** Coerce a summary trend into one of `"up"`, `"down"`, or `"steady"`. */
+function normalizeSummaryTrend(trend) {
+  return trend === "up" || trend === "down" ? trend : "steady";
+}
+
+/**
+ * Derive the per-label comparison for a `focusSummary`-style result.
+ *
+ * The Stats panel uses this to answer *"is my focus on this label trending up or
+ * down over the last month?"*: when a label filter is active it adds one extra,
+ * label-named comparison line that relates the selected label's trailing
+ * `SUMMARY_DAYS`-day daily average to that same label's all-time daily average.
+ * That is a *different* question from the base summary's global comparison line,
+ * which relates the recent overall daily average to the overall all-time daily
+ * average.
+ *
+ * Returns `{ window, allTime, trend }` for the active label, where `window` and
+ * `allTime` are `{ sessions, minutes, days, perDayMinutes }` (each numeric field
+ * defaulted to `0`) and `trend` is one of `"up"`, `"down"`, or `"steady"`.
+ * **Pass the raw history log as the first argument** so the helper can apply the
+ * label filter and alias map itself: it calls `focusSummary` with `label`,
+ * `tags`, `now`, and `days`, matching the same rules as `weeklyReview`. Passing
+ * an already-built `focusSummary` object is only re-normalised — it carries no
+ * raw log, so the helper cannot (and does not) re-scope it, and the supplied
+ * `label` / `tags` are ignored; callers that need a label-scoped result must
+ * pass the log. Returns `null` when no label is supplied — there is no per-label
+ * comparison without an active label filter — so the DOM layer can render the
+ * extra line only when it applies.
+ *
+ * Pure: it reads no storage, makes no network request, never mutates its input,
+ * and never throws — a `null`, malformed, or empty summary degrades to a zeroed
+ * `"steady"` result.
+ */
+export function focusSummaryComparison(
+  summary,
+  { label, tags, now, days } = {},
+) {
+  if (label === undefined || label === null || String(label).length === 0) {
+    return null;
+  }
+  const source = Array.isArray(summary)
+    ? focusSummary(summary, { label: String(label), tags, now, days })
+    : summary && typeof summary === "object"
+      ? summary
+      : {};
+  return {
+    window: normalizeSummaryScope(source.window),
+    allTime: normalizeSummaryScope(source.allTime),
+    trend: normalizeSummaryTrend(source.trend),
   };
 }
 

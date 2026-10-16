@@ -202,16 +202,29 @@ calls, no telemetry, and no secrets.
   completed work sessions over the trailing **30 local calendar days** (today
   included), the same totals for **all time**, and a short, neutral comparison
   line relating the 30-day daily average to the all-time daily average (with a
-  small tolerance so tiny fluctuations do not flip the label). It respects the
-  active label filter and the label aliases, uses the same local-calendar
+  small tolerance so tiny fluctuations do not flip the label). The base summary
+  is always **global** (all labels). When a label filter is active it adds **one
+  extra, label-named comparison line** under the summary that relates the
+  selected label's 30-day daily average to *that same label's* all-time daily
+  average — so you can answer *"is my focus on this label trending up or down
+  over the last month?"* without leaving the app, contrasted against the global
+  baseline rather than repeating it. That
+  line is shown only when the filtered label has both a session in the trailing
+  30 days and an earlier one, and nothing changes for users who never filter. The
+  extra line applies the
+  active label filter and the label aliases, while the base summary uses the same
+  local-calendar
   arithmetic as the trend and heatmap views so daylight-saving transitions never
-  shift, drop, or duplicate a day, re-renders on language and label-filter
+  shift, drop, or duplicate a day. The block re-renders on language and
+  label-filter
   changes and after each completed work phase, and is announced once through the
   screen-reader live region when it first appears or its trend value changes — an
-  empty state is shown before the first session. It is derived by the pure
-  `focusSummary` helper in `app/history.js` from the existing
-  `focus-flow:history` log only, so it adds **no new `localStorage` key, no
-  network request, and no third-party dependency**.
+  empty state is shown before the first session, and also when a label filter is
+  active but no session in the trailing window matches it, so a filtered view
+  never falls back to the global totals. It is derived by the pure
+  `focusSummary` and `focusSummaryComparison` helpers in `app/history.js` from
+  the existing `focus-flow:history` log only, so it adds **no new `localStorage`
+  key, no network request, and no third-party dependency**.
 - **Weekly review:** a dedicated panel compares the current week's focused
   minutes against the goal and ranks every session label seen this week by
   focused minutes, with its session count and its share of the target (including
@@ -320,8 +333,10 @@ matching swatch colour), so both read only the
 existing `focus-flow:history` key, add no new key, make no network request,
 and add no third-party dependency. The 30-day focus summary in particular is
 derived from the same `focus-flow:history` log by the pure `focusSummary`
-helper, so it reads no storage of its own, adds no new key, makes no network
-request, and adds no third-party dependency. The weekly goal pace
+helper, and its extra per-label comparison line (shown only when a label filter
+is active) by the pure `focusSummaryComparison` helper, so it reads no storage
+of its own, adds no new key, makes no network request, and adds no third-party
+dependency. The weekly goal pace
 projection in particular is derived from the
 same `weeklyReview` result by the pure `goalPace` helper, so it reads only the
 existing `focus-flow:history` and `focus-flow:goal` keys, adds no new key, makes

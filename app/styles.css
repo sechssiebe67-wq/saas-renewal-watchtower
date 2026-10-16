@@ -670,6 +670,7 @@ kbd {
 
 .stats__summary-line[hidden],
 .stats__summary-compare[hidden],
+.stats__summary-scoped[hidden],
 .stats__summary-empty[hidden] {
   display: none;
 }
@@ -679,6 +680,11 @@ kbd {
   color: var(--text-muted);
   font-size: 0.85rem;
   font-variant-numeric: tabular-nums;
+}
+
+.stats__summary-scoped {
+  border-left: 2px solid var(--accent);
+  padding-left: 0.5rem;
 }
 
 .stats__summary-empty {
