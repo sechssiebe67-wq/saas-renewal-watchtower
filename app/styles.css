@@ -647,6 +647,46 @@ kbd {
   display: none;
 }
 
+.stats__summary-panel {
+  margin: 1rem 0 0.25rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-muted);
+}
+
+.stats__summary-panel-title {
+  margin: 0;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.stats__summary-line {
+  margin: 0.4rem 0 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.stats__summary-line[hidden],
+.stats__summary-compare[hidden],
+.stats__summary-empty[hidden] {
+  display: none;
+}
+
+.stats__summary-compare {
+  margin: 0.4rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.stats__summary-empty {
+  margin: 0.4rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
 .stats__trend {
   margin: 1rem 0 0;
   padding: 0;

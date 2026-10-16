@@ -442,6 +442,28 @@
             <p id="stats-reminder" class="stats__reminder" hidden data-i18n="stats.reminder">
               No focus session logged today yet.
             </p>
+            <div
+              id="stats-summary"
+              class="stats__summary-panel"
+              role="group"
+              aria-label="30-day focus summary"
+              data-i18n-attr="aria-label:stats.summaryLabel"
+            >
+              <p class="stats__summary-panel-title" data-i18n="stats.summaryHeading">
+                30-day summary
+              </p>
+              <p id="stats-summary-window" class="stats__summary-line"></p>
+              <p id="stats-summary-alltime" class="stats__summary-line"></p>
+              <p id="stats-summary-compare" class="stats__summary-compare"></p>
+              <p
+                id="stats-summary-empty"
+                class="stats__summary-empty"
+                data-i18n="stats.summaryEmpty"
+                hidden
+              >
+                No focus sessions in the last 30 days yet.
+              </p>
+            </div>
             <figure id="stats-trend" class="stats__trend" hidden>
               <figcaption class="stats__trend-caption">
                 <span class="stats__trend-title" data-i18n="stats.trendHeading">Focus trend</span>

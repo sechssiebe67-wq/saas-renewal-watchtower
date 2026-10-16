@@ -61,6 +61,8 @@ import {
   focusHeatmap,
   HEATMAP_WEEKS,
   labelShare,
+  focusSummary,
+  SUMMARY_DAYS,
   weeklyReviewCsv,
   streaks,
   normalizeSessionTags,
@@ -197,6 +199,10 @@ function getElements() {
     statsShareSummary: document.getElementById("stats-share-summary"),
     statsShareChart: document.getElementById("stats-share-chart"),
     statsShareEmpty: document.getElementById("stats-share-empty"),
+    statsSummaryWindow: document.getElementById("stats-summary-window"),
+    statsSummaryAllTime: document.getElementById("stats-summary-alltime"),
+    statsSummaryCompare: document.getElementById("stats-summary-compare"),
+    statsSummaryEmpty: document.getElementById("stats-summary-empty"),
     statsDailyGoal: document.getElementById("stats-daily-goal"),
     statsDailyGoalTarget: document.getElementById("stats-daily-goal-target"),
     statsDailyGoalFocused: document.getElementById("stats-daily-goal-focused"),
@@ -771,6 +777,7 @@ export function init() {
   let lastAnnouncedDailyTrendDirection = null;
   let lastAnnouncedHeatmapRange = null;
   let lastAnnouncedShareSignature = null;
+  let lastAnnouncedSummaryTrend = null;
   let lastBadgeValue;
 
   function labelDisplay(label) {
@@ -1129,6 +1136,7 @@ export function init() {
     renderDailyTrend();
     renderHeatmap();
     renderShare();
+    renderSummary();
     renderGoal();
     renderDailyGoal();
     renderWeeklyReview();
@@ -2021,6 +2029,86 @@ export function init() {
   }
 
   /**
+   * Render the **30-day summary** block in the Stats panel from the pure
+   * `focusSummary` helper. It shows the trailing `SUMMARY_DAYS`-day focused
+   * minutes and completed work sessions, the same totals for all time, and a
+   * short comparison line relating the 30-day daily average to the all-time
+   * daily average. It respects the active label filter and the alias map exactly
+   * as `dailyTrend` / `weeklyReview` do. The empty state is shown when the log
+   * has no entries, and the summary announces itself once through the live
+   * region when it first appears or its `trend` value changes. It reads only
+   * `focus-flow:history` (plus the existing label filter / alias state) and adds
+   * no new `localStorage` key and no network request.
+   */
+  function renderSummary() {
+    if (!el.statsSummaryWindow && !el.statsSummaryAllTime) {
+      return;
+    }
+
+    const summary = focusSummary(history, {
+      now: Date.now(),
+      days: SUMMARY_DAYS,
+      label: activeLabel === null ? undefined : activeLabel,
+      tags: sessionTags,
+    });
+
+    const hasSessions = summary.allTime.sessions > 0;
+
+    const windowLine = t("stats.summaryWindow", {
+      days: formatNumber(summary.window.days, locale),
+      sessions: formatNumber(summary.window.sessions, locale),
+      minutes: formatNumber(summary.window.minutes, locale),
+    });
+    const allTimeLine = t("stats.summaryAllTime", {
+      sessions: formatNumber(summary.allTime.sessions, locale),
+      minutes: formatNumber(summary.allTime.minutes, locale),
+    });
+    const compareKey =
+      summary.trend === "up"
+        ? "stats.summaryUp"
+        : summary.trend === "down"
+          ? "stats.summaryDown"
+          : "stats.summarySteady";
+    const compareLine = t(compareKey, {
+      window: formatNumber(summary.window.perDayMinutes, locale),
+      allTime: formatNumber(summary.allTime.perDayMinutes, locale),
+    });
+
+    if (el.statsSummaryWindow) {
+      el.statsSummaryWindow.textContent = windowLine;
+      el.statsSummaryWindow.hidden = !hasSessions;
+    }
+    if (el.statsSummaryAllTime) {
+      el.statsSummaryAllTime.textContent = allTimeLine;
+      el.statsSummaryAllTime.hidden = !hasSessions;
+    }
+    if (el.statsSummaryCompare) {
+      el.statsSummaryCompare.textContent = compareLine;
+      el.statsSummaryCompare.hidden = !hasSessions;
+    }
+    if (el.statsSummaryEmpty) {
+      el.statsSummaryEmpty.hidden = hasSessions;
+    }
+
+    if (!hasSessions) {
+      lastAnnouncedSummaryTrend = null;
+      return;
+    }
+
+    if (
+      lastAnnouncedSummaryTrend === null ||
+      summary.trend !== lastAnnouncedSummaryTrend
+    ) {
+      lastAnnouncedSummaryTrend = summary.trend;
+      announce(
+        t("announce.summary", {
+          summary: `${windowLine} ${allTimeLine} ${compareLine}`,
+        }),
+      );
+    }
+  }
+
+  /**
    * Render the current week's per-label breakdown inside the existing Weekly
    * goal row. The rows come from the pure `weeklyReview` helper (already sorted
    * by minutes descending then label ascending), so no new storage or network
@@ -2339,6 +2427,7 @@ export function init() {
     lastAnnouncedTrendDirection = null;
     lastAnnouncedHeatmapRange = null;
     lastAnnouncedShareSignature = null;
+    lastAnnouncedSummaryTrend = null;
     lastBadgeValue = undefined;
 
     applyStaticTranslations();
