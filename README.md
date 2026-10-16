@@ -85,6 +85,20 @@ calls, no telemetry, and no secrets.
   `app/history.js`, so it reads only the existing `focus-flow:history` and
   `focus-flow:daily-goal` keys and adds **no new `localStorage` key, no network
   request, and no third-party dependency**.
+- **Daily goal pace projection:** under that per-label daily breakdown, a single
+  line answers *"will I hit my daily goal at this pace?"* — it shows the rounded
+  pace needed for each remaining hour of the day (e.g. "≈ 12 min/hour for 4 more
+  hours") plus a neutral **on-track / behind-pace** signal, and hides itself when
+  no daily goal is set or the goal is already reached. It respects the active
+  label filter and the label aliases map, counts the whole local hours left in
+  the current local calendar day **including the current hour** (derived from the
+  local hour-of-day so a daylight-saving day still yields a sane count), and is
+  announced once through the screen-reader live region when it first appears or
+  the goal is reached. The line comes from the pure `dailyGoalPace` helper in
+  `app/history.js`, applied to the same `dailyReview` result, so it reads only
+  the existing `focus-flow:history` and `focus-flow:daily-goal` keys and adds
+  **no new `localStorage` key, no network request, and no third-party
+  dependency**.
 - **Per-label goal breakdown in Stats:** the Stats **Weekly goal** row also
   shows a compact breakdown of the current week by session label — each label's
   focused minutes and its share of the target, ranked by minutes, with an
@@ -278,7 +292,8 @@ decided by the pure `badgeState` helper and pushed through a
 **feature-detected, on-device** platform call, adding no new key, no network
 request, and no third-party dependency either. The
 weekly review, the **weekly review CSV export**, the **per-label goal breakdown
-in the Stats panel**, the **weekly goal pace projection**, the **weekly focus
+in the Stats panel**, the **weekly goal pace projection**, the **daily goal pace
+projection**, the **weekly focus
 trend sparkline**, the **daily focus trend sparkline**, the **focus heatmap**, the **focus share donut**, the **30-day focus summary**, the focus
 streaks,
 the daily reminder hint, and the
@@ -303,6 +318,10 @@ request, and adds no third-party dependency. The weekly goal pace
 projection in particular is derived from the
 same `weeklyReview` result by the pure `goalPace` helper, so it reads only the
 existing `focus-flow:history` and `focus-flow:goal` keys, adds no new key, makes
+no network request, and adds no third-party dependency. The daily goal pace
+projection in particular is derived from the same `dailyReview` result by the
+pure `dailyGoalPace` helper, so it reads only the existing
+`focus-flow:history` and `focus-flow:daily-goal` keys, adds no new key, makes
 no network request, and adds no third-party dependency. The autocomplete in
 particular reads only the labels already in
 `focus-flow:history` and never uploads, adds, or reorders anything. The label
@@ -368,10 +387,12 @@ the pure `dailyGoalProgress` helper in `app/history.js`, which sums only
 completed work entries whose `endedAt` falls on the current local calendar day.
 It reads no storage of its own and makes no network request.
 
-The Stats **per-label daily breakdown** and the **PWA app badge** are derived
+The Stats **per-label daily breakdown**, its **daily goal pace projection**, and
+the **PWA app badge** are derived
 from the same `focus-flow:history` and `focus-flow:daily-goal` keys by the pure
-`dailyReview` and `badgeState` helpers, so they add **no new `localStorage`
-key**, make no network request, and add no third-party dependency. A default
+`dailyReview`, `dailyGoalPace`, and `badgeState` helpers, so they add **no new
+`localStorage` key**, make no network request, and add no third-party
+dependency. A default
 install still stores nothing new, and the badge call is feature-detected so
 browsers without it are unaffected.
 

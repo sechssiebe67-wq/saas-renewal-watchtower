@@ -54,6 +54,7 @@ import {
   badgeState,
   weeklyReview,
   goalPace,
+  dailyGoalPace,
   weeklyTrend,
   TREND_WEEKS,
   dailyTrend,
@@ -214,6 +215,13 @@ function getElements() {
       "stats-daily-breakdown-title",
     ),
     statsDailyBreakdown: document.getElementById("stats-daily-breakdown"),
+    statsDailyGoalPace: document.getElementById("stats-daily-goal-pace"),
+    statsDailyGoalPaceText: document.getElementById(
+      "stats-daily-goal-pace-text",
+    ),
+    statsDailyGoalPaceSignal: document.getElementById(
+      "stats-daily-goal-pace-signal",
+    ),
     weeklyReviewEmpty: document.getElementById("weekly-review-empty"),
     weeklyReviewSummary: document.getElementById("weekly-review-summary"),
     weeklyReviewFocused: document.getElementById("weekly-review-focused"),
@@ -773,6 +781,8 @@ export function init() {
   let announcedDailyBreakdown = false;
   let announcedGoalPace = false;
   let announcedGoalPaceReached = false;
+  let announcedDailyGoalPace = false;
+  let announcedDailyGoalPaceReached = false;
   let lastAnnouncedTrendDirection = null;
   let lastAnnouncedDailyTrendDirection = null;
   let lastAnnouncedHeatmapRange = null;
@@ -1256,6 +1266,7 @@ export function init() {
     if (!active) {
       dailyGoalReached = null;
       hideDailyBreakdown();
+      hideDailyGoalPace();
       return;
     }
 
@@ -1300,6 +1311,7 @@ export function init() {
     }
 
     renderDailyBreakdown();
+    renderDailyGoalPace();
     noteDailyGoalReached(progress.reached);
   }
 
@@ -1404,6 +1416,108 @@ export function init() {
         );
         announce(t("announce.dailyBreakdown", { summary }));
       }
+    }
+  }
+
+  /** Hide the daily goal pace line and let it announce again when it returns.
+   * When `reset` is `false` the announced state is preserved (used when the line
+   * is hidden because the goal is already reached, so the reached announcement
+   * fires only once). */
+  function hideDailyGoalPace({ reset = true } = {}) {
+    if (el.statsDailyGoalPace) {
+      el.statsDailyGoalPace.hidden = true;
+      el.statsDailyGoalPace.classList.remove(
+        "stats__goal-pace--on-track",
+        "stats__goal-pace--behind",
+      );
+    }
+    if (el.statsDailyGoalPaceText) {
+      el.statsDailyGoalPaceText.textContent = "";
+    }
+    if (el.statsDailyGoalPaceSignal) {
+      el.statsDailyGoalPaceSignal.textContent = "";
+    }
+    if (reset) {
+      announcedDailyGoalPace = false;
+      announcedDailyGoalPaceReached = false;
+    }
+  }
+
+  /**
+   * Render the forward-looking **daily goal pace projection** under the
+   * per-label daily breakdown, using the pure `dailyGoalPace` helper on the
+   * same `dailyReview` result. It shows the rounded per-hour pace needed for the
+   * remaining local hours of the day (the current hour included) plus a neutral
+   * on-track / behind-pace signal, and hides itself when no daily goal is set or
+   * the goal is already reached. It respects the active label filter and the
+   * alias map (through `currentDailyReview`), reads only the existing history
+   * and daily-goal keys, and announces itself once through the live region when
+   * it first appears or the goal is reached.
+   */
+  function renderDailyGoalPace() {
+    if (!el.statsDailyGoalPace) {
+      return;
+    }
+
+    const pace = dailyGoalPace(currentDailyReview(), { now: Date.now() });
+    if (!pace) {
+      hideDailyGoalPace();
+      return;
+    }
+
+    const hoursTemplate = pluralise(
+      pace.remainingHours,
+      {
+        one: t("stats.dailyGoalPaceHoursOne"),
+        other: t("stats.dailyGoalPaceHoursMany"),
+      },
+      locale,
+    );
+    const hours = hoursTemplate.replace(
+      "{count}",
+      formatNumber(pace.remainingHours, locale),
+    );
+    const line = t("stats.dailyGoalPaceLine", {
+      minutes: formatDuration(pace.perHourMinutes, locale),
+      hours,
+    });
+    const signal = t(
+      pace.onTrack ? "stats.dailyGoalPaceOnTrack" : "stats.dailyGoalPaceBehind",
+    );
+
+    // The daily pace line hides itself once the goal is met; the reached state
+    // is still announced once through the live region.
+    if (pace.reached) {
+      if (!announcedDailyGoalPace || !announcedDailyGoalPaceReached) {
+        announce(t("announce.dailyGoalPace", { summary: signal }));
+      }
+      announcedDailyGoalPace = true;
+      announcedDailyGoalPaceReached = true;
+      hideDailyGoalPace({ reset: false });
+      return;
+    }
+
+    if (el.statsDailyGoalPaceText) {
+      el.statsDailyGoalPaceText.textContent = line;
+    }
+    if (el.statsDailyGoalPaceSignal) {
+      el.statsDailyGoalPaceSignal.textContent = signal;
+    }
+
+    el.statsDailyGoalPace.hidden = false;
+    el.statsDailyGoalPace.classList.toggle(
+      "stats__goal-pace--on-track",
+      pace.onTrack,
+    );
+    el.statsDailyGoalPace.classList.toggle(
+      "stats__goal-pace--behind",
+      !pace.onTrack,
+    );
+
+    if (!announcedDailyGoalPace) {
+      announcedDailyGoalPace = true;
+      announcedDailyGoalPaceReached = false;
+      announce(t("announce.dailyGoalPace", { summary: `${line} — ${signal}` }));
     }
   }
 
