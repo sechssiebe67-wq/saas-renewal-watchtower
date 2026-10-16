@@ -45,7 +45,10 @@
  * `{ minutes, label? }` target for the current local calendar day.
  * `dailyGoalProgress` measures today's logged focus time against that target
  * using the same label-matching rule as `goalProgress`, `dailyReview` adds a
- * per-label breakdown of today (mirroring `weeklyReview`), and
+ * per-label breakdown of today (mirroring `weeklyReview`), `dailyGoalPace`
+ * turns a `dailyReview` result into the forward-looking **daily goal pace
+ * projection** (remaining minutes, remaining local hours including the current
+ * hour, per-hour pace, and an on-track flag), and
  * `normalizeDailyGoal` coerces arbitrary stored input into the canonical shape
  * (clamped to a single day). `badgeState` turns a daily goal plus a
  * `dailyReview` result into the on-device **app badge** decision (the remaining
@@ -1331,6 +1334,81 @@ export function goalPace(
   const onTrack = remainingMinutes === 0 || currentAverage >= perDayMinutes;
 
   return { remainingMinutes, remainingDays, perDayMinutes, onTrack };
+}
+
+/**
+ * Project the **daily goal pace** from a `dailyReview` result.
+ *
+ * This is the day-scale companion to `goalPace`: it answers *"will I hit my
+ * daily goal at this pace?"* without reading any storage of its own. Returns
+ * `{ remainingMinutes, remainingHours, perHourMinutes, onTrack, reached }`, or
+ * `null` when there is no usable goal (so the DOM layer can simply hide the
+ * line):
+ *
+ * - `remainingMinutes` is `max(0, targetMinutes − focusedMinutes)`.
+ * - `remainingHours` is the number of whole local hours left in the current
+ *   local calendar day **including the current hour**, computed from the local
+ *   hour-of-day so a 23h/25h daylight-saving day still yields a sane count.
+ * - `perHourMinutes` is the rounded per-remaining-hour requirement, and is `0`
+ *   once the goal is met.
+ * - `reached` is `true` when the goal is positive and already met.
+ * - `onTrack` is `true` when the goal is already met or the current hourly
+ *   average (focused minutes divided by the elapsed hours, the current hour
+ *   included) meets the required pace — the same tolerance philosophy as
+ *   `goalPace`.
+ *
+ * The review is expected to come from `dailyReview` (so the label filter, the
+ * alias map, and the local calendar-day window are already applied), but any
+ * object carrying numeric `targetMinutes` / `focusedMinutes` works too. `now`
+ * is injectable for tests. Pure: it touches no DOM, no storage, and no network,
+ * never mutates its input, and never throws on malformed input.
+ */
+export function dailyGoalPace(review, { now = Date.now() } = {}) {
+  if (!review || typeof review !== "object") {
+    return null;
+  }
+  const targetValue = Number(review.targetMinutes);
+  if (!Number.isFinite(targetValue) || targetValue <= 0) {
+    return null;
+  }
+  const targetMinutes = Math.round(targetValue);
+  if (targetMinutes <= 0) {
+    return null;
+  }
+  const focusedValue = Number(review.focusedMinutes);
+  const focusedMinutes = Number.isFinite(focusedValue)
+    ? Math.max(0, Math.round(focusedValue))
+    : 0;
+  const remainingMinutes = Math.max(0, targetMinutes - focusedMinutes);
+  const reached = remainingMinutes === 0;
+
+  const resolvedNow = toTimestamp(now);
+  const base = resolvedNow === null ? Date.now() : resolvedNow;
+  // Whole local hours left in the current local calendar day, the current hour
+  // included: at 20:30 that is 20:00–24:00 = 4 hours. Deriving the count from
+  // the local hour-of-day (never from raw milliseconds) keeps it sane across a
+  // 23h/25h daylight-saving day.
+  const currentHour = new Date(base).getHours();
+  const remainingHours = 24 - currentHour;
+  const elapsedHours = currentHour + 1;
+
+  const perHourMinutes =
+    remainingMinutes === 0
+      ? 0
+      : remainingHours > 0
+        ? Math.round(remainingMinutes / remainingHours)
+        : remainingMinutes;
+
+  const currentAverage = focusedMinutes / elapsedHours;
+  const onTrack = remainingMinutes === 0 || currentAverage >= perHourMinutes;
+
+  return {
+    remainingMinutes,
+    remainingHours,
+    perHourMinutes,
+    onTrack,
+    reached,
+  };
 }
 
 /** Classify a series of weekly totals as trending `"up"`, `"down"`, or
