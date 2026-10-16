@@ -64,6 +64,7 @@ import {
   labelShare,
   focusSummary,
   SUMMARY_DAYS,
+  focusSummaryComparison,
   weeklyReviewCsv,
   streaks,
   normalizeSessionTags,
@@ -207,6 +208,7 @@ function getElements() {
     statsSummaryWindow: document.getElementById("stats-summary-window"),
     statsSummaryAllTime: document.getElementById("stats-summary-alltime"),
     statsSummaryCompare: document.getElementById("stats-summary-compare"),
+    statsSummaryScoped: document.getElementById("stats-summary-scoped"),
     statsSummaryEmpty: document.getElementById("stats-summary-empty"),
     statsDailyGoal: document.getElementById("stats-daily-goal"),
     statsDailyGoalTarget: document.getElementById("stats-daily-goal-target"),
@@ -2214,12 +2216,16 @@ export function init() {
    * `focusSummary` helper. It shows the trailing `SUMMARY_DAYS`-day focused
    * minutes and completed work sessions, the same totals for all time, and a
    * short comparison line relating the 30-day daily average to the all-time
-   * daily average. It respects the active label filter and the alias map exactly
-   * as `dailyTrend` / `weeklyReview` do. The empty state is shown when the log
-   * has no entries, and the summary announces itself once through the live
-   * region when it first appears or its `trend` value changes. It reads only
-   * `focus-flow:history` (plus the existing label filter / alias state) and adds
-   * no new `localStorage` key and no network request.
+   * daily average. When a label filter is active it also renders one extra,
+   * label-named comparison line derived by the pure `focusSummaryComparison`
+   * helper that relates the selected label's 30-day daily average to that same
+   * label's all-time daily average. It respects the active label filter and the
+   * alias map exactly as `dailyTrend` / `weeklyReview` do. The empty state is
+   * shown when the log has no entries, and the summary announces itself once
+   * through the live region when it first appears or its `trend` value (or the
+   * active label's scoped trend) changes. It reads only `focus-flow:history`
+   * (plus the existing label filter / alias state) and adds no new
+   * `localStorage` key and no network request.
    */
   function renderSummary() {
     if (!el.statsSummaryWindow && !el.statsSummaryAllTime) {
@@ -2255,6 +2261,29 @@ export function init() {
       allTime: formatNumber(summary.allTime.perDayMinutes, locale),
     });
 
+    const scoped = focusSummaryComparison(summary, {
+      label: activeLabel === null ? undefined : activeLabel,
+      tags: sessionTags,
+    });
+    const hasScoped =
+      hasSessions &&
+      scoped !== null &&
+      scoped.window.sessions > 0 &&
+      scoped.allTime.sessions > scoped.window.sessions;
+    const scopedKey =
+      scoped !== null && scoped.trend === "up"
+        ? "stats.summaryScopedUp"
+        : scoped !== null && scoped.trend === "down"
+          ? "stats.summaryScopedDown"
+          : "stats.summaryScopedSteady";
+    const scopedLine = hasScoped
+      ? t(scopedKey, {
+          label: labelDisplay(activeLabel),
+          window: formatNumber(scoped.window.perDayMinutes, locale),
+          allTime: formatNumber(scoped.allTime.perDayMinutes, locale),
+        })
+      : "";
+
     if (el.statsSummaryWindow) {
       el.statsSummaryWindow.textContent = windowLine;
       el.statsSummaryWindow.hidden = !hasSessions;
@@ -2267,6 +2296,10 @@ export function init() {
       el.statsSummaryCompare.textContent = compareLine;
       el.statsSummaryCompare.hidden = !hasSessions;
     }
+    if (el.statsSummaryScoped) {
+      el.statsSummaryScoped.textContent = scopedLine;
+      el.statsSummaryScoped.hidden = !hasScoped;
+    }
     if (el.statsSummaryEmpty) {
       el.statsSummaryEmpty.hidden = hasSessions;
     }
@@ -2276,15 +2309,22 @@ export function init() {
       return;
     }
 
-    if (
-      lastAnnouncedSummaryTrend === null ||
-      summary.trend !== lastAnnouncedSummaryTrend
-    ) {
-      lastAnnouncedSummaryTrend = summary.trend;
+    const summaryText = hasScoped
+      ? `${windowLine} ${allTimeLine} ${compareLine} ${scopedLine}`
+      : `${windowLine} ${allTimeLine} ${compareLine}`;
+    const trendSignature = hasScoped
+      ? `${summary.trend}|${activeLabel}|${scoped.trend}`
+      : summary.trend;
+
+    if (lastAnnouncedSummaryTrend !== trendSignature) {
+      lastAnnouncedSummaryTrend = trendSignature;
       announce(
-        t("announce.summary", {
-          summary: `${windowLine} ${allTimeLine} ${compareLine}`,
-        }),
+        hasScoped
+          ? t("announce.summaryScoped", {
+              label: labelDisplay(activeLabel),
+              summary: summaryText,
+            })
+          : t("announce.summary", { summary: summaryText }),
       );
     }
   }
