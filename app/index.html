@@ -486,6 +486,24 @@
                 <span class="stats__heatmap-legend-label" data-i18n="stats.heatmapMore">More</span>
               </p>
             </figure>
+            <figure id="stats-share" class="stats__share" hidden>
+              <figcaption class="stats__share-caption">
+                <span class="stats__share-title" data-i18n="stats.shareHeading">Focus share</span>
+                <span id="stats-share-summary" class="stats__share-summary"></span>
+              </figcaption>
+              <svg
+                id="stats-share-chart"
+                class="stats__share-chart"
+                role="img"
+                aria-label="Share of this week's focused minutes by label"
+                data-i18n-attr="aria-label:stats.shareChartLabel"
+                viewBox="0 0 42 42"
+                focusable="false"
+              ></svg>
+              <p id="stats-share-empty" class="stats__share-empty" hidden data-i18n="stats.shareEmpty">
+                No focus sessions yet this week — the focus share fills in as you work.
+              </p>
+            </figure>
             <div id="stats-goal" class="stats__goal" hidden>
               <div class="stats__goal-head">
                 <span class="stats__goal-title" data-i18n="stats.weeklyGoal">Weekly goal</span>

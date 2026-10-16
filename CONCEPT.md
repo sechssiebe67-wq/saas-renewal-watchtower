@@ -31,9 +31,9 @@ first day of the week are all local, device-only preferences.
   No data ever leaves the device, so there is no personal data to protect or
   leak. Everything the product adds on top of the raw log — the weekly and daily
   goals, the weekly review, the paces, the streaks, the **weekly focus trend
-  sparkline**, and the new **focus heatmap** — is **derived locally** from that
-  same on-device history by pure functions, so it needs no server, no
-  third-party service, and no upload.
+  sparkline**, the new **focus heatmap**, and the **focus share donut** — is
+  **derived locally** from that same on-device history by pure functions, so it
+  needs no server, no third-party service, and no upload.
 
 ## Intended users
 
@@ -216,6 +216,26 @@ after the first load.
   drop, or duplicate a day bucket); there is **no new `localStorage` key, no
   network request, no third-party dependency, and no new runtime asset**, and
   every string comes from the bundled `app/i18n.js` catalog.
+- **Focus share donut in the Stats panel:** the Stats panel shows a compact
+  **Focus share** donut that answers *"where did my focused time go this week?"*
+  at a glance. It renders one ring segment per session label seen in the current
+  week (plus the `(unlabelled)` bucket when unlabelled sessions exist), ranked by
+  minutes descending then label ascending and sized by each label's share of the
+  week's total focused minutes. The ring is a single `role="img"` region with a
+  localised accessible name and a total-minutes/label-count caption, and every
+  segment carries a localised `{label}: {minutes} · {percent}%`
+  `title`/`aria-label`, so the distribution is readable by screen readers. It
+  respects the active **label filter** and applies the **label aliases** map
+  exactly as `weeklyReview` does, and an empty state is shown before the first
+  session of the week. It re-renders on language, label-filter, and week-start
+  changes and after each completed work phase, and it announces itself once
+  through the existing ARIA live region when it first appears or its slices
+  change. It is derived entirely from the already-stored `focus-flow:history`
+  key by the pure `labelShare` helper in `app/history.js` (which consumes the
+  `weeklyReview` result, so the label filter, alias map, and week window are not
+  duplicated); there is **no new `localStorage` key, no network request, no
+  third-party dependency, and no new runtime asset**, and every string comes from
+  the bundled `app/i18n.js` catalog.
 - **Per-label daily goal breakdown in the Stats panel:** the **Daily goal** row
   in the Stats panel also shows a compact, per-label breakdown of *today's*
   focused minutes, so a label-scoped daily goal (e.g. "50 minutes on Thesis
@@ -360,7 +380,7 @@ after the first load.
     `pruneHistory`, `summarise`, `labelSummary`, `recentSessions`,
     `recentLabels`, `normalizeGoal`, `weekWindow`, `goalProgress`,
     `normalizeDailyGoal`, `dailyGoalProgress`, `dailyReview`, `badgeState`,
-    `weeklyReview`, `goalPace`, `weeklyTrend`, `streaks`,
+    `weeklyReview`, `goalPace`, `weeklyTrend`, `labelShare`, `streaks`,
     `normalizeWeekStart`, `normalizeSessionTags`, `applyAliases`,
     `weeklyReviewCsv`, `exportBackup`, `backupToJson`, `parseBackup`,
     `backupFileName`, `HISTORY_VERSION`, `GOAL_STORAGE_SHAPE_VERSION`,
@@ -410,6 +430,11 @@ after the first load.
     calendar arithmetic and the same `normalizeWeekStart` / `applyAliases`
     handling as `weeklyReview`, so it too reads no storage, makes no network
     request, and never throws on malformed input.
+    `labelShare` turns a `weeklyReview` result into the **focus share** donut
+    data (`{ total, slices, empty }`), one `{ label, minutes, percent }`
+    segment per label ranked by minutes descending then label ascending, reading
+    the already-computed review only (so the label filter and alias map are
+    already applied) and never touching the DOM, storage, or the network.
     `exportBackup` / `backupToJson` serialise already-read storage values to a
     deterministic `{ version, exportedAt, data }` JSON envelope and
     `parseBackup` validates and normalises a backup string back through the same
@@ -519,6 +544,16 @@ min–max caption, per-cell labels, and a `Less … More` legend. It respects th
 active label filter and the **Week starts on** preference and reads only
 `focus-flow:history`, so it adds **no new `localStorage` key, no network request,
 and no third-party dependency**, and keeps the app fully offline.
+
+The **focus share donut** is derived the same way: the pure `labelShare` helper
+turns the already-computed `weeklyReview` result into `{ total, slices, empty }`,
+one `{ label, minutes, percent }` segment per label ranked by minutes descending
+then label ascending, and the DOM layer draws it as a single `role="img"` donut
+with a total caption and per-segment `title`/`aria-label`. Because it consumes
+the review result, the active label filter, the label aliases, and the **Week
+starts on** window are already applied; it reads only `focus-flow:history`, so it
+adds **no new `localStorage` key, no network request, and no third-party
+dependency**, and keeps the app fully offline.
 
 The **weekly review CSV export** is derived the same way and stays entirely on
 the device: the pure `weeklyReviewCsv` helper turns the `weeklyReview` result
