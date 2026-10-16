@@ -65,6 +65,7 @@ import {
   focusSummary,
   SUMMARY_DAYS,
   focusSummaryComparison,
+  monthlySummary,
   weeklyReviewCsv,
   streaks,
   normalizeSessionTags,
@@ -210,6 +211,10 @@ function getElements() {
     statsSummaryCompare: document.getElementById("stats-summary-compare"),
     statsSummaryScoped: document.getElementById("stats-summary-scoped"),
     statsSummaryEmpty: document.getElementById("stats-summary-empty"),
+    statsMonthWindow: document.getElementById("stats-month-window"),
+    statsMonthAllTime: document.getElementById("stats-month-alltime"),
+    statsMonthCompare: document.getElementById("stats-month-compare"),
+    statsMonthEmpty: document.getElementById("stats-month-empty"),
     statsDailyGoal: document.getElementById("stats-daily-goal"),
     statsDailyGoalTarget: document.getElementById("stats-daily-goal-target"),
     statsDailyGoalFocused: document.getElementById("stats-daily-goal-focused"),
@@ -794,6 +799,7 @@ export function init() {
   let lastAnnouncedHeatmapRange = null;
   let lastAnnouncedShareSignature = null;
   let lastAnnouncedSummaryTrend = null;
+  let lastAnnouncedMonthTrend = null;
   let lastBadgeValue;
 
   function labelDisplay(label) {
@@ -1153,6 +1159,7 @@ export function init() {
     renderHeatmap();
     renderShare();
     renderSummary();
+    renderMonthSummary();
     renderGoal();
     renderDailyGoal();
     renderWeeklyReview();
@@ -2349,6 +2356,85 @@ export function init() {
   }
 
   /**
+   * Render the **monthly focus comparison** block in the Stats panel from the
+   * pure `monthlySummary` helper. It answers *"how does this calendar month
+   * compare to my all-time monthly average?"*: it shows this month's completed
+   * work sessions and focused minutes, the same totals across the whole retained
+   * log plus the all-time minutes-per-month average, and a short, neutral
+   * comparison line relating the month's daily pace to the all-time daily pace.
+   * The block honours the active label filter and the alias map exactly as the
+   * other derived views do, is hidden (showing a localised empty state) until
+   * the current month has at least one completed work session, re-renders on
+   * language, label-filter, and week-start changes and after each completed work
+   * phase, and announces its comparison once through the existing ARIA live
+   * region when it first appears or its trend value changes. It reads only
+   * `focus-flow:history` (plus the existing label filter and
+   * `focus-flow:session-tags` map), so it adds no new `localStorage` key and no
+   * network request.
+   */
+  function renderMonthSummary() {
+    if (!el.statsMonthWindow && !el.statsMonthAllTime) {
+      return;
+    }
+
+    const summary = monthlySummary(history, {
+      now: Date.now(),
+      label: activeLabel === null ? undefined : activeLabel,
+      tags: sessionTags,
+    });
+
+    const hasSessions = summary.window.sessions > 0;
+
+    const windowLine = t("stats.monthWindow", {
+      sessions: formatNumber(summary.window.sessions, locale),
+      minutes: formatNumber(summary.window.minutes, locale),
+    });
+    const allTimeLine = t("stats.monthAllTime", {
+      sessions: formatNumber(summary.allTime.sessions, locale),
+      minutes: formatNumber(summary.allTime.minutes, locale),
+      perMonth: formatNumber(summary.allTime.perMonthMinutes, locale),
+    });
+    const compareKey =
+      summary.trend === "up"
+        ? "stats.monthUp"
+        : summary.trend === "down"
+          ? "stats.monthDown"
+          : "stats.monthSteady";
+    const compareLine = t(compareKey);
+
+    if (el.statsMonthWindow) {
+      el.statsMonthWindow.textContent = windowLine;
+      el.statsMonthWindow.hidden = !hasSessions;
+    }
+    if (el.statsMonthAllTime) {
+      el.statsMonthAllTime.textContent = allTimeLine;
+      el.statsMonthAllTime.hidden = !hasSessions;
+    }
+    if (el.statsMonthCompare) {
+      el.statsMonthCompare.textContent = compareLine;
+      el.statsMonthCompare.hidden = !hasSessions;
+    }
+    if (el.statsMonthEmpty) {
+      el.statsMonthEmpty.hidden = hasSessions;
+    }
+
+    if (!hasSessions) {
+      lastAnnouncedMonthTrend = null;
+      return;
+    }
+
+    const trendSignature = `${summary.trend}|${activeLabel === null ? "" : activeLabel}`;
+    if (lastAnnouncedMonthTrend !== trendSignature) {
+      lastAnnouncedMonthTrend = trendSignature;
+      announce(
+        t("announce.month", {
+          summary: `${windowLine} ${allTimeLine} ${compareLine}`,
+        }),
+      );
+    }
+  }
+
+  /**
    * Render the current week's per-label breakdown inside the existing Weekly
    * goal row. The rows come from the pure `weeklyReview` helper (already sorted
    * by minutes descending then label ascending), so no new storage or network
@@ -2668,6 +2754,7 @@ export function init() {
     lastAnnouncedHeatmapRange = null;
     lastAnnouncedShareSignature = null;
     lastAnnouncedSummaryTrend = null;
+    lastAnnouncedMonthTrend = null;
     lastBadgeValue = undefined;
 
     applyStaticTranslations();
