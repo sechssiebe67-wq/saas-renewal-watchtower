@@ -28,7 +28,10 @@
  * projection** (remaining minutes, remaining calendar days, per-day pace, and
  * an on-track flag). `weeklyTrend` derives the **weekly focus trend
  * sparkline** — one total-minute point per week over the trailing `weeks`
- * weeks — from the same log. `labelShare` turns a `weeklyReview` result into
+ * weeks — from the same log. `dailyTrend` derives the **daily focus trend
+ * sparkline** — one total-minute point per local calendar day over the trailing
+ * `days` days (including today) — with the same label filter, alias map, and
+ * calendar arithmetic. `labelShare` turns a `weeklyReview` result into
  * the **focus share** donut data (`{ total, slices, empty }`), one
  * `{ label, minutes, percent }` segment per label ranked by minutes descending
  * then label ascending. None of these touch the DOM, the storage layer, or the
@@ -114,6 +117,14 @@ export const HEATMAP_WEEKS = 12;
 /** Number of shading levels a heatmap day can use: `0` (no focused minutes)
  * through `4` (the range's current best day). */
 export const HEATMAP_MAX_LEVEL = 4;
+
+/** Default number of trailing local calendar days (including today) covered by
+ * the `dailyTrend` sparkline. */
+export const DAILY_TREND_DAYS = 14;
+
+/** Upper bound for the `dailyTrend` range, so a caller can never force an
+ * unbounded bucket array. */
+export const MAX_DAILY_TREND_DAYS = 90;
 
 /** Shape version for the `focus-flow:week-start` storage entry. Version 1
  * stores the first day of the week as a bare integer (`0` = Sunday,
@@ -1365,6 +1376,91 @@ export function weeklyTrend(
     min,
     max,
     direction: trendDirection(values),
+    empty: values.every((value) => value === 0),
+  };
+}
+
+/**
+ * Compute the **daily focus trend** over the trailing `days` local calendar
+ * days (including today).
+ *
+ * Returns `{ points, direction, min, max, empty }`:
+ *
+ * - `points` is one `{ date, minutes }` bucket per day in chronological order
+ *   (oldest first, today last), where `date` is the `YYYY-MM-DD` calendar key
+ *   and `minutes` is the rounded total focused minutes for that day.
+ * - `min` / `max` are the smallest and largest daily totals.
+ * - `direction` is `"up"`, `"down"`, or `"flat"`, taken from the newest day
+ *   compared with the day before it.
+ * - `empty` is `true` when every bucket is zero, so the DOM layer can show the
+ *   localised empty-state message instead of an empty chart.
+ *
+ * The day buckets are built with the same local-calendar arithmetic as
+ * `weeklyTrend` / `focusHeatmap` (`dateKey` / `shiftDayKey`), so daylight-saving
+ * transitions never shift, drop, or duplicate a bucket. The active label filter
+ * is honoured and labels are resolved through the optional `tags` map exactly as
+ * `weeklyReview` does (`UNLABELLED` matches unlabelled entries). `days` is
+ * clamped to `1..MAX_DAILY_TREND_DAYS`, so a caller can never force an unbounded
+ * bucket array. `now` is injectable for tests. Pure: it reads no storage, makes
+ * no network request, never mutates its input, and never throws on malformed
+ * input.
+ */
+export function dailyTrend(
+  history,
+  { now = Date.now(), days = DAILY_TREND_DAYS, label, tags } = {},
+) {
+  const resolvedNow = toTimestamp(now);
+  const base = resolvedNow === null ? Date.now() : resolvedNow;
+
+  const requested = Number(days);
+  const count = Number.isFinite(requested)
+    ? Math.min(MAX_DAILY_TREND_DAYS, Math.max(1, Math.floor(requested)))
+    : DAILY_TREND_DAYS;
+
+  // Build the trailing day keys with calendar arithmetic (never `DAY_MS`), so a
+  // 23h/25h daylight-saving day cannot shift, drop, or duplicate a bucket.
+  const todayKey = dateKey(new Date(startOfDay(base)));
+  const keys = [];
+  for (let offset = count - 1; offset >= 0; offset -= 1) {
+    keys.push(shiftDayKey(todayKey, -offset));
+  }
+  const included = new Set(keys);
+
+  // Reuse `collectWindow` for the shared normalisation and range rules; the
+  // extra day keeps the lower boundary clear of a DST-shortened oldest day, and
+  // the key set above discards anything outside the exact local-day range.
+  const { entries } = collectWindow(history, { now: base, days: count + 1 });
+
+  const filter = label === undefined || label === null ? null : String(label);
+  const totals = new Map();
+
+  for (const entry of entries) {
+    const key = dateKey(new Date(entry.timestamp));
+    if (!included.has(key)) {
+      continue;
+    }
+    const entryLabel = applyAliases(entry.label, tags) || UNLABELLED;
+    if (filter !== null && entryLabel !== filter) {
+      continue;
+    }
+    const minutes = Math.round(entry.durationSeconds / 60);
+    totals.set(key, (totals.get(key) || 0) + minutes);
+  }
+
+  const points = keys.map((key) => ({
+    date: key,
+    minutes: totals.get(key) || 0,
+  }));
+
+  const values = points.map((point) => point.minutes);
+  const min = values.length === 0 ? 0 : Math.min(...values);
+  const max = values.length === 0 ? 0 : Math.max(...values);
+
+  return {
+    points,
+    direction: trendDirection(values),
+    min,
+    max,
     empty: values.every((value) => value === 0),
   };
 }
