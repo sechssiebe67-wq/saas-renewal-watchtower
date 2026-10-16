@@ -11,7 +11,9 @@ Three layers of coverage:
    temporary ``.mjs`` file and exercised through a small harness so the pure
    daily-review and badge maths is verified for real. If ``node`` is missing the
    logic tests are skipped, mirroring the pattern used by ``test_daily_goal.py``
-   and ``test_weekly_review.py``.
+   and ``test_weekly_review.py``. The harness runs with a ``TZ`` that observes
+   daylight saving so the local-calendar day matching is genuinely exercised at
+   the 23h spring-forward and 25h fall-back boundaries.
 """
 
 import json
@@ -194,6 +196,49 @@ HARNESS = textwrap.dedent(
       JSON.stringify(ties.labels) === JSON.stringify(["Alpha", "Zeta"]),
     );
 
+    // --- daylight-saving: 23h spring-forward day ---------------------------
+    // US spring-forward is Sunday 8 March 2026 in America/New_York, so the
+    // local day is only 23 hours long. A naive +24h window would drop an entry
+    // logged in the final hour; both in-day entries must still bucket together
+    // and the neighbouring days must stay out.
+    const springNow = new Date(2026, 2, 8, 12, 0, 0).getTime();
+    const springDayStart = new Date(2026, 2, 8).getTime();
+    const spring = dailyReview(
+      [
+        { endedAt: new Date(2026, 2, 8, 1, 30).toISOString(), phase: "work", durationSeconds: 1500, label: "Thesis" },
+        { endedAt: new Date(2026, 2, 8, 23, 30).toISOString(), phase: "work", durationSeconds: 900, label: "Thesis" },
+        { endedAt: new Date(2026, 2, 7, 23, 30).toISOString(), phase: "work", durationSeconds: 600, label: "Thesis" },
+        { endedAt: new Date(2026, 2, 9, 0, 30).toISOString(), phase: "work", durationSeconds: 600, label: "Thesis" },
+      ],
+      { now: springNow, goal: { minutes: 50 } },
+    );
+    check("spring-forward day start is local midnight", spring.dayStart === springDayStart);
+    check("spring-forward day keeps both in-day entries", spring.focusedMinutes === 40);
+    check(
+      "spring-forward day does not leak neighbouring days",
+      spring.perLabel.length === 1 && spring.perLabel[0].minutes === 40,
+    );
+
+    // --- daylight-saving: 25h fall-back day --------------------------------
+    // US fall-back is Sunday 1 November 2026; the local day is 25 hours long.
+    // An entry logged in the repeated final hour must not be dropped.
+    const fallNow = new Date(2026, 10, 1, 12, 0, 0).getTime();
+    const fallDayStart = new Date(2026, 10, 1).getTime();
+    const fall = dailyReview(
+      [
+        { endedAt: new Date(2026, 10, 1, 1, 30).toISOString(), phase: "work", durationSeconds: 1500, label: "Admin" },
+        { endedAt: new Date(2026, 10, 1, 23, 30).toISOString(), phase: "work", durationSeconds: 900, label: "Admin" },
+        { endedAt: new Date(2026, 10, 2, 0, 30).toISOString(), phase: "work", durationSeconds: 600, label: "Admin" },
+      ],
+      { now: fallNow, goal: { minutes: 50 } },
+    );
+    check("fall-back day start is local midnight", fall.dayStart === fallDayStart);
+    check("fall-back day keeps its final-hour entry", fall.focusedMinutes === 40);
+    check(
+      "fall-back day does not leak the next day",
+      fall.perLabel.length === 1 && fall.perLabel[0].minutes === 40,
+    );
+
     // badgeState: the on-device app-badge decision.
     check(
       "badgeState is null without a goal",
@@ -331,10 +376,14 @@ class DailyReviewLogicTests(unittest.TestCase):
         with open(harness_path, "w", encoding="utf-8") as handle:
             handle.write(HARNESS)
 
+        # Run in a time zone that observes daylight saving so the local-calendar
+        # day matching is genuinely exercised at the 23h / 25h boundaries.
+        env = dict(os.environ, TZ="America/New_York")
         result = subprocess.run(
             [NODE_BIN, harness_path],
             capture_output=True,
             text=True,
+            env=env,
         )
         if result.returncode != 0:
             raise AssertionError(
