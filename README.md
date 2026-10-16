@@ -107,6 +107,22 @@ calls, no telemetry, and no secrets.
   reads only the existing `focus-flow:history` and `focus-flow:goal` keys and
   adds **no new `localStorage` key, no network request, and no third-party
   dependency**.
+- **Weekly focus trend sparkline:** the Stats panel adds a compact **Focus
+  trend** line chart covering the **last 8 weeks** (including the current,
+  partial week), one point per week of total focused minutes, so you can see at a
+  glance whether your focus is trending up or down. A caption states the
+  direction (**Trending up**, **Steady**, or **Trending down**) — computed by
+  comparing the newest week with the week before it — plus the numeric
+  min–max range. The chart is a single accessible `role="img"` region, and its
+  caption is announced through the screen-reader live region when it first
+  appears or its direction changes. It respects the active label filter (a
+  filtered Stats view shows the trend for that label only), the **Week starts
+  on** preference, and the label aliases, using the same local-calendar
+  arithmetic as the weekly review so daylight-saving weeks never shift, drop, or
+  duplicate a bucket. It is derived by the pure `weeklyTrend` helper in
+  `app/history.js` from the existing `focus-flow:history` log only, so it adds
+  **no new `localStorage` key, no network request, and no third-party
+  dependency**.
 - **Weekly review:** a dedicated panel compares the current week's focused
   minutes against the goal and ranks every session label seen this week by
   focused minutes, with its session count and its share of the target (including
@@ -191,11 +207,15 @@ decided by the pure `badgeState` helper and pushed through a
 **feature-detected, on-device** platform call, adding no new key, no network
 request, and no third-party dependency either. The
 weekly review, the **weekly review CSV export**, the **per-label goal breakdown
-in the Stats panel**, the **weekly goal pace projection**, the focus streaks,
+in the Stats panel**, the **weekly goal pace projection**, the **weekly focus
+trend sparkline**, the focus streaks,
 the daily reminder hint, and the
 **session-label autocomplete** are all **derived** from that existing local data
 only — they add no new storage key, no network request, and no third-party
-dependency. The weekly goal pace projection in particular is derived from the
+dependency. The weekly focus trend sparkline in particular is derived from the
+same `focus-flow:history` log by the pure `weeklyTrend` helper, so it reads no
+storage of its own, adds no new key, makes no network request, and adds no
+third-party dependency. The weekly goal pace projection in particular is derived from the
 same `weeklyReview` result by the pure `goalPace` helper, so it reads only the
 existing `focus-flow:history` and `focus-flow:goal` keys, adds no new key, makes
 no network request, and adds no third-party dependency. The autocomplete in
@@ -240,12 +260,16 @@ All state lives in the browser's `localStorage`:
   when the map is empty, and included in backups.
 
 The Stats **Weekly goal** per-label breakdown, its **pace projection**, the
+**weekly focus trend sparkline**, the
 Weekly review panel, the CSV
 export, the focus streaks, and the daily reminder hint are all **derived** from
 `focus-flow:history` and `focus-flow:goal` and add **no new storage key**. The
 breakdown is rendered by the same pure `weeklyReview` helper and the pace line by
 the pure `goalPace` helper, so they
-make no network request and add no third-party dependency.
+make no network request and add no third-party dependency. The trend sparkline is
+derived by the pure `weeklyTrend` helper straight from the `focus-flow:history`
+log, so it too adds no key, makes no network request, and adds no third-party
+dependency.
 
 The Stats **Daily goal** row is derived from the same `focus-flow:history` log by
 the pure `dailyGoalProgress` helper in `app/history.js`, which sums only

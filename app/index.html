@@ -442,6 +442,25 @@
             <p id="stats-reminder" class="stats__reminder" hidden data-i18n="stats.reminder">
               No focus session logged today yet.
             </p>
+            <figure id="stats-trend" class="stats__trend" hidden>
+              <figcaption class="stats__trend-caption">
+                <span class="stats__trend-title" data-i18n="stats.trendHeading">Focus trend</span>
+                <span id="stats-trend-summary" class="stats__trend-summary"></span>
+              </figcaption>
+              <svg
+                id="stats-trend-chart"
+                class="stats__trend-chart"
+                role="img"
+                aria-label="Weekly focused minutes over the last 8 weeks"
+                data-i18n-attr="aria-label:stats.trendChartLabel"
+                viewBox="0 0 100 32"
+                preserveAspectRatio="none"
+                focusable="false"
+              ></svg>
+              <p id="stats-trend-empty" class="stats__trend-empty" hidden data-i18n="stats.trendEmpty">
+                No focus sessions in the last few weeks.
+              </p>
+            </figure>
             <div id="stats-goal" class="stats__goal" hidden>
               <div class="stats__goal-head">
                 <span class="stats__goal-title" data-i18n="stats.weeklyGoal">Weekly goal</span>

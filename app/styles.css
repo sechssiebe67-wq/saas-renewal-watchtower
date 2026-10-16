@@ -647,6 +647,70 @@ kbd {
   display: none;
 }
 
+.stats__trend {
+  margin: 1rem 0 0;
+  padding: 0;
+}
+
+.stats__trend[hidden] {
+  display: none;
+}
+
+.stats__trend-caption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.stats__trend-summary {
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.stats__trend-chart {
+  display: block;
+  width: 100%;
+  height: 3rem;
+  margin-top: 0.4rem;
+  overflow: visible;
+}
+
+.stats__trend-chart[hidden] {
+  display: none;
+}
+
+.stats__trend-line {
+  stroke: var(--work);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.stats__trend-dot {
+  fill: var(--work);
+}
+
+.stats__trend-empty {
+  margin: 0.5rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.stats__trend-empty[hidden] {
+  display: none;
+}
+
 .stats__labels {
   list-style: none;
   margin: 1rem 0 0;

@@ -29,7 +29,10 @@ first day of the week are all local, device-only preferences.
   to patch beyond the base container image.
 - **Privacy by construction:** all state lives in the browser's `localStorage`.
   No data ever leaves the device, so there is no personal data to protect or
-  leak.
+  leak. Everything the product adds on top of the raw log — the weekly and daily
+  goals, the weekly review, the paces, the streaks, and the new **weekly focus
+  trend sparkline** — is **derived locally** from that same on-device history by
+  pure functions, so it needs no server, no third-party service, and no upload.
 
 ## Intended users
 
@@ -167,6 +170,27 @@ after the first load.
   preference, every string comes from the bundled `app/i18n.js` catalog, and it
   is announced once through the existing ARIA live region when it first appears
   or when the goal is reached.
+- **Weekly focus trend sparkline in the Stats panel:** the Stats panel shows a
+  compact **Focus trend** line chart covering the **last 8 weeks** (including the
+  current, partial week), with one point per week, so a user can answer *"is my
+  focus trending up or down over the last few weeks?"* without leaving the app.
+  Each point is the total focused minutes for that week, computed with the user's
+  existing **Week starts on** preference and the same local-calendar arithmetic
+  already used by `weeklyReview` (so daylight-saving transitions never shift,
+  drop, or duplicate a week bucket). The sparkline respects the active **label
+  filter** — a filtered Stats view shows the trend for that label only — and
+  applies the **label aliases** map exactly as `weeklyReview` does. A short
+  caption states the direction (**Trending up**, **Steady**, or **Trending
+  down**) — computed by comparing the newest week with the week before it — plus
+  the numeric min–max range, and the whole chart is a single
+  `role="img"` region with an accessible name and range so the shape is readable
+  by screen readers. The caption announces itself through the existing ARIA live
+  region when the sparkline first appears or its direction changes. It is derived
+  entirely from the already-stored
+  `focus-flow:history` key by the pure `weeklyTrend` helper in `app/history.js`;
+  there is **no new `localStorage` key, no network request, no third-party
+  dependency, and no new runtime asset**, and every string comes from the bundled
+  `app/i18n.js` catalog.
 - **Per-label daily goal breakdown in the Stats panel:** the **Daily goal** row
   in the Stats panel also shows a compact, per-label breakdown of *today's*
   focused minutes, so a label-scoped daily goal (e.g. "50 minutes on Thesis
@@ -311,14 +335,14 @@ after the first load.
     `pruneHistory`, `summarise`, `labelSummary`, `recentSessions`,
     `recentLabels`, `normalizeGoal`, `weekWindow`, `goalProgress`,
     `normalizeDailyGoal`, `dailyGoalProgress`, `dailyReview`, `badgeState`,
-    `weeklyReview`, `goalPace`, `streaks`,
+    `weeklyReview`, `goalPace`, `weeklyTrend`, `streaks`,
     `normalizeWeekStart`, `normalizeSessionTags`, `applyAliases`,
     `weeklyReviewCsv`, `exportBackup`, `backupToJson`, `parseBackup`,
     `backupFileName`, `HISTORY_VERSION`, `GOAL_STORAGE_SHAPE_VERSION`,
     `DAILY_GOAL_STORAGE_SHAPE_VERSION`, `WEEK_START_OPTIONS`,
     `WEEK_START_STORAGE_SHAPE_VERSION`, `SESSION_TAGS_MAX_ENTRIES`,
     `SESSION_TAGS_MAX_ALIAS_LENGTH`, `SESSION_TAGS_STORAGE_SHAPE_VERSION`,
-    `BACKUP_FORMAT_VERSION`, `BACKUP_KEYS`) with no DOM access.
+    `BACKUP_FORMAT_VERSION`, `BACKUP_KEYS`, `TREND_WEEKS`) with no DOM access.
     `recentLabels` returns the newest distinct labels from the log (trimmed,
     non-empty, case-insensitively de-duplicated, newest first by `endedAt`,
     capped at a requested `limit`) for the session-label autocomplete, without
@@ -354,6 +378,13 @@ after the first load.
     with calendar arithmetic and reusing `weekWindow` / `normalizeWeekStart`, and
     returns `null` when no goal is set. It reads no storage of its own, makes no
     network request, and never throws on malformed input.
+    `weeklyTrend` derives the **weekly focus trend** sparkline from the same
+    log (`{ weeks, points, min, max, direction, empty }`), one
+    `{ weekStart, minutes }` point per week over the trailing `TREND_WEEKS`
+    weeks (the current, partial week included), computed with the same
+    calendar arithmetic and the same `normalizeWeekStart` / `applyAliases`
+    handling as `weeklyReview`, so it too reads no storage, makes no network
+    request, and never throws on malformed input.
     `exportBackup` / `backupToJson` serialise already-read storage values to a
     deterministic `{ version, exportedAt, data }` JSON envelope and
     `parseBackup` validates and normalises a backup string back through the same
@@ -443,6 +474,16 @@ localised line under the **Weekly goal** row's per-label breakdown. It reads onl
 `focus-flow:history` and `focus-flow:goal`, adds **no new `localStorage` key, no
 network request, and no third-party dependency**, and keeps the app fully
 offline.
+
+The **weekly focus trend sparkline** is derived the same way: the pure
+`weeklyTrend` helper turns `focus-flow:history` into one `{ weekStart, minutes }`
+point per week (`weekStart` as a `YYYY-MM-DD` calendar key, plus the `min`/`max`
+range, a `direction` that compares the newest week with the week before it, and
+an `empty` flag), and the DOM layer draws it as a single inline-SVG `role="img"`
+chart with a direction + range caption. It respects the active label filter and
+the **Week starts on** preference and reads only `focus-flow:history`, so it adds
+**no new `localStorage` key, no network request, and no third-party dependency**,
+and keeps the app fully offline.
 
 The **weekly review CSV export** is derived the same way and stays entirely on
 the device: the pure `weeklyReviewCsv` helper turns the `weeklyReview` result
@@ -604,6 +645,20 @@ key**, makes **no network request**, and adds **no third-party dependency**.
   active label filter and the **Week starts on** preference, reads only
   `focus-flow:history` and `focus-flow:goal`, and adds no `localStorage` key, no
   network request, and no third-party dependency.
+- [x] **Weekly focus trend sparkline**, the at-a-glance follow-up to the weekly
+  review: the pure `weeklyTrend` helper in `app/history.js` returns one
+  `{ weekStart, minutes }` point per week over the trailing `TREND_WEEKS`
+  weeks (the current, partial week included, clamped to `1..26`), with
+  `weekStart` as a `YYYY-MM-DD` calendar key, plus the `min`/`max` range, a
+  `direction` that compares the newest week with the week before it (`"up"`,
+  `"down"`, or `"flat"`), and an `empty`
+  flag. The Stats panel draws it as a single inline-SVG `role="img"` sparkline
+  with a direction + range caption, respects the active label filter and the
+  **Week starts on** preference, applies the alias map, shows a localised empty
+  state, and announces itself through the existing ARIA live region when it
+  first appears or its direction changes. It
+  reads only `focus-flow:history`, makes no network request, and adds no
+  `localStorage` key and no third-party dependency.
 
 ## How the repository meets its own criteria
 

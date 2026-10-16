@@ -26,8 +26,10 @@
  * string for the local, offline **weekly review export**, and `goalPace` turns
  * a `weeklyReview` result into the forward-looking **weekly goal pace
  * projection** (remaining minutes, remaining calendar days, per-day pace, and
- * an on-track flag). None of these touch the DOM, the storage layer, or the
- * network.
+ * an on-track flag). `weeklyTrend` derives the **weekly focus trend
+ * sparkline** — one total-minute point per week over the trailing `weeks`
+ * weeks — from the same log. None of these touch the DOM, the storage layer,
+ * or the network.
  *
  * It additionally owns the pure maths for the optional **daily focus goal**: a
  * `{ minutes, label? }` target for the current local calendar day.
@@ -58,8 +60,9 @@
  * `applyAliases` returns the alias for a label when one is present and the
  * original label otherwise. The `tags` option is threaded through `summarise`,
  * `labelSummary`, `recentSessions`, `recentLabels`, `goalProgress`,
- * `weeklyReview`, `dailyGoalProgress`, and `streaks` so callers can get aliased
- * labels back, while omitting it keeps the previous behaviour byte-for-byte.
+ * `weeklyReview`, `weeklyTrend`, `dailyGoalProgress`, and `streaks` so callers
+ * can get aliased labels back, while omitting it keeps the previous behaviour
+ * byte-for-byte.
  * The map lives only in device storage under `focus-flow:session-tags`; this
  * module never touches the storage layer, the DOM, or the network.
  */
@@ -96,6 +99,10 @@ export const MAX_DAILY_GOAL_MINUTES = 24 * 60;
 /** Default first day of the week (Monday), matching `Date#getDay` numbering
  * where Sunday is `0`. */
 export const DEFAULT_WEEK_START = 1;
+
+/** Default number of weeks (including the current, partial week) covered by the
+ * `weeklyTrend` sparkline. */
+export const TREND_WEEKS = 8;
 
 /** Shape version for the `focus-flow:week-start` storage entry. Version 1
  * stores the first day of the week as a bare integer (`0` = Sunday,
@@ -176,6 +183,20 @@ function startOfDay(timestamp) {
 function shiftDayKey(dayKey, delta) {
   const [year, month, day] = dayKey.split("-").map(Number);
   return dateKey(new Date(year, month - 1, day + delta));
+}
+
+/** The `YYYY-MM-DD` key of the local week start that contains `timestamp`,
+ * using `weekStartsOn` (`0` = Sunday, `1` = Monday). Uses calendar arithmetic
+ * only, so a 23h/25h daylight-saving transition never shifts the bucket. */
+function weekStartKeyOf(timestamp, weekStartsOn) {
+  const base = startOfDay(timestamp);
+  const day = new Date(base).getDay();
+  const requested = Number(weekStartsOn);
+  const startDay = Number.isFinite(requested)
+    ? ((Math.floor(requested) % 7) + 7) % 7
+    : DEFAULT_WEEK_START;
+  const offset = (((day - startDay) % 7) + 7) % 7;
+  return shiftDayKey(dateKey(new Date(base)), -offset);
 }
 
 /** Normalise an optional label: trim it, drop it when empty, and cap its
@@ -1212,6 +1233,129 @@ export function goalPace(
   const onTrack = remainingMinutes === 0 || currentAverage >= perDayMinutes;
 
   return { remainingMinutes, remainingDays, perDayMinutes, onTrack };
+}
+
+/** Classify a series of weekly totals as trending `"up"`, `"down"`, or
+ * `"flat"` by comparing the newest week with the week before it. Fewer than
+ * two points is `"flat"`. */
+function trendDirection(values) {
+  const count = Array.isArray(values) ? values.length : 0;
+  if (count < 2) {
+    return "flat";
+  }
+  const latest = values[count - 1];
+  const previous = values[count - 2];
+  if (latest > previous) {
+    return "up";
+  }
+  if (latest < previous) {
+    return "down";
+  }
+  return "flat";
+}
+
+/**
+ * Compute the **weekly focus trend** over the trailing `weeks` weeks
+ * (including the current, partial week).
+ *
+ * Returns `{ weeks, points, min, max, direction, empty }`:
+ *
+ * - `points` is one `{ weekStart, minutes }` bucket per week in chronological
+ *   order (oldest first), where `weekStart` is the `YYYY-MM-DD` key of that
+ *   week's first day and `minutes` is the rounded total focused minutes.
+ * - `min` / `max` are the smallest and largest weekly totals (`0` when there
+ *   are no points).
+ * - `direction` is `"up"`, `"down"`, or `"flat"`, taken from the newest week
+ *   compared with the week before it.
+ * - `empty` is `true` when every bucket is zero, so the DOM layer can show the
+ *   localised empty-state message instead of an empty chart.
+ *
+ * The week boundaries follow the user's **Week starts on** preference
+ * (`weekStart` / `weekStartsOn`, coerced by `normalizeWeekStart`) and are
+ * computed with local calendar arithmetic, so daylight-saving transitions never
+ * shift, drop, or duplicate a bucket. The active label filter is honoured and
+ * labels are resolved through the optional `tags` map exactly as
+ * `weeklyReview` does (`UNLABELLED` matches unlabelled entries). `now` is
+ * injectable for tests. The requested `weeks` is clamped to `1..26`, so a
+ * caller can never force an unbounded bucket array. Pure: it reads no storage,
+ * makes no network request, never mutates its input, and never throws on
+ * malformed input.
+ */
+export function weeklyTrend(
+  history,
+  {
+    now = Date.now(),
+    weeks = TREND_WEEKS,
+    weekStart,
+    weekStartsOn,
+    label,
+    tags,
+  } = {},
+) {
+  const preference =
+    weekStartsOn === undefined || weekStartsOn === null ? weekStart : weekStartsOn;
+  const resolvedWeekStart =
+    preference === undefined || preference === null
+      ? DEFAULT_WEEK_START
+      : normalizeWeekStart(preference);
+
+  const resolvedNow = toTimestamp(now);
+  const base = resolvedNow === null ? Date.now() : resolvedNow;
+
+  const requested = Number(weeks);
+  const count = Number.isFinite(requested)
+    ? Math.min(26, Math.max(1, Math.floor(requested)))
+    : TREND_WEEKS;
+
+  const currentKey = weekStartKeyOf(base, resolvedWeekStart);
+  const keys = [];
+  for (let back = count - 1; back >= 0; back -= 1) {
+    keys.push(shiftDayKey(currentKey, -7 * back));
+  }
+  const included = new Set(keys);
+
+  const filter = label === undefined || label === null ? null : String(label);
+  const totals = new Map();
+  const log = Array.isArray(history) ? history : [];
+
+  for (const entry of log) {
+    const normalized = normalizeEntry(entry);
+    if (!normalized) {
+      continue;
+    }
+    const timestamp = toTimestamp(normalized.endedAt);
+    if (timestamp === null) {
+      continue;
+    }
+    const key = weekStartKeyOf(timestamp, resolvedWeekStart);
+    if (!included.has(key)) {
+      continue;
+    }
+    const entryLabel = applyAliases(normalized.label, tags) || UNLABELLED;
+    if (filter !== null && entryLabel !== filter) {
+      continue;
+    }
+    const minutes = Math.round(normalized.durationSeconds / 60);
+    totals.set(key, (totals.get(key) || 0) + minutes);
+  }
+
+  const points = keys.map((key) => ({
+    weekStart: key,
+    minutes: totals.get(key) || 0,
+  }));
+
+  const values = points.map((point) => point.minutes);
+  const min = values.length === 0 ? 0 : Math.min(...values);
+  const max = values.length === 0 ? 0 : Math.max(...values);
+
+  return {
+    weeks: points.length,
+    points,
+    min,
+    max,
+    direction: trendDirection(values),
+    empty: values.every((value) => value === 0),
+  };
 }
 
 /** Quote a single CSV field per RFC 4180. A field containing a comma, a double

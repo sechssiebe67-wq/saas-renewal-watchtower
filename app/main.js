@@ -54,6 +54,8 @@ import {
   badgeState,
   weeklyReview,
   goalPace,
+  weeklyTrend,
+  TREND_WEEKS,
   weeklyReviewCsv,
   streaks,
   normalizeSessionTags,
@@ -172,6 +174,10 @@ function getElements() {
     statsGoalPace: document.getElementById("stats-goal-pace"),
     statsGoalPaceText: document.getElementById("stats-goal-pace-text"),
     statsGoalPaceSignal: document.getElementById("stats-goal-pace-signal"),
+    statsTrend: document.getElementById("stats-trend"),
+    statsTrendSummary: document.getElementById("stats-trend-summary"),
+    statsTrendChart: document.getElementById("stats-trend-chart"),
+    statsTrendEmpty: document.getElementById("stats-trend-empty"),
     statsDailyGoal: document.getElementById("stats-daily-goal"),
     statsDailyGoalTarget: document.getElementById("stats-daily-goal-target"),
     statsDailyGoalFocused: document.getElementById("stats-daily-goal-focused"),
@@ -742,6 +748,7 @@ export function init() {
   let announcedDailyBreakdown = false;
   let announcedGoalPace = false;
   let announcedGoalPaceReached = false;
+  let lastAnnouncedTrendDirection = null;
   let lastBadgeValue;
 
   function labelDisplay(label) {
@@ -1096,6 +1103,7 @@ export function init() {
     );
     renderRecentSessions();
     renderStreak();
+    renderTrend();
     renderGoal();
     renderDailyGoal();
     renderWeeklyReview();
@@ -1440,6 +1448,149 @@ export function init() {
     announcedGoalPaceReached = false;
   }
 
+  /** Hide the trend sparkline and let it announce again when it returns. */
+  function hideTrend() {
+    if (el.statsTrend) {
+      el.statsTrend.hidden = true;
+    }
+    if (el.statsTrendChart) {
+      el.statsTrendChart.replaceChildren();
+    }
+    if (el.statsTrendSummary) {
+      el.statsTrendSummary.textContent = "";
+    }
+    if (el.statsTrendEmpty) {
+      el.statsTrendEmpty.hidden = true;
+    }
+    lastAnnouncedTrendDirection = null;
+  }
+
+  /**
+   * Draw the weekly focus trend as an inline SVG polyline (plus a dot per
+   * week). The geometry is derived entirely from the pure `weeklyTrend`
+   * result: each point's `minutes` maps onto the `0 0 100 32` viewBox with a
+   * little padding, so the shape scales to whatever width the panel has.
+   */
+  function renderTrendChart(trend) {
+    const chart = el.statsTrendChart;
+    if (!chart) {
+      return;
+    }
+    const points = trend.points;
+    const width = 100;
+    const height = 32;
+    const padX = 1.5;
+    const padY = 3;
+    const usableWidth = width - padX * 2;
+    const usableHeight = height - padY * 2;
+    const step = points.length > 1 ? usableWidth / (points.length - 1) : 0;
+    const scale = trend.max > 0 ? usableHeight / trend.max : 0;
+    const namespace = "http://www.w3.org/2000/svg";
+
+    const coords = points.map((point, index) => {
+      const x =
+        points.length > 1 ? padX + step * index : padX + usableWidth / 2;
+      const y = height - padY - point.minutes * scale;
+      return {
+        x: Math.round(x * 100) / 100,
+        y: Math.round(y * 100) / 100,
+      };
+    });
+
+    const line = document.createElementNS(namespace, "polyline");
+    line.setAttribute("class", "stats__trend-line");
+    line.setAttribute("fill", "none");
+    line.setAttribute(
+      "points",
+      coords.map((coord) => `${coord.x},${coord.y}`).join(" "),
+    );
+
+    const dots = coords.map((coord) => {
+      const dot = document.createElementNS(namespace, "circle");
+      dot.setAttribute("class", "stats__trend-dot");
+      dot.setAttribute("cx", String(coord.x));
+      dot.setAttribute("cy", String(coord.y));
+      dot.setAttribute("r", "1.1");
+      return dot;
+    });
+
+    chart.replaceChildren(line, ...dots);
+  }
+
+  /**
+   * Render the **weekly focus trend** sparkline in the Stats panel from the
+   * pure `weeklyTrend` helper. It shows one point per week over the last
+   * `TREND_WEEKS` weeks (the current, partial week included), respects the
+   * active label filter and the **Week starts on** preference, and applies the
+   * alias map exactly as `weeklyReview` does. A caption states the direction
+   * and the numeric min–max range; the chart is a single `role="img"` region
+   * with an accessible name. It is hidden when there are no sessions at all and
+   * announces itself through the live region when it first appears or when its
+   * direction changes.
+   */
+  function renderTrend() {
+    if (!el.statsTrend) {
+      return;
+    }
+
+    const trend = weeklyTrend(history, {
+      now: Date.now(),
+      weeks: TREND_WEEKS,
+      weekStart: weekStartsOn,
+      label: activeLabel === null ? undefined : activeLabel,
+      tags: sessionTags,
+    });
+
+    if (trend.empty) {
+      el.statsTrend.hidden = false;
+      if (el.statsTrendChart) {
+        el.statsTrendChart.hidden = true;
+        el.statsTrendChart.replaceChildren();
+      }
+      if (el.statsTrendSummary) {
+        el.statsTrendSummary.textContent = "";
+      }
+      if (el.statsTrendEmpty) {
+        el.statsTrendEmpty.hidden = false;
+      }
+      lastAnnouncedTrendDirection = null;
+      return;
+    }
+
+    const directionKey =
+      trend.direction === "up"
+        ? "stats.trendUp"
+        : trend.direction === "down"
+          ? "stats.trendDown"
+          : "stats.trendFlat";
+    const direction = t(directionKey);
+    const range = t("stats.trendRange", {
+      min: formatNumber(trend.min, locale),
+      max: formatNumber(trend.max, locale),
+    });
+
+    el.statsTrend.hidden = false;
+    if (el.statsTrendEmpty) {
+      el.statsTrendEmpty.hidden = true;
+    }
+    if (el.statsTrendChart) {
+      el.statsTrendChart.hidden = false;
+      el.statsTrendChart.setAttribute(
+        "aria-label",
+        `${t("stats.trendChartLabel")}: ${direction}, ${range}`,
+      );
+      renderTrendChart(trend);
+    }
+    if (el.statsTrendSummary) {
+      el.statsTrendSummary.textContent = `${direction} · ${range}`;
+    }
+
+    if (lastAnnouncedTrendDirection !== trend.direction) {
+      lastAnnouncedTrendDirection = trend.direction;
+      announce(t("announce.trend", { summary: `${direction} — ${range}` }));
+    }
+  }
+
   /**
    * Render the current week's per-label breakdown inside the existing Weekly
    * goal row. The rows come from the pure `weeklyReview` helper (already sorted
@@ -1756,6 +1907,7 @@ export function init() {
     announcedDailyBreakdown = false;
     announcedGoalPace = false;
     announcedGoalPaceReached = false;
+    lastAnnouncedTrendDirection = null;
     lastBadgeValue = undefined;
 
     applyStaticTranslations();
