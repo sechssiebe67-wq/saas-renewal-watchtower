@@ -1426,24 +1426,33 @@ export function dailyTrend(
   }
   const included = new Set(keys);
 
-  // Reuse `collectWindow` for the shared normalisation and range rules; the
-  // extra day keeps the lower boundary clear of a DST-shortened oldest day, and
-  // the key set above discards anything outside the exact local-day range.
-  const { entries } = collectWindow(history, { now: base, days: count + 1 });
-
+  // Bucket by calendar key from the normalised log, exactly as `focusHeatmap`
+  // does. Do **not** bound the range with fixed `DAY_MS` timestamps: on a 25h
+  // fall-back day that upper bound lands an hour early and drops the final
+  // hour of "today", so a just-completed session would vanish from the
+  // sparkline. The `included` key set is the single source of range truth.
   const filter = label === undefined || label === null ? null : String(label);
+  const log = Array.isArray(history) ? history : [];
   const totals = new Map();
 
-  for (const entry of entries) {
-    const key = dateKey(new Date(entry.timestamp));
+  for (const entry of log) {
+    const normalized = normalizeEntry(entry);
+    if (!normalized) {
+      continue;
+    }
+    const timestamp = toTimestamp(normalized.endedAt);
+    if (timestamp === null) {
+      continue;
+    }
+    const key = dateKey(new Date(timestamp));
     if (!included.has(key)) {
       continue;
     }
-    const entryLabel = applyAliases(entry.label, tags) || UNLABELLED;
+    const entryLabel = applyAliases(normalized.label, tags) || UNLABELLED;
     if (filter !== null && entryLabel !== filter) {
       continue;
     }
-    const minutes = Math.round(entry.durationSeconds / 60);
+    const minutes = Math.round(normalized.durationSeconds / 60);
     totals.set(key, (totals.get(key) || 0) + minutes);
   }
 

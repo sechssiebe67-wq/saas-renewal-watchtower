@@ -262,6 +262,24 @@ HARNESS = textwrap.dedent(
     check("the 25h transition day is not shifted", fb.points[6].date === "2026-11-01");
     check("the 25h transition day merges both entries", fb.points[6].minutes === 40);
 
+    // --- daylight-saving: transition day is "today" and the just-completed
+    // session sits in the final hour. A fixed DAY_MS upper bound lands at
+    // ~23:00 local on the 25h day and would silently drop that entry.
+    const fbToday = new Date(2026, 10, 1, 23, 30).getTime(); // Sun 1 Nov 2026
+    const fbTodayResult = dailyTrend(
+      [
+        entry(new Date(2026, 10, 1, 0, 30).getTime(), 10),
+        entry(new Date(2026, 10, 1, 23, 45).getTime(), 20),
+      ],
+      { now: fbToday, days: 1 },
+    );
+    check(
+      "the fall-back day keeps its final-hour entry",
+      fbTodayResult.points.length === 1 &&
+        fbTodayResult.points[0].minutes === 30,
+    );
+    check("the fall-back day is not empty", fbTodayResult.empty === false);
+
     // --- robustness ---------------------------------------------------------
     const malformed = [null, undefined, {}, [], 42, "nope"];
     for (const value of malformed) {
