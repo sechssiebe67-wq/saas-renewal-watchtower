@@ -56,6 +56,8 @@ import {
   goalPace,
   weeklyTrend,
   TREND_WEEKS,
+  dailyTrend,
+  DAILY_TREND_DAYS,
   focusHeatmap,
   HEATMAP_WEEKS,
   labelShare,
@@ -181,6 +183,12 @@ function getElements() {
     statsTrendSummary: document.getElementById("stats-trend-summary"),
     statsTrendChart: document.getElementById("stats-trend-chart"),
     statsTrendEmpty: document.getElementById("stats-trend-empty"),
+    statsDailyTrend: document.getElementById("stats-daily-trend"),
+    statsDailyTrendSummary: document.getElementById(
+      "stats-daily-trend-summary",
+    ),
+    statsDailyTrendChart: document.getElementById("stats-daily-trend-chart"),
+    statsDailyTrendEmpty: document.getElementById("stats-daily-trend-empty"),
     statsHeatmap: document.getElementById("stats-heatmap"),
     statsHeatmapRange: document.getElementById("stats-heatmap-range"),
     statsHeatmapGrid: document.getElementById("stats-heatmap-grid"),
@@ -760,6 +768,7 @@ export function init() {
   let announcedGoalPace = false;
   let announcedGoalPaceReached = false;
   let lastAnnouncedTrendDirection = null;
+  let lastAnnouncedDailyTrendDirection = null;
   let lastAnnouncedHeatmapRange = null;
   let lastAnnouncedShareSignature = null;
   let lastBadgeValue;
@@ -1117,6 +1126,7 @@ export function init() {
     renderRecentSessions();
     renderStreak();
     renderTrend();
+    renderDailyTrend();
     renderHeatmap();
     renderShare();
     renderGoal();
@@ -1603,6 +1613,149 @@ export function init() {
     if (lastAnnouncedTrendDirection !== trend.direction) {
       lastAnnouncedTrendDirection = trend.direction;
       announce(t("announce.trend", { summary: `${direction} — ${range}` }));
+    }
+  }
+
+  /** Hide the daily trend sparkline and let it announce again when it returns. */
+  function hideDailyTrend() {
+    if (el.statsDailyTrend) {
+      el.statsDailyTrend.hidden = true;
+    }
+    if (el.statsDailyTrendChart) {
+      el.statsDailyTrendChart.replaceChildren();
+    }
+    if (el.statsDailyTrendSummary) {
+      el.statsDailyTrendSummary.textContent = "";
+    }
+    if (el.statsDailyTrendEmpty) {
+      el.statsDailyTrendEmpty.hidden = true;
+    }
+    lastAnnouncedDailyTrendDirection = null;
+  }
+
+  /**
+   * Draw the daily focus trend as an inline SVG polyline (plus a dot per day).
+   * The geometry is derived entirely from the pure `dailyTrend` result: each
+   * point's `minutes` maps onto the `0 0 100 32` viewBox with a little padding,
+   * so the shape scales to whatever width the panel has.
+   */
+  function renderDailyTrendChart(trend) {
+    const chart = el.statsDailyTrendChart;
+    if (!chart) {
+      return;
+    }
+    const points = trend.points;
+    const width = 100;
+    const height = 32;
+    const padX = 1.5;
+    const padY = 3;
+    const usableWidth = width - padX * 2;
+    const usableHeight = height - padY * 2;
+    const step = points.length > 1 ? usableWidth / (points.length - 1) : 0;
+    const scale = trend.max > 0 ? usableHeight / trend.max : 0;
+    const namespace = "http://www.w3.org/2000/svg";
+
+    const coords = points.map((point, index) => {
+      const x =
+        points.length > 1 ? padX + step * index : padX + usableWidth / 2;
+      const y = height - padY - point.minutes * scale;
+      return {
+        x: Math.round(x * 100) / 100,
+        y: Math.round(y * 100) / 100,
+      };
+    });
+
+    const line = document.createElementNS(namespace, "polyline");
+    line.setAttribute("class", "stats__daily-trend-line");
+    line.setAttribute("fill", "none");
+    line.setAttribute(
+      "points",
+      coords.map((coord) => `${coord.x},${coord.y}`).join(" "),
+    );
+
+    const dots = coords.map((coord) => {
+      const dot = document.createElementNS(namespace, "circle");
+      dot.setAttribute("class", "stats__daily-trend-dot");
+      dot.setAttribute("cx", String(coord.x));
+      dot.setAttribute("cy", String(coord.y));
+      dot.setAttribute("r", "1.1");
+      return dot;
+    });
+
+    chart.replaceChildren(line, ...dots);
+  }
+
+  /**
+   * Render the **daily focus trend** sparkline in the Stats panel from the pure
+   * `dailyTrend` helper. It shows one point per local calendar day over the last
+   * `DAILY_TREND_DAYS` days (today included), respects the active label filter
+   * and applies the alias map exactly as `weeklyReview` does. A caption states
+   * the direction and the numeric min–max range; the chart is a single
+   * `role="img"` region with an accessible name. It shows the localised empty
+   * state when the range has no sessions and announces itself through the live
+   * region when it first appears or when its direction changes.
+   */
+  function renderDailyTrend() {
+    if (!el.statsDailyTrend) {
+      return;
+    }
+
+    const trend = dailyTrend(history, {
+      now: Date.now(),
+      days: DAILY_TREND_DAYS,
+      label: activeLabel === null ? undefined : activeLabel,
+      tags: sessionTags,
+    });
+
+    if (trend.empty) {
+      el.statsDailyTrend.hidden = false;
+      if (el.statsDailyTrendChart) {
+        el.statsDailyTrendChart.hidden = true;
+        el.statsDailyTrendChart.replaceChildren();
+      }
+      if (el.statsDailyTrendSummary) {
+        el.statsDailyTrendSummary.textContent = "";
+      }
+      if (el.statsDailyTrendEmpty) {
+        el.statsDailyTrendEmpty.hidden = false;
+      }
+      lastAnnouncedDailyTrendDirection = null;
+      return;
+    }
+
+    const directionKey =
+      trend.direction === "up"
+        ? "stats.dailyTrendUp"
+        : trend.direction === "down"
+          ? "stats.dailyTrendDown"
+          : "stats.dailyTrendFlat";
+    const direction = t(directionKey);
+    const range = t("stats.dailyTrendRange", {
+      min: formatNumber(trend.min, locale),
+      max: formatNumber(trend.max, locale),
+    });
+
+    el.statsDailyTrend.hidden = false;
+    if (el.statsDailyTrendEmpty) {
+      el.statsDailyTrendEmpty.hidden = true;
+    }
+    if (el.statsDailyTrendChart) {
+      el.statsDailyTrendChart.hidden = false;
+      el.statsDailyTrendChart.setAttribute(
+        "aria-label",
+        `${t("stats.dailyTrendChartLabel")}: ${direction}, ${range}`,
+      );
+      renderDailyTrendChart(trend);
+    }
+    if (el.statsDailyTrendSummary) {
+      el.statsDailyTrendSummary.textContent = `${direction} · ${range}`;
+    }
+
+    if (lastAnnouncedDailyTrendDirection !== trend.direction) {
+      lastAnnouncedDailyTrendDirection = trend.direction;
+      announce(
+        t("announce.dailyTrend", { summary: `${direction} — ${range}` }),
+      );
     }
   }
 

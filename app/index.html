@@ -461,6 +461,25 @@
                 No focus sessions in the last few weeks.
               </p>
             </figure>
+            <figure id="stats-daily-trend" class="stats__daily-trend" hidden>
+              <figcaption class="stats__daily-trend-caption">
+                <span class="stats__daily-trend-title" data-i18n="stats.dailyTrendHeading">Daily focus trend</span>
+                <span id="stats-daily-trend-summary" class="stats__daily-trend-summary"></span>
+              </figcaption>
+              <svg
+                id="stats-daily-trend-chart"
+                class="stats__daily-trend-chart"
+                role="img"
+                aria-label="Daily focused minutes over the last 14 days"
+                data-i18n-attr="aria-label:stats.dailyTrendChartLabel"
+                viewBox="0 0 100 32"
+                preserveAspectRatio="none"
+                focusable="false"
+              ></svg>
+              <p id="stats-daily-trend-empty" class="stats__daily-trend-empty" hidden data-i18n="stats.dailyTrendEmpty">
+                No focus sessions in the last two weeks.
+              </p>
+            </figure>
             <figure id="stats-heatmap" class="stats__heatmap" hidden>
               <figcaption class="stats__heatmap-caption">
                 <span class="stats__heatmap-title" data-i18n="stats.heatmapHeading">Focus heatmap</span>

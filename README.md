@@ -123,6 +123,24 @@ calls, no telemetry, and no secrets.
   `app/history.js` from the existing `focus-flow:history` log only, so it adds
   **no new `localStorage` key, no network request, and no third-party
   dependency**.
+- **Daily focus trend sparkline:** the Stats panel adds a compact **Daily focus
+  trend** line chart covering the **last 14 local calendar days** (today
+  included), one point per day of total focused minutes, so you can answer *"is
+  my daily focus trending up or down over the last two weeks?"* without leaving
+  the app. A caption states the direction (**Trending up**, **Steady**, or
+  **Trending down**) — computed by comparing the newest day with the previous
+  day — plus the numeric min–max range. The chart is a single accessible
+  `role="img"` region with a localised accessible name and range, its caption is
+  announced once through the screen-reader live region when it first appears or
+  its direction changes, and a localised empty state is shown when the range has
+  no sessions. It respects the active label filter (a filtered Stats view shows
+  only the matching days) and the label aliases map exactly as the weekly review
+  does, using the same local-calendar arithmetic as the weekly trend and heatmap
+  so daylight-saving transitions never shift, drop, or duplicate a day bucket. It
+  re-renders on language and label-filter changes and after each completed work
+  phase. It is derived by the pure `dailyTrend` helper in `app/history.js` from
+  the existing `focus-flow:history` log only, so it adds **no new `localStorage`
+  key, no network request, and no third-party dependency**.
 - **Focus heatmap:** the Stats panel adds a compact **Focus heatmap** — a small
   grid with one cell per **local calendar day** over the trailing **12 weeks**
   (including the current, partial week), shaded from level `0` (no focused
@@ -245,7 +263,7 @@ decided by the pure `badgeState` helper and pushed through a
 request, and no third-party dependency either. The
 weekly review, the **weekly review CSV export**, the **per-label goal breakdown
 in the Stats panel**, the **weekly goal pace projection**, the **weekly focus
-trend sparkline**, the **focus heatmap**, the **focus share donut**, the focus
+trend sparkline**, the **daily focus trend sparkline**, the **focus heatmap**, the **focus share donut**, the focus
 streaks,
 the daily reminder hint, and the
 **session-label autocomplete** are all **derived** from that existing local data
@@ -253,7 +271,10 @@ only — they add no new storage key, no network request, and no third-party
 dependency. The weekly focus trend sparkline in particular is derived from the
 same `focus-flow:history` log by the pure `weeklyTrend` helper, so it reads no
 storage of its own, adds no new key, makes no network request, and adds no
-third-party dependency. The focus heatmap in particular is derived from the
+third-party dependency. The daily focus trend sparkline in particular is derived
+from the same `focus-flow:history` log by the pure `dailyTrend` helper, so it
+reads no storage of its own, adds no new key, makes no network request, and adds
+no third-party dependency. The focus heatmap in particular is derived from the
 same `focus-flow:history` log by the pure `focusHeatmap` helper, so it reads no
 storage of its own, adds no new key, makes no network request, and adds no
 third-party dependency. The focus share donut in particular consumes the pure
@@ -305,7 +326,7 @@ All state lives in the browser's `localStorage`:
   when the map is empty, and included in backups.
 
 The Stats **Weekly goal** per-label breakdown, its **pace projection**, the
-**weekly focus trend sparkline**, the **focus heatmap**, the **focus share
+**weekly focus trend sparkline**, the **daily focus trend sparkline**, the **focus heatmap**, the **focus share
 donut**, the
 Weekly review panel, the CSV
 export, the focus streaks, and the daily reminder hint are all **derived** from
@@ -316,7 +337,10 @@ make no network request and add no third-party dependency. The trend sparkline i
 derived by the pure `weeklyTrend` helper and the heatmap by the pure
 `focusHeatmap` helper, both straight from the `focus-flow:history`
 log, so they too add no key, make no network request, and add no third-party
-dependency. The focus share donut is derived by the pure `labelShare` helper
+dependency. The daily focus trend sparkline is derived by the pure `dailyTrend`
+helper, likewise straight from the `focus-flow:history` log, so it also adds no
+key, makes no network request, and adds no third-party dependency. The focus
+share donut is derived by the pure `labelShare` helper
 from the same `weeklyReview` result, so it adds **no new key**, makes no network
 request, and adds no third-party dependency.
 

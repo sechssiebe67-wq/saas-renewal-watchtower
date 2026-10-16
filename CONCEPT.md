@@ -31,7 +31,8 @@ first day of the week are all local, device-only preferences.
   No data ever leaves the device, so there is no personal data to protect or
   leak. Everything the product adds on top of the raw log — the weekly and daily
   goals, the weekly review, the paces, the streaks, the **weekly focus trend
-  sparkline**, the new **focus heatmap**, and the **focus share donut** — is
+  sparkline**, the **daily focus trend sparkline**, the **focus heatmap**, and
+  the **focus share donut** — is
   **derived locally** from that same on-device history by pure functions, so it
   needs no server, no third-party service, and no upload.
 
@@ -192,6 +193,29 @@ after the first load.
   there is **no new `localStorage` key, no network request, no third-party
   dependency, and no new runtime asset**, and every string comes from the bundled
   `app/i18n.js` catalog.
+- **Daily focus trend sparkline in the Stats panel:** the Stats panel shows a
+  compact **Daily focus trend** line chart covering the **last 14 local calendar
+  days** (today included), with one point per day of total focused minutes, so a
+  user can answer *"is my daily focus trending up or down over the last two
+  weeks?"* without leaving the app, complementing the weekly trend sparkline,
+  heatmap, and share donut. Each point is that day's rounded total focused
+  minutes, computed with the same local-calendar arithmetic already used by
+  `weeklyTrend` / `focusHeatmap` (so daylight-saving transitions never shift,
+  drop, or duplicate a day bucket). The sparkline respects the active **label
+  filter** — a filtered Stats view shows only the matching days — and applies the
+  **label aliases** map exactly as `weeklyReview` does. A short caption states
+  the direction (**Trending up**, **Steady**, or **Trending down**) — computed by
+  comparing the newest day with the previous day — plus the numeric min–max
+  range, and the whole chart is a single `role="img"` region with a localised
+  accessible name and range so the shape is readable by screen readers. The
+  caption announces itself through the existing ARIA live region when the
+  sparkline first appears or its direction changes, and a localised empty state
+  is shown when the range has no sessions. It re-renders on language and
+  label-filter changes and after each completed work phase. It is derived
+  entirely from the already-stored `focus-flow:history` key by the pure
+  `dailyTrend` helper in `app/history.js`; there is **no new `localStorage` key,
+  no network request, no third-party dependency, and no new runtime asset**, and
+  every string comes from the bundled `app/i18n.js` catalog.
 - **Focus heatmap in the Stats panel:** the Stats panel shows a compact **Focus
   heatmap** — a small grid with one cell per **local calendar day** over the
   trailing **12 weeks** (including the current, partial week), shaded from level
@@ -430,6 +454,12 @@ after the first load.
     calendar arithmetic and the same `normalizeWeekStart` / `applyAliases`
     handling as `weeklyReview`, so it too reads no storage, makes no network
     request, and never throws on malformed input.
+    `dailyTrend` derives the **daily focus trend** sparkline from the same log
+    (`{ points, direction, min, max, empty }`), one `{ date, minutes }` point
+    per local calendar day over the trailing `DAILY_TREND_DAYS` days (today
+    included), computed with the same calendar arithmetic and the same label /
+    `applyAliases` handling as `weeklyTrend`, so it likewise reads no storage,
+    makes no network request, and never throws on malformed input.
     `labelShare` turns a `weeklyReview` result into the **focus share** donut
     data (`{ total, slices, empty }`), one `{ label, minutes, percent }`
     segment per label ranked by minutes descending then label ascending, reading
@@ -534,6 +564,19 @@ chart with a direction + range caption. It respects the active label filter and
 the **Week starts on** preference and reads only `focus-flow:history`, so it adds
 **no new `localStorage` key, no network request, and no third-party dependency**,
 and keeps the app fully offline.
+
+The **daily focus trend sparkline** is derived the same way: the pure
+`dailyTrend` helper turns `focus-flow:history` into one `{ date, minutes }`
+point per local calendar day over the trailing `DAILY_TREND_DAYS` days (today
+included, `date` as a `YYYY-MM-DD` calendar key, plus the `min`/`max` range, a
+`direction` that compares the newest day with the previous day, and an `empty`
+flag), and the DOM layer draws it as a single inline-SVG `role="img"` chart with
+a direction + range caption. It respects the active label filter and the alias
+map, uses the same local-calendar arithmetic as `weeklyTrend` / `focusHeatmap`
+so daylight-saving transitions never shift, drop, or duplicate a day bucket, and
+reads only `focus-flow:history`, so it adds **no new `localStorage` key, no
+network request, and no third-party dependency**, and keeps the app fully
+offline.
 
 The **focus heatmap** is derived the same way: the pure `focusHeatmap` helper
 turns `focus-flow:history` into one `{ date, minutes, sessions, level }` bucket
@@ -745,6 +788,21 @@ key**, makes **no network request**, and adds **no third-party dependency**.
   through the existing ARIA live region when it first appears or its range
   changes. It reads only `focus-flow:history`, makes no network request, and
   adds no `localStorage` key and no third-party dependency.
+- [x] **Daily focus trend sparkline**, the day-scale companion to the weekly
+  trend: the pure `dailyTrend` helper in `app/history.js` returns one
+  `{ date, minutes }` point per local calendar day over the trailing
+  `DAILY_TREND_DAYS` days (today included, clamped to `1..90`), zero-filled with
+  a `min`/`max` range, a `direction` that compares the newest day with the
+  previous day (`"up"`, `"down"`, or `"flat"`), and an `empty` flag, using the
+  same local-calendar arithmetic as `weeklyTrend` / `focusHeatmap` so
+  daylight-saving transitions never shift, drop, or duplicate a day bucket. The
+  Stats panel draws it as a single inline-SVG `role="img"` sparkline with a
+  direction + range caption, respects the active label filter and the alias map,
+  re-renders on language / label-filter changes and after each completed work
+  phase, shows a localised empty state, and announces itself through the existing
+  ARIA live region when it first appears or its direction changes. It reads only
+  `focus-flow:history`, makes no network request, and adds no `localStorage` key
+  and no third-party dependency.
 
 ## How the repository meets its own criteria
 
@@ -779,12 +837,12 @@ key**, makes **no network request**, and adds **no third-party dependency**.
 | Low Maintenance | No backend or data migrations to maintain. |
 | Market Differentiation | Privacy-first, offline, no-account, and packaged as a Kubernetes-native OSS app. |
 | Growth Potential | Serving more users costs effectively nothing. |
-| User Retention | Daily use pattern; persistent settings, session counts, and a 7-day focus-history panel that shows progress; optional per-session labels, a label filter, and a weekly review that ranks each label against the weekly goal let users see where their focus went, and the Stats **Weekly goal** row now carries an inline per-label breakdown so each label's contribution is visible at a glance and a derived pace projection line answers "will I hit my goal at this pace?"; a daily focus goal gives the same "have I done enough today" feedback at day scale, with a per-label daily breakdown in the Stats **Daily goal** row and an on-device app badge that keeps today's remaining minutes visible from the home screen, and a derived current/longest focus streak and a gentle daily reminder hint encourage users to come back and keep the streak alive, and a derived focus heatmap makes recent day-to-day consistency visible at a glance, plus one-tap install to the home screen or desktop. |
+| User Retention | Daily use pattern; persistent settings, session counts, and a 7-day focus-history panel that shows progress; optional per-session labels, a label filter, and a weekly review that ranks each label against the weekly goal let users see where their focus went, and the Stats **Weekly goal** row now carries an inline per-label breakdown so each label's contribution is visible at a glance and a derived pace projection line answers "will I hit my goal at this pace?"; a daily focus goal gives the same "have I done enough today" feedback at day scale, with a per-label daily breakdown in the Stats **Daily goal** row and an on-device app badge that keeps today's remaining minutes visible from the home screen, and a derived current/longest focus streak and a gentle daily reminder hint encourage users to come back and keep the streak alive, and a derived focus heatmap makes recent day-to-day consistency visible at a glance, and a derived daily focus trend sparkline shows whether the last two weeks are trending up or down, plus one-tap install to the home screen or desktop. |
 | Discoverability | Clear name, description, and docs; shareable as a URL. Ships English, German, and Spanish from a bundled catalog with an accessible language switcher, and the derived weekday/month names, plural forms, and number grouping come from that same bundled catalog. |
 | Mobile Friendly | Responsive layout, touch-friendly controls, and an installable PWA that launches standalone. |
-| Accessibility | Semantic landmarks, ARIA live region, keyboard shortcuts, focus states, contrast. The locale switcher and the **Week starts on** control are labelled `<select>`s with accessible names, every string (including live-region announcements) is routed through the catalog, derived weekday/month names and numbers are localised from the same bundled catalog, and `<html lang>` follows the active locale. The session-label autocomplete is a real `role="listbox"`/`role="option"` combobox that is fully operable by keyboard (`ArrowDown`/`ArrowUp` to move, `Enter`/`Tab` to accept, `Escape` to dismiss) with a visible active-option state. The focus heatmap is a single `role="img"` region with a localised accessible name and range caption, and every day cell exposes a localised `title`/`aria-label`. |
+| Accessibility | Semantic landmarks, ARIA live region, keyboard shortcuts, focus states, contrast. The locale switcher and the **Week starts on** control are labelled `<select>`s with accessible names, every string (including live-region announcements) is routed through the catalog, derived weekday/month names and numbers are localised from the same bundled catalog, and `<html lang>` follows the active locale. The session-label autocomplete is a real `role="listbox"`/`role="option"` combobox that is fully operable by keyboard (`ArrowDown`/`ArrowUp` to move, `Enter`/`Tab` to accept, `Escape` to dismiss) with a visible active-option state. The focus heatmap is a single `role="img"` region with a localised accessible name and range caption, and every day cell exposes a localised `title`/`aria-label`. The daily focus trend is likewise a single `role="img"` region with a localised accessible name and range caption. |
 | Minimal Dependencies | Zero runtime JS/CSS dependencies; the i18n catalog and its `LOCALE_DATA` (weekday/month names, separators, plural rules) are a dependency-free local module with no network request, no `Intl` dependency, and no third-party library. |
-| Measurable Success | `/healthz` for reliability; the local session history, 7-day stats, optional label breakdown, the weekly focus goal, and the weekly review give users a visible, measurable view of their focus habit, including what each block of time was spent on and how close each label came to their weekly target; the Stats **Weekly goal** row shows that per-label goal share inline; a derived pace projection line under that breakdown makes the remaining per-day requirement measurable at a glance; the **Daily goal** row makes daily output directly measurable against a per-day target and shows today's per-label breakdown; the derived current/longest focus streak and today's totals make consistency itself measurable; the derived focus heatmap makes day-to-day consistency over the trailing weeks visible and its best-day range measurable; and the on-device app badge surfaces today's remaining focused minutes at a glance from the home screen. |
+| Measurable Success | `/healthz` for reliability; the local session history, 7-day stats, optional label breakdown, the weekly focus goal, and the weekly review give users a visible, measurable view of their focus habit, including what each block of time was spent on and how close each label came to their weekly target; the Stats **Weekly goal** row shows that per-label goal share inline; a derived pace projection line under that breakdown makes the remaining per-day requirement measurable at a glance; the **Daily goal** row makes daily output directly measurable against a per-day target and shows today's per-label breakdown; the derived current/longest focus streak and today's totals make consistency itself measurable; the derived focus heatmap makes day-to-day consistency over the trailing weeks visible and its best-day range measurable; the derived daily focus trend sparkline makes the last two weeks' direction and min–max range measurable at a glance; and the on-device app badge surfaces today's remaining focused minutes at a glance from the home screen. |
 | Reusability | Reuses the standard static-container + Helm deployment template. |
 | Innovation Potential | The shipped ambient sound layer shows the in-browser synthesis approach can be extended to more generated soundscapes, and the shipped bundled catalog with bundled locale data shows how the product can add locales, weekday/month names, and plural rules without a build step, a backend, or a third-party dependency; a shipped user-selectable first day of week shows how further local conventions (a fiscal week start, custom week windows) can reuse the same catalogue-and-storage pattern. |
 
