@@ -199,7 +199,11 @@ function getElements() {
     statsShare: document.getElementById("stats-share"),
     statsShareSummary: document.getElementById("stats-share-summary"),
     statsShareChart: document.getElementById("stats-share-chart"),
+    statsShareLegend: document.getElementById("stats-share-legend"),
     statsShareEmpty: document.getElementById("stats-share-empty"),
+    statsShareLegendEmpty: document.getElementById(
+      "stats-share-legend-empty",
+    ),
     statsSummaryWindow: document.getElementById("stats-summary-window"),
     statsSummaryAllTime: document.getElementById("stats-summary-alltime"),
     statsSummaryCompare: document.getElementById("stats-summary-compare"),
@@ -2063,6 +2067,49 @@ export function init() {
   }
 
   /**
+   * Render the always-visible **focus share legend** — one `<li>` per donut
+   * slice in the same ranked order, each with a colour swatch, the (aliased)
+   * label, and a localised `{minutes} · {percent}%` stat line. The swatch is
+   * marked decorative (`aria-hidden`) because the label and numbers already
+   * carry the meaning, and its colour is keyed off the slice's stable
+   * `index` so it matches the corresponding ring segment deterministically.
+   * It reads the same `labelShare` result as the donut, so it adds no new
+   * `localStorage` key and makes no network request.
+   */
+  function renderShareLegend(share) {
+    const list = el.statsShareLegend;
+    if (!list) {
+      return;
+    }
+
+    const items = share.slices.map((slice, position) => {
+      const item = document.createElement("li");
+      item.className = "stats__share-legend-item";
+      item.dataset.index = String(slice.index ?? position);
+
+      const swatch = document.createElement("span");
+      swatch.className = "stats__share-swatch";
+      swatch.setAttribute("aria-hidden", "true");
+
+      const label = document.createElement("span");
+      label.className = "stats__share-legend-label";
+      label.textContent = labelDisplay(slice.label);
+
+      const stats = document.createElement("span");
+      stats.className = "stats__share-legend-stats";
+      stats.textContent = t("stats.shareLegendRow", {
+        minutes: formatDuration(slice.minutes, locale),
+        percent: formatNumber(slice.percent, locale),
+      });
+
+      item.append(swatch, label, stats);
+      return item;
+    });
+
+    list.replaceChildren(...items);
+  }
+
+  /**
    * Render the **focus share** donut in the Stats panel from the pure
    * `labelShare` helper. It answers *"where did my focused time go this week?"*
    * with one ring segment per session label seen in the current week (plus the
@@ -2073,9 +2120,12 @@ export function init() {
    * `focus-flow:history`. The ring is a single `role="img"` region with a
    * localised accessible name and total caption; every segment carries a
    * localised `title`/`aria-label`, and an empty state is shown when the week
-   * has no labels. It announces itself once through the live region when it
-   * first appears or its slices change. It adds no new `localStorage` key and
-   * makes no network request.
+   * has no labels. It also renders the always-visible per-label legend (a `<ul>`
+   * of swatch + label + `{minutes} · {percent}%` rows in the same ranked order)
+   * so the same distribution is readable at a glance and in a single pass; both
+   * the ring and the legend are hidden in the empty state. It announces itself
+   * once through the live region when it first appears or its slices change. It
+   * adds no new `localStorage` key and makes no network request.
    */
   function renderShare() {
     if (!el.statsShare) {
@@ -2093,8 +2143,18 @@ export function init() {
       if (el.statsShareSummary) {
         el.statsShareSummary.textContent = "";
       }
+      if (el.statsShareLegend) {
+        el.statsShareLegend.hidden = true;
+        el.statsShareLegend.replaceChildren();
+      }
       if (el.statsShareEmpty) {
         el.statsShareEmpty.hidden = false;
+      }
+      /* The legend hides with the ring; its localised empty-state string stays
+       * available in the catalog (and in the hidden `#stats-share-legend-empty`
+       * slot) for that case. */
+      if (el.statsShareLegendEmpty) {
+        el.statsShareLegendEmpty.hidden = true;
       }
       lastAnnouncedShareSignature = null;
       return;
@@ -2121,6 +2181,9 @@ export function init() {
     if (el.statsShareEmpty) {
       el.statsShareEmpty.hidden = true;
     }
+    if (el.statsShareLegendEmpty) {
+      el.statsShareLegendEmpty.hidden = true;
+    }
     if (el.statsShareChart) {
       el.statsShareChart.hidden = false;
       el.statsShareChart.setAttribute(
@@ -2128,6 +2191,10 @@ export function init() {
         `${t("stats.shareChartLabel")}: ${summary}`,
       );
       renderShareChart(share);
+    }
+    if (el.statsShareLegend) {
+      el.statsShareLegend.hidden = false;
+      renderShareLegend(share);
     }
     if (el.statsShareSummary) {
       el.statsShareSummary.textContent = summary;

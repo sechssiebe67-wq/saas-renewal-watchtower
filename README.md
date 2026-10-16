@@ -183,10 +183,15 @@ calls, no telemetry, and no secrets.
   total focused minutes. The ring is a single accessible `role="img"` region
   with a localised accessible name and a total-minutes/label-count caption, and
   every segment exposes a localised `{label}: {minutes} · {percent}%`
-  `title`/`aria-label`; an empty state is shown before the first session of the
-  week and the chart is announced once through the screen-reader live region when
-  it first appears or its slices change. It respects the active label filter and
-  the label aliases through the same weekly review result as the other
+  `title`/`aria-label`. Under the ring sits an always-visible **legend** with one
+  row per slice in the same ranked order — a colour swatch that matches its ring
+  segment, the label, and the localised minutes and percentage — so the
+  distribution is readable at a glance and in a single pass rather than only by
+  hovering each slice or stepping through every segment; an empty state is shown
+  before the first session of the week, the legend hides with the ring in that
+  case, and the chart is announced once through the screen-reader live region
+  when it first appears or its slices change. It respects the active label filter
+  and the label aliases through the same weekly review result as the other
   week-scoped views. It is derived by the pure `labelShare` helper in
   `app/history.js` from the existing `focus-flow:history` log only, so it adds
   **no new `localStorage` key, no network request, and no third-party
@@ -294,7 +299,7 @@ request, and no third-party dependency either. The
 weekly review, the **weekly review CSV export**, the **per-label goal breakdown
 in the Stats panel**, the **weekly goal pace projection**, the **daily goal pace
 projection**, the **weekly focus
-trend sparkline**, the **daily focus trend sparkline**, the **focus heatmap**, the **focus share donut**, the **30-day focus summary**, the focus
+trend sparkline**, the **daily focus trend sparkline**, the **focus heatmap**, the **focus share donut** and its **per-label legend**, the **30-day focus summary**, the focus
 streaks,
 the daily reminder hint, and the
 **session-label autocomplete** are all **derived** from that existing local data
@@ -309,9 +314,11 @@ no third-party dependency. The focus heatmap in particular is derived from the
 same `focus-flow:history` log by the pure `focusHeatmap` helper, so it reads no
 storage of its own, adds no new key, makes no network request, and adds no
 third-party dependency. The focus share donut in particular consumes the pure
-`weeklyReview` result through the `labelShare` helper, so it reads only the
-existing `focus-flow:history` key, adds no new key, makes no network request,
-and adds no third-party dependency. The 30-day focus summary in particular is
+`weeklyReview` result through the `labelShare` helper, and its per-label legend
+reads the same `labelShare` slices (each carrying a stable `index` for the
+matching swatch colour), so both read only the
+existing `focus-flow:history` key, add no new key, make no network request,
+and add no third-party dependency. The 30-day focus summary in particular is
 derived from the same `focus-flow:history` log by the pure `focusSummary`
 helper, so it reads no storage of its own, adds no new key, makes no network
 request, and adds no third-party dependency. The weekly goal pace
@@ -365,7 +372,7 @@ All state lives in the browser's `localStorage`:
 
 The Stats **Weekly goal** per-label breakdown, its **pace projection**, the
 **weekly focus trend sparkline**, the **daily focus trend sparkline**, the **focus heatmap**, the **focus share
-donut**, the **30-day focus summary**, the
+donut** and its **legend**, the **30-day focus summary**, the
 Weekly review panel, the CSV
 export, the focus streaks, and the daily reminder hint are all **derived** from
 `focus-flow:history` and `focus-flow:goal` and add **no new storage key**. The
@@ -378,9 +385,9 @@ log, so they too add no key, make no network request, and add no third-party
 dependency. The daily focus trend sparkline is derived by the pure `dailyTrend`
 helper, likewise straight from the `focus-flow:history` log, so it also adds no
 key, makes no network request, and adds no third-party dependency. The focus
-share donut is derived by the pure `labelShare` helper
-from the same `weeklyReview` result, so it adds **no new key**, makes no network
-request, and adds no third-party dependency.
+share donut and its per-label legend are derived by the pure `labelShare` helper
+from the same `weeklyReview` result, so they add **no new key**, make no network
+request, and add no third-party dependency.
 
 The Stats **Daily goal** row is derived from the same `focus-flow:history` log by
 the pure `dailyGoalProgress` helper in `app/history.js`, which sums only

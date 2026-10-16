@@ -33,7 +33,8 @@ first day of the week are all local, device-only preferences.
   goals, the weekly review, the weekly and daily goal paces, the streaks, the
   **weekly focus trend sparkline**, the **daily focus
   trend sparkline**, the **focus heatmap**, the
-  **focus share donut**, and the **30-day focus summary** — is
+  **focus share donut** with its **per-label legend**, and the **30-day focus
+  summary** — is
   **derived locally** from that same on-device history by pure functions, so it
   needs no server, no third-party service, and no upload.
 
@@ -249,7 +250,15 @@ after the first load.
   week's total focused minutes. The ring is a single `role="img"` region with a
   localised accessible name and a total-minutes/label-count caption, and every
   segment carries a localised `{label}: {minutes} · {percent}%`
-  `title`/`aria-label`, so the distribution is readable by screen readers. It
+  `title`/`aria-label`, so the distribution is readable by screen readers. An
+  always-visible **per-label legend** sits under the ring: one `<ul>` row per
+  `labelShare` slice in the same ranked order, each showing a colour swatch that
+  matches its ring segment, the (aliased) label, and the localised
+  `{minutes} · {percent}%` stat line, so the same distribution is readable at a
+  glance and in a single pass instead of only by hovering or stepping through
+  every segment. The legend is hidden together with the ring in the empty state,
+  its swatch colour is keyed off the slice's stable `0..n-1` `index`, and it
+  relies on the label and numbers rather than colour alone. It
   respects the active **label filter** and applies the **label aliases** map
   exactly as `weeklyReview` does, and an empty state is shown before the first
   session of the week. It re-renders on language, label-filter, and week-start
@@ -514,10 +523,12 @@ after the first load.
     `applyAliases` handling as `weeklyTrend`, so it likewise reads no storage,
     makes no network request, and never throws on malformed input.
     `labelShare` turns a `weeklyReview` result into the **focus share** donut
-    data (`{ total, slices, empty }`), one `{ label, minutes, percent }`
-    segment per label ranked by minutes descending then label ascending, reading
-    the already-computed review only (so the label filter and alias map are
-    already applied) and never touching the DOM, storage, or the network.
+    and legend data (`{ total, slices, empty }`), one
+    `{ label, minutes, percent, index }` slice per label ranked by minutes
+    descending then label ascending (with `index` the stable `0..n-1` ranked
+    position used to key the legend swatch colour), reading the already-computed
+    review only (so the label filter and alias map are already applied) and
+    never touching the DOM, storage, or the network.
     `focusSummary` derives the **30-day summary** from the same log
     (`{ window, allTime, trend }`), each side `{ sessions, minutes, days,
     perDayMinutes }` for the trailing `SUMMARY_DAYS`-day window and the whole
@@ -662,13 +673,16 @@ and no third-party dependency**, and keeps the app fully offline.
 
 The **focus share donut** is derived the same way: the pure `labelShare` helper
 turns the already-computed `weeklyReview` result into `{ total, slices, empty }`,
-one `{ label, minutes, percent }` segment per label ranked by minutes descending
-then label ascending, and the DOM layer draws it as a single `role="img"` donut
-with a total caption and per-segment `title`/`aria-label`. Because it consumes
-the review result, the active label filter, the label aliases, and the **Week
-starts on** window are already applied; it reads only `focus-flow:history`, so it
-adds **no new `localStorage` key, no network request, and no third-party
-dependency**, and keeps the app fully offline.
+one `{ label, minutes, percent, index }` slice per label ranked by minutes
+descending then label ascending (with `index` the stable `0..n-1` ranked
+position), and the DOM layer draws it as a single `role="img"` donut with a total
+caption and per-segment `title`/`aria-label`, plus an always-visible per-label
+legend (`<ul>` of swatch + label + `{minutes} · {percent}%` rows in the same
+order, the swatch colour keyed off `index` so it matches the ring). Because it
+consumes the review result, the active label filter, the label aliases, and the
+**Week starts on** window are already applied; it reads only
+`focus-flow:history`, so it adds **no new `localStorage` key, no network
+request, and no third-party dependency**, and keeps the app fully offline.
 
 The **30-day focus summary** is derived the same way: the pure `focusSummary`
 helper turns `focus-flow:history` into `{ window, allTime, trend }`, where each
@@ -917,6 +931,21 @@ key**, makes **no network request**, and adds **no third-party dependency**.
   `focus-flow:history` (plus the existing label filter and
   `focus-flow:session-tags` map), makes no network request, and adds no
   `localStorage` key, no third-party dependency, and no new runtime asset.
+- [x] **Per-label focus share legend**, the readability follow-up to the focus
+  share donut: the pure `labelShare` helper already exposed `{ label, minutes,
+  percent }` slices, and now also returns a stable `0..n-1` `index` per slice so
+  the DOM layer can colour a matching swatch deterministically. The Stats panel
+  renders an always-visible `<ul>` under the ring with one row per slice in the
+  same ranked order — a colour swatch that matches the ring segment, the
+  (aliased) label, and a localised `{minutes} · {percent}%` stat line — so the
+  distribution is readable at a glance and in a single pass. It respects the
+  active label filter, the label aliases map, and the **Week starts on**
+  preference, is hidden with the ring in the empty state (with a localised
+  empty-state string available), re-renders on language / label-filter /
+  week-start changes and after each completed work phase, and reuses the
+  existing share announcement. It reads only `focus-flow:history` and adds **no
+  new `localStorage` key, no network request, no third-party dependency, and no
+  new runtime asset**.
 
 ## How the repository meets its own criteria
 
@@ -954,7 +983,7 @@ key**, makes **no network request**, and adds **no third-party dependency**.
 | User Retention | Daily use pattern; persistent settings, session counts, and a 7-day focus-history panel that shows progress; optional per-session labels, a label filter, and a weekly review that ranks each label against the weekly goal let users see where their focus went, and the Stats **Weekly goal** row now carries an inline per-label breakdown so each label's contribution is visible at a glance and a derived pace projection line answers "will I hit my goal at this pace?"; a daily focus goal gives the same "have I done enough today" feedback at day scale, with a per-label daily breakdown in the Stats **Daily goal** row, a derived daily pace projection line that answers "will I hit today's goal at this pace?", and an on-device app badge that keeps today's remaining minutes visible from the home screen, and a derived current/longest focus streak and a gentle daily reminder hint encourage users to come back and keep the streak alive, and a derived focus heatmap makes recent day-to-day consistency visible at a glance, and a derived daily focus trend sparkline shows whether the last two weeks are trending up or down, plus one-tap install to the home screen or desktop. |
 | Discoverability | Clear name, description, and docs; shareable as a URL. Ships English, German, and Spanish from a bundled catalog with an accessible language switcher, and the derived weekday/month names, plural forms, and number grouping come from that same bundled catalog. |
 | Mobile Friendly | Responsive layout, touch-friendly controls, and an installable PWA that launches standalone. |
-| Accessibility | Semantic landmarks, ARIA live region, keyboard shortcuts, focus states, contrast. The locale switcher and the **Week starts on** control are labelled `<select>`s with accessible names, every string (including live-region announcements) is routed through the catalog, derived weekday/month names and numbers are localised from the same bundled catalog, and `<html lang>` follows the active locale. The session-label autocomplete is a real `role="listbox"`/`role="option"` combobox that is fully operable by keyboard (`ArrowDown`/`ArrowUp` to move, `Enter`/`Tab` to accept, `Escape` to dismiss) with a visible active-option state. The focus heatmap is a single `role="img"` region with a localised accessible name and range caption, and every day cell exposes a localised `title`/`aria-label`. The daily focus trend is likewise a single `role="img"` region with a localised accessible name and range caption. |
+| Accessibility | Semantic landmarks, ARIA live region, keyboard shortcuts, focus states, contrast. The locale switcher and the **Week starts on** control are labelled `<select>`s with accessible names, every string (including live-region announcements) is routed through the catalog, derived weekday/month names and numbers are localised from the same bundled catalog, and `<html lang>` follows the active locale. The session-label autocomplete is a real `role="listbox"`/`role="option"` combobox that is fully operable by keyboard (`ArrowDown`/`ArrowUp` to move, `Enter`/`Tab` to accept, `Escape` to dismiss) with a visible active-option state. The focus heatmap is a single `role="img"` region with a localised accessible name and range caption, and every day cell exposes a localised `title`/`aria-label`. The daily focus trend is likewise a single `role="img"` region with a localised accessible name and range caption. The focus-share donut is accompanied by an always-visible per-label legend whose swatches are decorative (`aria-hidden`) and whose rows always carry the label and the minutes/percentage text, so the distribution never depends on colour alone. |
 | Minimal Dependencies | Zero runtime JS/CSS dependencies; the i18n catalog and its `LOCALE_DATA` (weekday/month names, separators, plural rules) are a dependency-free local module with no network request, no `Intl` dependency, and no third-party library. |
 | Measurable Success | `/healthz` for reliability; the local session history, 7-day stats, optional label breakdown, the weekly focus goal, and the weekly review give users a visible, measurable view of their focus habit, including what each block of time was spent on and how close each label came to their weekly target; the Stats **Weekly goal** row shows that per-label goal share inline; a derived pace projection line under that breakdown makes the remaining per-day requirement measurable at a glance; the **Daily goal** row makes daily output directly measurable against a per-day target and shows today's per-label breakdown and a derived daily pace projection line that answers "will I hit today's goal at this pace?"; the derived current/longest focus streak and today's totals make consistency itself measurable; the derived focus heatmap makes day-to-day consistency over the trailing weeks visible and its best-day range measurable; the derived daily focus trend sparkline makes the last two weeks' direction and min–max range measurable at a glance; the derived 30-day focus summary makes the trailing-30-day totals and the recent-vs-all-time daily average measurable at a glance; and the on-device app badge surfaces today's remaining focused minutes at a glance from the home screen. |
 | Reusability | Reuses the standard static-container + Helm deployment template. |

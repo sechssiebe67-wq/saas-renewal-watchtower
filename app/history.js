@@ -1879,9 +1879,11 @@ function compareLabels(a, b) {
  *
  * - `total` is the summed focused minutes across every slice (identical to the
  *   review's `focusedMinutes`).
- * - `slices` is one `{ label, minutes, percent }` entry per `perLabel` row,
- *   ranked by minutes descending then label ascending. `percent` is the rounded
- *   share of `total` (clamped to `0..100`) and is `0` when `total` is `0`.
+ * - `slices` is one `{ label, minutes, percent, index }` entry per `perLabel`
+ *   row, ranked by minutes descending then label ascending. `percent` is the
+ *   rounded share of `total` (clamped to `0..100`) and is `0` when `total` is
+ *   `0`. `index` is the segment's stable `0..n-1` position in the ranked order,
+ *   so the DOM layer can colour the matching legend swatch deterministically.
  * - `empty` is `true` when there are no label rows, so the DOM layer can show
  *   the localised empty state instead of an empty ring.
  *
@@ -1915,7 +1917,13 @@ export function labelShare(review) {
           ? Math.min(100, Math.max(0, Math.round((slice.minutes / total) * 100)))
           : 0,
     }))
-    .sort((a, b) => b.minutes - a.minutes || compareLabels(a.label, b.label));
+    .sort((a, b) => b.minutes - a.minutes || compareLabels(a.label, b.label))
+    .map((slice, index) => ({
+      label: slice.label,
+      minutes: slice.minutes,
+      percent: slice.percent,
+      index,
+    }));
 
   return { total, slices: ranked, empty: ranked.length === 0 };
 }
