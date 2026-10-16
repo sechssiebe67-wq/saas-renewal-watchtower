@@ -1886,24 +1886,28 @@ function normalizeSummaryTrend(trend) {
 }
 
 /**
- * Extract the per-label comparison from a `focusSummary` result.
+ * Derive the per-label comparison for a `focusSummary`-style result.
  *
  * The Stats panel uses this to answer *"is my focus on this label trending up or
  * down over the last month?"*: when a label filter is active it adds one extra,
  * label-named comparison line that relates the selected label's trailing
- * `SUMMARY_DAYS`-day daily average to that same label's all-time daily average,
- * in addition to the summary's own (un-named) comparison line.
+ * `SUMMARY_DAYS`-day daily average to that same label's all-time daily average.
+ * That is a *different* question from the base summary's global comparison line,
+ * which relates the recent overall daily average to the overall all-time daily
+ * average.
  *
  * Returns `{ window, allTime, trend }` for the active label, where `window` and
- * `allTime` are the summary's scopes normalised to `{ sessions, minutes, days,
- * perDayMinutes }` (each numeric field defaulted to `0`) and `trend` is one of
- * `"up"`, `"down"`, or `"steady"`. The first argument is normally a
- * `focusSummary` result already scoped to `label`; for convenience it may also
- * be a raw history log, in which case `focusSummary` is called with `label`,
- * `tags`, `now`, and `days` so the same label-matching and alias rules as
- * `weeklyReview` are applied. Returns `null` when no label is supplied — there
- * is no per-label comparison without an active label filter — so the DOM layer
- * can render the extra line only when it applies.
+ * `allTime` are `{ sessions, minutes, days, perDayMinutes }` (each numeric field
+ * defaulted to `0`) and `trend` is one of `"up"`, `"down"`, or `"steady"`.
+ * **Pass the raw history log as the first argument** so the helper can apply the
+ * label filter and alias map itself: it calls `focusSummary` with `label`,
+ * `tags`, `now`, and `days`, matching the same rules as `weeklyReview`. Passing
+ * an already-built `focusSummary` object is only re-normalised — it carries no
+ * raw log, so the helper cannot (and does not) re-scope it, and the supplied
+ * `label` / `tags` are ignored; callers that need a label-scoped result must
+ * pass the log. Returns `null` when no label is supplied — there is no per-label
+ * comparison without an active label filter — so the DOM layer can render the
+ * extra line only when it applies.
  *
  * Pure: it reads no storage, makes no network request, never mutates its input,
  * and never throws — a `null`, malformed, or empty summary degrades to a zeroed

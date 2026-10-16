@@ -287,8 +287,10 @@ after the first load.
   earlier one, and the unfiltered summary is unchanged. The window day set and
   the all-time day count use the same local-calendar arithmetic as `dailyTrend` /
   `weeklyTrend` (so a daylight-saving transition never shifts, drops, or
-  duplicates a day), and the block respects the active **label filter** and the
-  **label aliases** map exactly as the other derived views do. The empty state is
+  duplicates a day). The base summary is always **global** — it is the
+  all-labels baseline — while the extra per-label line applies the active
+  **label filter** and the **label aliases** map exactly as the other derived
+  views do. The empty state is
   shown when the log has no entries, it re-renders on language, label-filter
   changes, and after each completed work phase, and it is announced once through
   the existing ARIA live region when it first appears or its trend value changes.
@@ -542,14 +544,17 @@ after the first load.
     perDayMinutes }` for the trailing `SUMMARY_DAYS`-day window and the whole
     retained log, with `trend` (`"up"` / `"steady"` / `"down"`) comparing the two
     daily averages within `SUMMARY_TREND_TOLERANCE_MINUTES` /
-    `SUMMARY_TREND_TOLERANCE_RATIO`. Its window day set and all-time day count
+    `SUMMARY_TREND_TOLERANCE_RATIO`. It can scope to a single label / alias map,
+    and the Stats base summary calls it unfiltered (global); its window day set
+    and all-time day count
     use local-calendar arithmetic and the same label / `applyAliases` handling as
     the other derived views, so it too reads no storage, makes no network
     request, and never throws on malformed input.
-    `focusSummaryComparison` extracts the **per-label comparison**
-    (`{ window, allTime, trend }`) from a `focusSummary` result for the active
-    label, returning `null` when no label is supplied, so the DOM layer can add
-    the label-named comparison line only when a label filter is active; it reads
+    `focusSummaryComparison` derives the **per-label comparison**
+    (`{ window, allTime, trend }`) by scoping the raw history log with the active
+    label and alias map, returning `null` when no label is supplied, so the DOM
+    layer can add the label-named comparison line only when a label filter is
+    active; it reads
     no storage, makes no network request, never mutates its input, and never
     throws on malformed input.
     `exportBackup` / `backupToJson` serialise already-read storage values to a
@@ -704,15 +709,16 @@ scope carries `{ sessions, minutes, days, perDayMinutes }` for the trailing
 `SUMMARY_DAYS`-day window and the whole retained log, and `trend` compares the
 two daily averages. The window day set and the all-time day count use the same
 local-calendar arithmetic as `dailyTrend` / `weeklyTrend`, so daylight-saving
-transitions never shift, drop, or duplicate a day, and the block respects the
-active label filter and the label aliases map exactly as the other derived views
-do. The DOM layer renders it as a compact block with a localised heading,
+transitions never shift, drop, or duplicate a day. The base summary is
+**global** (all labels); only the extra per-label line applies the
+active label filter and the label aliases map. The DOM layer renders it as a
+compact block with a localised heading,
 accessible name, the two totals lines, a comparison line, and an empty state, and
 announces it once through the existing ARIA live region when it first appears or
 its trend value changes. When a label filter is active it adds one extra,
 label-named comparison line under the summary — derived by the pure
-`focusSummaryComparison` helper, which turns the same scoped `focusSummary`
-result into `{ window, allTime, trend }` for that label and returns `null` when
+`focusSummaryComparison` helper from the raw log, which scopes it into
+`{ window, allTime, trend }` for that label and returns `null` when
 no label is active. It reads only `focus-flow:history` (plus the existing
 label filter and `focus-flow:session-tags` map), so it adds **no new
 `localStorage` key, no network request, no third-party dependency, and no new
@@ -942,8 +948,9 @@ key**, makes **no network request**, and adds **no third-party dependency**.
   retained log, and `trend` (`"up"` / `"steady"` / `"down"`) comparing the two
   daily averages within a small tolerance. The Stats panel renders a compact,
   purely derived block with a localised heading, accessible name, the two totals
-  lines, a comparison line, and a localised empty state, respecting the active
-  label filter and the alias map and using the same local-calendar arithmetic as
+  lines, a comparison line, and a localised empty state; the block is the global
+  all-labels baseline (the separate per-label line below applies the active label
+  filter and the alias map) and uses the same local-calendar arithmetic as
   `dailyTrend` / `weeklyTrend`, and announces it once through the existing ARIA
   live region when it first appears or its trend value changes. It reads only
   `focus-flow:history` (plus the existing label filter and
@@ -966,18 +973,21 @@ key**, makes **no network request**, and adds **no third-party dependency**.
   new runtime asset**.
 - [x] **Per-label focus comparison in the 30-day summary**, the label-scoped
   follow-up to the long-run baseline summary: the pure `focusSummaryComparison`
-  helper in `app/history.js` turns the already-scoped `focusSummary` result into
-  `{ window, allTime, trend }` for the active label and returns `null` when no
-  label is supplied. When a label filter is active the Stats panel renders one
-  extra, label-named comparison line under the 30-day summary that relates the
+  helper in `app/history.js` scopes the raw `focus-flow:history` log with the
+  active label and alias map into `{ window, allTime, trend }` and returns `null`
+  when no label is supplied. The 30-day summary's own totals and comparison line
+  stay **global** (all labels), and when a label filter is active the Stats panel
+  renders one extra, label-named comparison line under it that relates the
   selected label's 30-day daily average to *that same label's* all-time daily
   average (shown only when the label has both a recent and an earlier session),
-  reusing the existing above / below / in-line phrasings, and announces it once
-  through the existing ARIA live region when it first appears or its trend value
-  changes. The unfiltered summary is unchanged, the line re-renders on language,
-  label-filter, and completed-work-phase changes, every string comes from the
-  bundled `app/i18n.js` catalog, and it reads only `focus-flow:history` (plus the
-  existing label filter and `focus-flow:session-tags` map), adding **no new
+  so the label's own trend is contrasted against the global baseline instead of
+  duplicating it, reusing the existing above / below / in-line phrasings, and
+  announces it once through the existing ARIA live region when it first appears
+  or its trend value changes. The unfiltered summary is unchanged, the line
+  re-renders on language, label-filter, and completed-work-phase changes, every
+  string comes from the bundled `app/i18n.js` catalog, and it reads only
+  `focus-flow:history` (plus the existing label filter and
+  `focus-flow:session-tags` map), adding **no new
   `localStorage` key, no network request, no third-party dependency, and no new
   runtime asset**.
 

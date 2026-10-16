@@ -10,7 +10,11 @@ Three layers of coverage:
 3. When a ``node`` binary is available, the pure ``focusSummaryComparison``
    helper is exercised against real ``focusSummary`` results so the null /
    scoped / malformed shapes and the trend pass-through are verified for real,
-   and ``focusSummary``'s no-label output is checked to stay unchanged.
+   ``focusSummary``'s no-label output is checked to stay unchanged, and the
+   global base summary is checked to stay *different* from the label-scoped
+   comparison (the contrast the Stats panel renders). Static checks also pin
+   ``app/main.js`` to calling ``focusSummary`` unfiltered and
+   ``focusSummaryComparison`` with the raw log.
 """
 
 import json
@@ -83,7 +87,12 @@ HARNESS = textwrap.dedent(
       focusSummaryComparison(summary, { label: null }) === null,
     );
 
-    // --- the scoped summary is echoed back ---------------------------------
+    // --- the object path only re-normalises (not the intended usage) --------
+    // Passing an already-built `focusSummary` is a convenience that merely
+    // re-normalises it: it carries no raw log, so the helper cannot re-scope it
+    // and the supplied label/tags are ignored. Callers that need label scoping
+    // (like `main.js`) must pass the raw log, as the raw-log checks below
+    // confirm.
     const log = [
       entry(now - 40 * DAY, 100, "Thesis"),
       entry(now - HOUR, 300, "Thesis"),
@@ -121,6 +130,29 @@ HARNESS = textwrap.dedent(
     check(
       "the label filter kept the earlier session all-time",
       comparison.allTime.sessions === 2,
+    );
+
+    // --- the global base summary differs from the label-scoped comparison --
+    // This is the contrast the Stats panel relies on: `focusSummary` is called
+    // *unfiltered* for the base block, while `focusSummaryComparison` scopes the
+    // raw log to the active label for the extra line. The two must not collapse
+    // to the same numbers.
+    const globalSummary = focusSummary(log, { now });
+    const scopedFromLog = focusSummaryComparison(log, { label: "Thesis", now });
+    check(
+      "the global base summary counts every label",
+      globalSummary.window.sessions === 2 && globalSummary.allTime.sessions === 3,
+    );
+    check(
+      "the label comparison is narrower than the global base",
+      scopedFromLog.window.sessions === 1 &&
+        scopedFromLog.allTime.sessions === 2 &&
+        scopedFromLog.allTime.minutes < globalSummary.allTime.minutes,
+    );
+    check(
+      "the label comparison is not a byte-identical echo of the base",
+      JSON.stringify(globalSummary.allTime) !==
+        JSON.stringify(scopedFromLog.allTime),
     );
 
     // --- a raw log is scoped with the same label rules ---------------------
@@ -250,6 +282,40 @@ class FocusSummaryComparisonStaticTests(unittest.TestCase):
             "announce.summaryScoped",
         ):
             self.assertIn(symbol, js, "main.js does not use %s" % symbol)
+
+    def test_main_js_keeps_the_base_summary_global(self):
+        js = read(MAIN_PATH)
+        summary_call = re.search(
+            r"focusSummary\(history,\s*\{(.*?)\}\)", js, re.S
+        )
+        self.assertIsNotNone(
+            summary_call, "main.js does not call focusSummary(history, {...})"
+        )
+        self.assertNotIn(
+            "label",
+            summary_call.group(1),
+            "the base 30-day summary must stay global (no label filter)",
+        )
+
+    def test_main_js_scopes_the_comparison_from_the_raw_log(self):
+        js = read(MAIN_PATH)
+        compare_call = re.search(
+            r"focusSummaryComparison\(history,\s*\{(.*?)\}\)", js, re.S
+        )
+        self.assertIsNotNone(
+            compare_call,
+            "main.js must pass the raw history log to focusSummaryComparison",
+        )
+        self.assertIn(
+            "label",
+            compare_call.group(1),
+            "the per-label comparison line must be scoped by the active label",
+        )
+        self.assertNotIn(
+            "focusSummaryComparison(summary",
+            js,
+            "main.js must not pass an already-scoped summary to the helper",
+        )
 
     def test_styles_define_the_scoped_line(self):
         css = read(STYLES_PATH)

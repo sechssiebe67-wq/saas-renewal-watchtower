@@ -2216,27 +2216,30 @@ export function init() {
    * `focusSummary` helper. It shows the trailing `SUMMARY_DAYS`-day focused
    * minutes and completed work sessions, the same totals for all time, and a
    * short comparison line relating the 30-day daily average to the all-time
-   * daily average. When a label filter is active it also renders one extra,
-   * label-named comparison line derived by the pure `focusSummaryComparison`
-   * helper that relates the selected label's 30-day daily average to that same
-   * label's all-time daily average. It respects the active label filter and the
-   * alias map exactly as `dailyTrend` / `weeklyReview` do. The empty state is
-   * shown when the log has no entries, and the summary announces itself once
-   * through the live region when it first appears or its `trend` value (or the
-   * active label's scoped trend) changes. It reads only `focus-flow:history`
-   * (plus the existing label filter / alias state) and adds no new
-   * `localStorage` key and no network request.
+   * daily average. This base summary is always **global** (all labels), so the
+   * comparison line answers *"how does my recent focus compare to my all-time
+   * baseline?"* regardless of any active label filter. When a label filter is
+   * active it also renders one extra, label-named comparison line, derived by
+   * the pure `focusSummaryComparison` helper from the **raw log**, that relates
+   * the selected label's 30-day daily average to that same label's all-time
+   * daily average — so the label's own trend is contrasted against the global
+   * baseline rather than duplicating it. It honours the active label filter and
+   * the alias map when deriving that scoped line, exactly as `dailyTrend` /
+   * `weeklyReview` do. The empty state is shown when the log has no entries, and
+   * the summary announces itself once through the live region when it first
+   * appears or its `trend` value (or the active label's scoped trend) changes.
+   * It reads only `focus-flow:history` (plus the existing label filter / alias
+   * state) and adds no new `localStorage` key and no network request.
    */
   function renderSummary() {
     if (!el.statsSummaryWindow && !el.statsSummaryAllTime) {
       return;
     }
 
+    const now = Date.now();
     const summary = focusSummary(history, {
-      now: Date.now(),
+      now,
       days: SUMMARY_DAYS,
-      label: activeLabel === null ? undefined : activeLabel,
-      tags: sessionTags,
     });
 
     const hasSessions = summary.allTime.sessions > 0;
@@ -2261,9 +2264,11 @@ export function init() {
       allTime: formatNumber(summary.allTime.perDayMinutes, locale),
     });
 
-    const scoped = focusSummaryComparison(summary, {
+    const scoped = focusSummaryComparison(history, {
       label: activeLabel === null ? undefined : activeLabel,
       tags: sessionTags,
+      now,
+      days: SUMMARY_DAYS,
     });
     const hasScoped =
       hasSessions &&

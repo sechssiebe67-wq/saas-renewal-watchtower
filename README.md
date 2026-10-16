@@ -202,17 +202,21 @@ calls, no telemetry, and no secrets.
   completed work sessions over the trailing **30 local calendar days** (today
   included), the same totals for **all time**, and a short, neutral comparison
   line relating the 30-day daily average to the all-time daily average (with a
-  small tolerance so tiny fluctuations do not flip the label). When a label
-  filter is active it adds **one extra, label-named comparison line** under the
-  summary that relates the selected label's 30-day daily average to *that same
-  label's* all-time daily average — so you can answer *"is my focus on this
-  label trending up or down over the last month?"* without leaving the app. That
+  small tolerance so tiny fluctuations do not flip the label). The base summary
+  is always **global** (all labels). When a label filter is active it adds **one
+  extra, label-named comparison line** under the summary that relates the
+  selected label's 30-day daily average to *that same label's* all-time daily
+  average — so you can answer *"is my focus on this label trending up or down
+  over the last month?"* without leaving the app, contrasted against the global
+  baseline rather than repeating it. That
   line is shown only when the filtered label has both a session in the trailing
-  30 days and an earlier one, and the 30-day summary stays hidden-by-default for
-  the unfiltered case, so nothing changes for users who never filter. It respects
-  the active label filter and the label aliases, uses the same local-calendar
+  30 days and an earlier one, and nothing changes for users who never filter. The
+  extra line applies the
+  active label filter and the label aliases, while the base summary uses the same
+  local-calendar
   arithmetic as the trend and heatmap views so daylight-saving transitions never
-  shift, drop, or duplicate a day, re-renders on language and label-filter
+  shift, drop, or duplicate a day. The block re-renders on language and
+  label-filter
   changes and after each completed work phase, and is announced once through the
   screen-reader live region when it first appears or its trend value changes — an
   empty state is shown before the first session. It is derived by the pure
