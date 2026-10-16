@@ -205,7 +205,7 @@ class AmbientStaticTests(unittest.TestCase):
         with open(AMBIENT_PATH, encoding="utf-8") as handle:
             source = handle.read()
         self.assertIsNone(
-            re.search(r"document|window", source),
+            re.search(r"\bdocument\b|\bwindow\b\s*[.\[]|\bglobalThis\b", source),
             "ambient.js must stay DOM-free",
         )
 

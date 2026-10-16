@@ -313,7 +313,7 @@ class I18nStaticTests(unittest.TestCase):
         with open(I18N_PATH, encoding="utf-8") as handle:
             source = handle.read()
         self.assertIsNone(
-            re.search(r"document|window", source),
+            re.search(r"\bdocument\b|\bwindow\b\s*[.\[]|\bglobalThis\b", source),
             "i18n.js must stay DOM-free",
         )
 

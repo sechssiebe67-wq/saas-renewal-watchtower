@@ -34,8 +34,12 @@
  * calendar arithmetic. `labelShare` turns a `weeklyReview` result into
  * the **focus share** donut data (`{ total, slices, empty }`), one
  * `{ label, minutes, percent }` segment per label ranked by minutes descending
- * then label ascending. None of these touch the DOM, the storage layer, or the
- * network.
+ * then label ascending. `focusSummary` derives the **30-day summary** —
+ * `{ window, allTime, trend }`, where each scope carries
+ * `{ sessions, minutes, days, perDayMinutes }` for the trailing window and the
+ * whole retained log, and `trend` compares the two daily averages — with the
+ * same label filter, alias map, and local-calendar arithmetic. None of these
+ * touch the DOM, the storage layer, or the network.
  *
  * It additionally owns the pure maths for the optional **daily focus goal**: a
  * `{ minutes, label? }` target for the current local calendar day.
@@ -126,6 +130,18 @@ export const DAILY_TREND_DAYS = 14;
  * unbounded bucket array. */
 export const MAX_DAILY_TREND_DAYS = 90;
 
+/** Default trailing window (in local calendar days, today included) covered by
+ * the `focusSummary` 30-day totals. */
+export const SUMMARY_DAYS = 30;
+
+/** Absolute floor for the `focusSummary` trend tolerance, in minutes per day,
+ * so a very small all-time baseline cannot flip the trend label on noise. */
+export const SUMMARY_TREND_TOLERANCE_MINUTES = 5;
+
+/** Relative portion of the all-time daily average used as the `focusSummary`
+ * trend tolerance (so a large baseline scales). */
+export const SUMMARY_TREND_TOLERANCE_RATIO = 0.1;
+
 /** Shape version for the `focus-flow:week-start` storage entry. Version 1
  * stores the first day of the week as a bare integer (`0` = Sunday,
  * `1` = Monday); arbitrary input is coerced by `normalizeWeekStart`. */
@@ -205,6 +221,30 @@ function startOfDay(timestamp) {
 function shiftDayKey(dayKey, delta) {
   const [year, month, day] = dayKey.split("-").map(Number);
   return dateKey(new Date(year, month - 1, day + delta));
+}
+
+/** Count the local calendar days from `startKey` to `endKey` **inclusive**,
+ * walking one day at a time with `shiftDayKey`, so a 23h/25h daylight-saving
+ * transition never shifts the count. Returns `1` when `startKey` is after
+ * `endKey`, so callers never divide by zero. */
+function countCalendarDays(startKey, endKey) {
+  if (startKey > endKey) {
+    return 1;
+  }
+  let count = 0;
+  let cursor = startKey;
+  while (true) {
+    count += 1;
+    if (cursor === endKey) {
+      break;
+    }
+    const next = shiftDayKey(cursor, 1);
+    if (next === cursor || next > endKey) {
+      break;
+    }
+    cursor = next;
+  }
+  return count;
 }
 
 /** The `YYYY-MM-DD` key of the local week start that contains `timestamp`,
@@ -400,6 +440,42 @@ function collectWindow(history, { now, days }) {
     entries.push({ ...normalized, timestamp });
   }
   return { spanDays, rangeStart, entries };
+}
+
+/** Collect the normalised work entries whose local calendar day falls in the
+ * trailing `days`-day window that ends today. Unlike `collectWindow`, the range
+ * is a set of `YYYY-MM-DD` keys built with `shiftDayKey`, so a 23h/25h
+ * daylight-saving transition never shifts, drops, or duplicates a day. Shared
+ * by `focusSummary` so its 30-day window uses the same calendar arithmetic as
+ * `dailyTrend` / `focusHeatmap`. */
+function collectCalendarWindow(history, { now, days }) {
+  const spanDays = Math.max(1, Math.floor(days));
+  const base = toTimestamp(now);
+  const todayStart = startOfDay(base === null ? Date.now() : base);
+  const todayKey = dateKey(new Date(todayStart));
+
+  const included = new Set();
+  for (let offset = spanDays - 1; offset >= 0; offset -= 1) {
+    included.add(shiftDayKey(todayKey, -offset));
+  }
+
+  const log = Array.isArray(history) ? history : [];
+  const entries = [];
+  for (const entry of log) {
+    const normalized = normalizeEntry(entry);
+    if (!normalized) {
+      continue;
+    }
+    const timestamp = toTimestamp(normalized.endedAt);
+    if (timestamp === null) {
+      continue;
+    }
+    if (!included.has(dateKey(new Date(timestamp)))) {
+      continue;
+    }
+    entries.push({ ...normalized, timestamp });
+  }
+  return { spanDays, entries };
 }
 
 /**
@@ -1582,6 +1658,127 @@ export function focusHeatmap(
     days,
     maxMinutes,
     empty: maxMinutes === 0,
+  };
+}
+
+/**
+ * Summarise total focused time over the trailing `days`-day window and across
+ * the whole retained log.
+ *
+ * Returns `{ window, allTime, trend }`:
+ *
+ * - `window` covers the trailing `days` local calendar days (today included)
+ *   and `allTime` the whole retained log. Each side is
+ *   `{ sessions, minutes, days, perDayMinutes }`: `sessions` is the number of
+ *   completed work entries, `minutes` the summed focused minutes, `days` the
+ *   number of calendar days in scope (the requested `days` for the window, and
+ *   the number of local calendar days from the oldest retained entry to today —
+ *   floored at `1` — for all time), and `perDayMinutes` the rounded average
+ *   minutes per calendar day.
+ * - `trend` is `"up"`, `"steady"`, or `"down"`, comparing the window's daily
+ *   average against the all-time daily average. A small tolerance — the larger
+ *   of `SUMMARY_TREND_TOLERANCE_MINUTES` and
+ *   `SUMMARY_TREND_TOLERANCE_RATIO × allTime.perDayMinutes` — keeps tiny
+ *   fluctuations from flipping the label.
+ *
+ * The active label filter and the optional alias map are honoured exactly as
+ * `summarise` / `weeklyReview` do (`UNLABELLED` matches unlabelled entries), so
+ * a filtered Stats view shows the summary for the matching label only. The
+ * window day set and the all-time day count use local calendar arithmetic
+ * (`dateKey` / `shiftDayKey`, via `collectCalendarWindow`), so a 23h/25h
+ * daylight-saving transition never shifts, drops, or duplicates a day. Pure: it
+ * reads no storage, makes no network request, never mutates its input, and
+ * never throws on malformed input — an empty or unusable log yields zeros and
+ * `"steady"`.
+ */
+export function focusSummary(
+  history,
+  { now = Date.now(), days = SUMMARY_DAYS, label, tags } = {},
+) {
+  const filter = label === undefined || label === null ? null : String(label);
+  const log = Array.isArray(history) ? history : [];
+
+  const requestedDays = Number(days);
+  const spanDays = Number.isFinite(requestedDays)
+    ? Math.max(1, Math.floor(requestedDays))
+    : SUMMARY_DAYS;
+
+  const { entries } = collectCalendarWindow(log, { now, days: spanDays });
+  let windowSessions = 0;
+  let windowMinutes = 0;
+  for (const entry of entries) {
+    if (
+      filter !== null &&
+      (applyAliases(entry.label, tags) || UNLABELLED) !== filter
+    ) {
+      continue;
+    }
+    windowSessions += 1;
+    windowMinutes += Math.round(entry.durationSeconds / 60);
+  }
+
+  let allSessions = 0;
+  let allMinutes = 0;
+  let oldestTimestamp = null;
+  for (const entry of log) {
+    const normalized = normalizeEntry(entry);
+    if (!normalized) {
+      continue;
+    }
+    const timestamp = toTimestamp(normalized.endedAt);
+    if (timestamp === null) {
+      continue;
+    }
+    if (
+      filter !== null &&
+      (applyAliases(normalized.label, tags) || UNLABELLED) !== filter
+    ) {
+      continue;
+    }
+    allSessions += 1;
+    allMinutes += Math.round(normalized.durationSeconds / 60);
+    if (oldestTimestamp === null || timestamp < oldestTimestamp) {
+      oldestTimestamp = timestamp;
+    }
+  }
+
+  const base = toTimestamp(now);
+  const todayKey = dateKey(
+    new Date(startOfDay(base === null ? Date.now() : base)),
+  );
+  const allDays =
+    oldestTimestamp === null
+      ? 1
+      : countCalendarDays(dateKey(new Date(oldestTimestamp)), todayKey);
+
+  const windowPerDay = Math.round(windowMinutes / spanDays);
+  const allPerDay = Math.round(allMinutes / allDays);
+
+  const tolerance = Math.max(
+    SUMMARY_TREND_TOLERANCE_MINUTES,
+    Math.abs(allPerDay) * SUMMARY_TREND_TOLERANCE_RATIO,
+  );
+  let trend = "steady";
+  if (windowPerDay > allPerDay + tolerance) {
+    trend = "up";
+  } else if (windowPerDay < allPerDay - tolerance) {
+    trend = "down";
+  }
+
+  return {
+    window: {
+      sessions: windowSessions,
+      minutes: windowMinutes,
+      days: spanDays,
+      perDayMinutes: windowPerDay,
+    },
+    allTime: {
+      sessions: allSessions,
+      minutes: allMinutes,
+      days: allDays,
+      perDayMinutes: allPerDay,
+    },
+    trend,
   };
 }
 

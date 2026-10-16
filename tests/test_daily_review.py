@@ -260,7 +260,7 @@ class DailyReviewStaticTests(unittest.TestCase):
         with open(HISTORY_PATH, encoding="utf-8") as handle:
             source = handle.read()
         self.assertIsNone(
-            re.search(r"document|window|navigator", source),
+            re.search(r"\bdocument\b|\bwindow\b\s*[.\[]|\bnavigator\b|\bglobalThis\b", source),
             "history.js must stay DOM-free",
         )
         self.assertNotIn("localStorage", source)

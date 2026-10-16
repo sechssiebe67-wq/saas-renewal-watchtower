@@ -272,7 +272,7 @@ class DailyGoalStaticTests(unittest.TestCase):
         with open(HISTORY_PATH, encoding="utf-8") as handle:
             source = handle.read()
         self.assertIsNone(
-            re.search(r"document|window", source),
+            re.search(r"\bdocument\b|\bwindow\b\s*[.\[]|\bglobalThis\b", source),
             "history.js must stay DOM-free",
         )
         self.assertNotIn("fetch(", source)

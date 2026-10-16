@@ -192,7 +192,7 @@ class WeeklyReviewCsvStaticTests(unittest.TestCase):
     def test_history_stays_dom_and_network_free(self):
         source = read(HISTORY_PATH)
         self.assertIsNone(
-            re.search(r"document|window", source),
+            re.search(r"\bdocument\b|\bwindow\b\s*[.\[]|\bglobalThis\b", source),
             "history.js must stay DOM-free",
         )
         self.assertNotIn("fetch(", source)

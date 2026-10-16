@@ -177,6 +177,22 @@ calls, no telemetry, and no secrets.
   `app/history.js` from the existing `focus-flow:history` log only, so it adds
   **no new `localStorage` key, no network request, and no third-party
   dependency**.
+- **30-day focus summary:** the Stats panel adds a compact **30-day summary**
+  that answers *"how much have I focused in total, and how does the last 30 days
+  compare to my all-time average?"*. It shows your total focused minutes and
+  completed work sessions over the trailing **30 local calendar days** (today
+  included), the same totals for **all time**, and a short, neutral comparison
+  line relating the 30-day daily average to the all-time daily average (with a
+  small tolerance so tiny fluctuations do not flip the label). It respects the
+  active label filter and the label aliases, uses the same local-calendar
+  arithmetic as the trend and heatmap views so daylight-saving transitions never
+  shift, drop, or duplicate a day, re-renders on language and label-filter
+  changes and after each completed work phase, and is announced once through the
+  screen-reader live region when it first appears or its trend value changes — an
+  empty state is shown before the first session. It is derived by the pure
+  `focusSummary` helper in `app/history.js` from the existing
+  `focus-flow:history` log only, so it adds **no new `localStorage` key, no
+  network request, and no third-party dependency**.
 - **Weekly review:** a dedicated panel compares the current week's focused
   minutes against the goal and ranks every session label seen this week by
   focused minutes, with its session count and its share of the target (including
@@ -263,7 +279,7 @@ decided by the pure `badgeState` helper and pushed through a
 request, and no third-party dependency either. The
 weekly review, the **weekly review CSV export**, the **per-label goal breakdown
 in the Stats panel**, the **weekly goal pace projection**, the **weekly focus
-trend sparkline**, the **daily focus trend sparkline**, the **focus heatmap**, the **focus share donut**, the focus
+trend sparkline**, the **daily focus trend sparkline**, the **focus heatmap**, the **focus share donut**, the **30-day focus summary**, the focus
 streaks,
 the daily reminder hint, and the
 **session-label autocomplete** are all **derived** from that existing local data
@@ -280,7 +296,10 @@ storage of its own, adds no new key, makes no network request, and adds no
 third-party dependency. The focus share donut in particular consumes the pure
 `weeklyReview` result through the `labelShare` helper, so it reads only the
 existing `focus-flow:history` key, adds no new key, makes no network request,
-and adds no third-party dependency. The weekly goal pace
+and adds no third-party dependency. The 30-day focus summary in particular is
+derived from the same `focus-flow:history` log by the pure `focusSummary`
+helper, so it reads no storage of its own, adds no new key, makes no network
+request, and adds no third-party dependency. The weekly goal pace
 projection in particular is derived from the
 same `weeklyReview` result by the pure `goalPace` helper, so it reads only the
 existing `focus-flow:history` and `focus-flow:goal` keys, adds no new key, makes
@@ -327,7 +346,7 @@ All state lives in the browser's `localStorage`:
 
 The Stats **Weekly goal** per-label breakdown, its **pace projection**, the
 **weekly focus trend sparkline**, the **daily focus trend sparkline**, the **focus heatmap**, the **focus share
-donut**, the
+donut**, the **30-day focus summary**, the
 Weekly review panel, the CSV
 export, the focus streaks, and the daily reminder hint are all **derived** from
 `focus-flow:history` and `focus-flow:goal` and add **no new storage key**. The
